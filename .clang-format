@@ -1,0 +1,21 @@
+BasedOnStyle: LLVM
+
+AlignAfterOpenBracket: true
+AlignConsecutiveMacros: true
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: true
+AllowShortBlocksOnASingleLine: true
+
+ColumnLimit: 120
+
+IncludeBlocks: Preserve
+IndentCaseLabels: true
+IndentWidth: 4
+
+MaxEmptyLinesToKeep: 1
+
+SortIncludes: true
+TabWidth: 4
