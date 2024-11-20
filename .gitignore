@@ -1,0 +1,7 @@
+build
+cmake-build-*
+.clangd
+.vscode
+.idea
+.cache
+*.log
