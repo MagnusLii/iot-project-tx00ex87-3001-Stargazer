@@ -14,8 +14,9 @@ pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/PicoUart.cpp
-    src/RingBuffer.cpp
+    src/uart/PicoUart.cpp
+    src/uart/RingBuffer.cpp
+    src/devices/gps.cpp
 )
 
 # Create map/bin/hex/uf2 files
@@ -25,6 +26,8 @@ pico_add_extra_outputs(${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
+    inc/uart
+    inc/devices
 )
 
 
