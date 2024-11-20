@@ -1,0 +1,16 @@
+
+services:
+    pico:
+        hostname: pico-build
+        build: .
+        volumes:
+        - .:/home/pico-build
+        command:
+            sh -c ' 
+            cd /home/pico-build && 
+            rm -rf build && 
+            mkdir -p build && 
+            cd build && 
+            cmake -DCMAKE_BUILD_TYPE=Debug .. && 
+            make
+            '
