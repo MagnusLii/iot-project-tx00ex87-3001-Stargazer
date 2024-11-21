@@ -4,14 +4,18 @@
 #include <iostream>
 #include <memory>
 
+#include "debug.hpp"
+
 int main() {
     stdio_init_all();
-    std::cout << "Boot" << std::endl;
+    sleep_ms(5000);
+    DEBUG("Booted");
 
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
 
     uint8_t buffer[256] = {0};
 
+    DEBUG("Sleepy time set to", 50, "ms");
     for (;;) {
         
         uart->read(buffer, sizeof(buffer));
@@ -20,7 +24,6 @@ int main() {
             std::fill_n(buffer, sizeof(buffer), 0);
         }
         
-        //std::cout << "Hello" << std::endl;
         sleep_ms(50);
     }
 
