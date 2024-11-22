@@ -2,6 +2,7 @@
 
 #include "PicoUart.hpp"
 #include "pico/stdlib.h"
+#include <hardware/timer.h>
 #include <memory>
 #include <string>
 #include <sstream>
@@ -18,14 +19,14 @@ class GPS {
         Coordinates get_coordinates() const;
     private:
         int parse_gpgga();
-        int convert_to_decimal(const std::string& degrees, const std::string& minutes, const std::string& direction);
+        int convert_to_decimal_deg(const std::string& value, const std::string& direction);
 
     private: 
+        bool found;
         double latitude;
         double longitude;
 
         std::string gps_sentence;
-        std::string gpgga;
         
         std::shared_ptr<PicoUart> uart;
 };
