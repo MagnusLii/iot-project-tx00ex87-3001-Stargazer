@@ -10,6 +10,7 @@
 struct Coordinates {
     double latitude;
     double longitude;
+    bool status;
 };
 
 class GPS {
@@ -19,12 +20,13 @@ class GPS {
         Coordinates get_coordinates() const;
     private:
         int parse_gpgga();
-        int convert_to_decimal_deg(const std::string& value, const std::string& direction);
+        int parse_gpgll();
+        int nmea_to_decimal_deg(const std::string& value, const std::string& direction);
 
     private: 
-        bool found;
         double latitude;
         double longitude;
+        bool status; // false if coordinates not found
 
         std::string gps_sentence;
         
