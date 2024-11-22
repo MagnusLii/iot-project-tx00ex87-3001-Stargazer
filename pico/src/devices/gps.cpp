@@ -4,6 +4,7 @@
 
 GPS::GPS(std::shared_ptr<PicoUart> uart) : uart(uart) {}
 
+// TODO: Maybe split this up a bit to make it more readable
 int GPS::locate_position(uint16_t timeout_s) {
     uint64_t time = time_us_64();
     int empty_reads = 0;
