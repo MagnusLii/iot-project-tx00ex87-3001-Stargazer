@@ -15,30 +15,36 @@ int GPS::locate_position(uint16_t timeout_s) {
         uart->read(read_buffer, sizeof(read_buffer));
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
-            if (gps_sentence.empty()) {
-                if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
-                if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
-                    gps_sentence = str_buffer.substr(0, pos);
-                    if (gps_sentence.find("$GPGGA") != std::string::npos) {
-                        if (parse_gpgga() == 0) { status = true; }
-                    } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
-                        if (parse_gpgll() == 0) { status = true; }
+            while (!str_buffer.empty()) {
+                if (gps_sentence.empty()) {
+                    if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
+                    if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
+                        gps_sentence = str_buffer.substr(0, pos);
+                        str_buffer.erase(0, pos + 1);
+                        if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                            if (parse_gpgga() == 0) { status = true; }
+                        } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                            if (parse_gpgll() == 0) { status = true; }
+                        }
+                        gps_sentence.clear();
+                    } else {
+                        gps_sentence = str_buffer;
+                        str_buffer.clear();
                     }
-                    gps_sentence.clear();
                 } else {
-                    gps_sentence = str_buffer;
-                }
-            } else {
-                if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
-                    gps_sentence += str_buffer.substr(0, pos);
-                    if (gps_sentence.find("$GPGGA") != std::string::npos) {
-                        if (parse_gpgga() == 0) { status = true; }
-                    } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
-                        if (parse_gpgll() == 0) { status = true; }
+                    if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
+                        gps_sentence += str_buffer.substr(0, pos);
+                        str_buffer.erase(0, pos + 1);
+                        if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                            if (parse_gpgga() == 0) { status = true; }
+                        } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                            if (parse_gpgll() == 0) { status = true; }
+                        }
+                        gps_sentence.clear();
+                    } else {
+                        gps_sentence += str_buffer;
+                        str_buffer.clear();
                     }
-                    gps_sentence.clear();
-                } else {
-                    gps_sentence += str_buffer;
                 }
             }
 
@@ -48,10 +54,11 @@ int GPS::locate_position(uint16_t timeout_s) {
             empty_reads++;
             DEBUG("Read nothing from GPS, is it connected? (", empty_reads, ")");
         }
+        sleep_ms(50);
 
     } while (status == false && time_us_64() - time < timeout_s * 1000000);
 
-    return 0;
+    return status;
 }
 
 Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitude, status}; }
@@ -72,13 +79,19 @@ int GPS::parse_gpgga() {
     std::getline(ss, nmea_latitude, ',');
     std::string ns_indicator;
     std::getline(ss, ns_indicator, ',');
-    nmea_to_decimal_deg(nmea_latitude, ns_indicator);
+    if (nmea_to_decimal_deg(nmea_latitude, ns_indicator) != 0) {
+        DEBUG("Couldn't convert latitude to decimal degrees");
+        return 2;
+    }
 
     std::string nmea_longitude;
     std::getline(ss, nmea_longitude, ',');
     std::string ew_indicator;
     std::getline(ss, ew_indicator, ',');
-    nmea_to_decimal_deg(nmea_longitude, ew_indicator);
+    if (nmea_to_decimal_deg(nmea_longitude, ew_indicator) != 0) {
+        DEBUG("Couldn't convert longitude to decimal degrees");
+        return 3;
+    };
 
     std::getline(ss, token, ','); // Quality
     // TODO: Do we want to do anything with this?
