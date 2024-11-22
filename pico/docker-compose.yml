@@ -4,10 +4,10 @@ services:
         hostname: pico-build
         build: .
         volumes:
-        - .:/home/pico-build
+        - ../:/home/pico-build
         command:
             sh -c ' 
-            cd /home/pico-build && 
+            cd /home/pico-build/pico && 
             rm -rf build && 
             mkdir -p build && 
             cd build && 
