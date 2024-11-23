@@ -16,6 +16,7 @@ int GPS::locate_position(uint16_t timeout_s) {
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
             while (!str_buffer.empty()) {
+                DEBUG(str_buffer);
                 if (gps_sentence.empty()) {
                     if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
@@ -52,9 +53,9 @@ int GPS::locate_position(uint16_t timeout_s) {
             std::fill_n(read_buffer, sizeof(read_buffer), 0);
         } else {
             empty_reads++;
-            DEBUG("Read nothing from GPS, is it connected? (", empty_reads, ")");
+            if (empty_reads % 5 == 0) { DEBUG("Reading nothing from GPS, is it connected?"); }
         }
-        sleep_ms(50);
+        sleep_ms(200);
 
     } while (status == false && time_us_64() - time < timeout_s * 1000000);
 
