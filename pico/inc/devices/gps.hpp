@@ -19,10 +19,18 @@ class GPS {
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
 
+    enum class Mode {
+        FULL_ON,
+        STANDBY,
+    };
+    void set_mode(Mode mode);
+
   private:
     int parse_gpgga();
     int parse_gpgll();
     int nmea_to_decimal_deg(const std::string &value, const std::string &direction);
+    void full_on_mode();
+    void standby_mode();
 
   private:
     double latitude;

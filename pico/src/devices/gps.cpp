@@ -124,6 +124,14 @@ int GPS::parse_gpgga() {
     return 0;
 }
 
+void GPS::set_mode(Mode mode) {
+    if (mode == Mode::FULL_ON) {
+        full_on_mode();
+    } else if (mode == Mode::STANDBY) {
+        standby_mode();
+    }
+}
+
 int GPS::parse_gpgll() {
     std::stringstream ss(gps_sentence);
     std::string token;
@@ -181,3 +189,15 @@ int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direct
 
     return 0;
 }
+
+void GPS::full_on_mode() {
+    const uint8_t full_on[] = "$PMTK225,0*2B\r\n";
+    uart->write(full_on, sizeof(full_on));
+}
+
+void GPS::standby_mode() {
+    const uint8_t standby[] = "$PMTK161,0*28\r\n";
+    uart->write(standby, sizeof(standby));
+}
+
+

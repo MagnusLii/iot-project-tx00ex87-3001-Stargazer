@@ -15,7 +15,8 @@ int main() {
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
     auto gps = std::make_unique<GPS>(uart);
 
-    gps->locate_position(600);
+    gps->locate_position(30);
+    gps->set_mode(GPS::Mode::STANDBY);
     for (;;) {
         sleep_ms(1000);
         Coordinates coords = gps->get_coordinates();
@@ -23,7 +24,8 @@ int main() {
             std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
         } else {
             std::cout << "No fix" << std::endl;
-            gps->locate_position(600);
+            gps->locate_position(20);
+            gps->set_mode(GPS::Mode::FULL_ON);
         }
     }
 
