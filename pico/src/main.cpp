@@ -17,16 +17,23 @@ int main() {
     sleep_ms(2000);
     gps->set_mode(GPS::Mode::STANDBY);
     sleep_ms(2000);
-    gps->locate_position(30);
+    gps->locate_position(15);
+    sleep_ms(2000);
+    gps->set_mode(GPS::Mode::ALWAYSLOCATE);
 
     for (;;) {
         sleep_ms(1000);
         Coordinates coords = gps->get_coordinates();
         if (coords.status) {
-            std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
             gps->set_mode(GPS::Mode::STANDBY);
+            for (;;) {
+                std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
+                sleep_ms(10000);
+            }
         } else {
-            std::cout << "No fix" << std::endl;
+            gps->set_mode(GPS::Mode::STANDBY);
+            std::cout << "No fix, trying again in 5s" << std::endl;
+            sleep_ms(5000);
             gps->set_mode(GPS::Mode::FULL_ON);
             gps->locate_position(30);
         }

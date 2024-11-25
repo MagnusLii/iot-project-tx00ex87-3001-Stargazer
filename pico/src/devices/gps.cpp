@@ -3,9 +3,7 @@
 #include "debug.hpp"
 #include <cstdint>
 
-GPS::GPS(std::shared_ptr<PicoUart> uart) : uart(uart) {
-    uart->flush();
-}
+GPS::GPS(std::shared_ptr<PicoUart> uart) : uart(uart) { uart->flush(); }
 
 // TODO: Maybe split this up a bit to make it more readable
 int GPS::locate_position(uint16_t timeout_s) {
@@ -30,9 +28,11 @@ int GPS::locate_position(uint16_t timeout_s) {
                         } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
                             if (parse_gpgll() == 0) { status = true; }
                         } else if (gps_sentence.find("$PMTK") != std::string::npos) {
+                            if (gps_sentence.find("\r") != std::string::npos) {
+                                DEBUG(gps_sentence.substr(0, gps_sentence.find("\r")));
+                            }
                             DEBUG(gps_sentence);
                         } else if (gps_sentence.find("$PQ") != std::string::npos) {
-                            DEBUG(gps_sentence);
                         }
                         gps_sentence.clear();
                     } else {
@@ -101,8 +101,16 @@ int GPS::parse_gpgga() {
 
     std::string nmea_latitude;
     std::getline(ss, nmea_latitude, ',');
+    if (nmea_latitude.empty()) {
+        DEBUG("Missing latitude");
+        return 2;
+    }
     std::string ns_indicator;
     std::getline(ss, ns_indicator, ',');
+    if (ns_indicator.empty()) {
+        DEBUG("Missing NS indicator");
+        return 2;
+    }
     if (nmea_to_decimal_deg(nmea_latitude, ns_indicator) != 0) {
         DEBUG("Couldn't convert latitude to decimal degrees");
         return 2;
@@ -110,8 +118,16 @@ int GPS::parse_gpgga() {
 
     std::string nmea_longitude;
     std::getline(ss, nmea_longitude, ',');
+    if (nmea_longitude.empty()) {
+        DEBUG("Missing longitude");
+        return 3;
+    }
     std::string ew_indicator;
     std::getline(ss, ew_indicator, ',');
+    if (ew_indicator.empty()) {
+        DEBUG("Missing EW indicator");
+        return 3;
+    }
     if (nmea_to_decimal_deg(nmea_longitude, ew_indicator) != 0) {
         DEBUG("Couldn't convert longitude to decimal degrees");
         return 3;
@@ -152,6 +168,8 @@ void GPS::set_mode(Mode mode) {
         full_on_mode();
     } else if (mode == Mode::STANDBY) {
         standby_mode();
+    } else if (mode == Mode::ALWAYSLOCATE) {
+        alwayslocate_mode();
     }
 }
 
@@ -179,8 +197,16 @@ int GPS::parse_gpgll() {
 
     std::string nmea_latitude;
     std::getline(ss, nmea_latitude, ',');
+    if (nmea_latitude.empty()) {
+        DEBUG("Missing latitude");
+        return 2;
+    }
     std::string ns_indicator;
     std::getline(ss, ns_indicator, ',');
+    if (ns_indicator.empty()) {
+        DEBUG("Missing NS indicator");
+        return 2;
+    }
     if (nmea_to_decimal_deg(nmea_latitude, ns_indicator) != 0) {
         DEBUG("Couldn't convert latitude to decimal degrees");
         return 2;
@@ -188,8 +214,16 @@ int GPS::parse_gpgll() {
 
     std::string nmea_longitude;
     std::getline(ss, nmea_longitude, ',');
+    if (nmea_longitude.empty()) {
+        DEBUG("Missing longitude");
+        return 3;
+    }
     std::string ew_indicator;
     std::getline(ss, ew_indicator, ',');
+    if (ew_indicator.empty()) {
+        DEBUG("Missing EW indicator");
+        return 3;
+    }
     if (nmea_to_decimal_deg(nmea_longitude, ew_indicator) != 0) {
         DEBUG("Couldn't convert longitude to decimal degrees");
         return 3;
@@ -237,6 +271,12 @@ void GPS::standby_mode() {
     DEBUG("Sending:", (char *)ptmk);
     uart->write(ptmk, sizeof(ptmk));
     uart->flush();
+}
+
+void GPS::alwayslocate_mode() {
+    const uint8_t pmtk[] = "$PMTK225,8*23\r\n";
+    DEBUG("Sending:", (char *)pmtk);
+    uart->write(pmtk, sizeof(pmtk));
 }
 
 /*

@@ -18,7 +18,7 @@ class GPS {
     enum class Mode {
         FULL_ON,
         STANDBY,
-        //ALWAYS_LOCATE // Full-on/Standby
+        ALWAYSLOCATE // Full-on/Standby
     };
     /*
     enum class StartType {
@@ -46,6 +46,7 @@ class GPS {
     int nmea_to_decimal_deg(const std::string &value, const std::string &direction);
     void full_on_mode();
     void standby_mode();
+    void alwayslocate_mode();
     //void full_cold_start();
 
   private:
