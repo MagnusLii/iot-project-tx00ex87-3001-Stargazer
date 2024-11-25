@@ -16,7 +16,7 @@ int GPS::locate_position(uint16_t timeout_s) {
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
             while (!str_buffer.empty()) {
-                DEBUG(str_buffer);
+                //DEBUG(str_buffer);
                 if (gps_sentence.empty()) {
                     if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
