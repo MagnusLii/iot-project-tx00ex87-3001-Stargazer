@@ -13,12 +13,11 @@ int main() {
     DEBUG("Booted");
 
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto gps = std::make_unique<GPS>(uart);
     sleep_ms(2000);
-    auto gps = std::make_unique<GPS>(uart, GPS::StartType::NONE);
+    gps->set_mode(GPS::Mode::STANDBY);
     sleep_ms(2000);
-    gps->reset_system_defaults();
-    gps->locate_position(10);
-    gps->set_nmea_output_frequencies(0, 0, 0, 0, 0, 0);
+    gps->locate_position(30);
 
     for (;;) {
         sleep_ms(1000);
@@ -28,8 +27,8 @@ int main() {
             gps->set_mode(GPS::Mode::STANDBY);
         } else {
             std::cout << "No fix" << std::endl;
-            gps->set_nmea_output_frequencies();
-            gps->locate_position(20);
+            gps->set_mode(GPS::Mode::FULL_ON);
+            gps->locate_position(30);
         }
     }
 
