@@ -15,15 +15,29 @@ struct Coordinates {
 
 class GPS {
   public:
-    GPS(std::shared_ptr<PicoUart> uart);
-    int locate_position(uint16_t timeout_s = 10);
-    Coordinates get_coordinates() const;
-
     enum class Mode {
         FULL_ON,
         STANDBY,
+        ALWAYS_LOCATE // Full-on/Standby
     };
+    enum class StartType {
+        NONE,
+        FULL_COLD,
+        COLD,
+        WARM,
+        HOT
+    };
+
+  public:
+    GPS(std::shared_ptr<PicoUart> uart, StartType start_type = StartType::NONE);
+    int locate_position(uint16_t timeout_s = 10);
+    Coordinates get_coordinates() const;
+
+    void set_nmea_output_frequencies(uint8_t gll = 1, uint8_t rmc = 1, uint8_t vtg = 1, uint8_t gga = 1,
+                                     uint8_t gsa = 1, uint8_t gsv = 1);
     void set_mode(Mode mode);
+    void set_gptxt_output(bool enable = true, bool save = true);
+    void reset_system_defaults();
 
   private:
     int parse_gpgga();
@@ -31,6 +45,7 @@ class GPS {
     int nmea_to_decimal_deg(const std::string &value, const std::string &direction);
     void full_on_mode();
     void standby_mode();
+    void full_cold_start();
 
   private:
     double latitude;

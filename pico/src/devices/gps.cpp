@@ -1,8 +1,30 @@
 #include "gps.hpp"
 
 #include "debug.hpp"
+#include <cstdint>
 
-GPS::GPS(std::shared_ptr<PicoUart> uart) : uart(uart) {}
+GPS::GPS(std::shared_ptr<PicoUart> uart, StartType start_type) : uart(uart) {
+
+    switch (start_type) {
+        case StartType::FULL_COLD:
+            full_cold_start();
+            break;
+        case StartType::COLD:
+            // cold_start();
+            //  TODO: Add cold start
+            break;
+        case StartType::WARM:
+            // warm_start();
+            //  TODO: Add warm start
+            break;
+        case StartType::HOT:
+            // hot_start();
+            //  TODO: Add hot start
+            break;
+        default:
+            break;
+    }
+}
 
 // TODO: Maybe split this up a bit to make it more readable
 int GPS::locate_position(uint16_t timeout_s) {
@@ -16,16 +38,22 @@ int GPS::locate_position(uint16_t timeout_s) {
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
             while (!str_buffer.empty()) {
-                DEBUG(str_buffer);
+                // DEBUG(str_buffer);
                 if (gps_sentence.empty()) {
                     if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
                         gps_sentence = str_buffer.substr(0, pos);
                         str_buffer.erase(0, pos + 1);
                         if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgga() == 0) { status = true; }
                         } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgll() == 0) { status = true; }
+                        } else if (gps_sentence.find("$PMTK") != std::string::npos) {
+                            DEBUG(gps_sentence);
+                        } else if (gps_sentence.find("$PQ") != std::string::npos) {
+                            DEBUG(gps_sentence);
                         }
                         gps_sentence.clear();
                     } else {
@@ -37,8 +65,10 @@ int GPS::locate_position(uint16_t timeout_s) {
                         gps_sentence += str_buffer.substr(0, pos);
                         str_buffer.erase(0, pos + 1);
                         if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgga() == 0) { status = true; }
                         } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgll() == 0) { status = true; }
                         }
                         gps_sentence.clear();
@@ -63,6 +93,19 @@ int GPS::locate_position(uint16_t timeout_s) {
 }
 
 Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitude, status}; }
+
+void GPS::set_nmea_output_frequencies(uint8_t gll, uint8_t rmc, uint8_t vtg, uint8_t gga, uint8_t gsa, uint8_t gsv) {
+    if (gll < 0 || gll > 5 || rmc < 0 || rmc > 5 || vtg < 0 || vtg > 5 || gga < 0 || gga > 5 || gsa < 0 || gsa > 5 ||
+        gsv < 0 || gsv > 5) {
+        DEBUG("Invalid NMEA output frequency");
+        return;
+    }
+    std::string msg = "$PMTK314," + std::to_string(gll) + "," + std::to_string(rmc) + "," + std::to_string(vtg) + "," +
+                      std::to_string(gga) + "," + std::to_string(gsa) + "," + std::to_string(gsv) +
+                      ",0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n";
+    DEBUG("Sending: " + msg);
+    uart->write((uint8_t *)msg.c_str(), msg.length());
+}
 
 int GPS::parse_gpgga() {
     std::stringstream ss(gps_sentence);
@@ -132,6 +175,18 @@ void GPS::set_mode(Mode mode) {
     }
 }
 
+void GPS::set_gptxt_output(bool enable, bool save) {
+    std::string pq = "$PQTXT,W," + std::to_string(enable) + "," + std::to_string(save) + "*22\r\n";
+    DEBUG("Sending: " + pq);
+    uart->write((uint8_t *)pq.c_str(), pq.length());
+}
+
+void GPS::full_cold_start() {
+    const uint8_t pmtk[] = "$PMTK104*37\r\n";
+    DEBUG("Sending:", (char *)pmtk);
+    uart->write(pmtk, sizeof(pmtk));
+}
+
 int GPS::parse_gpgll() {
     std::stringstream ss(gps_sentence);
     std::string token;
@@ -191,13 +246,19 @@ int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direct
 }
 
 void GPS::full_on_mode() {
-    const uint8_t full_on[] = "$PMTK225,0*2B\r\n";
-    uart->write(full_on, sizeof(full_on));
+    const uint8_t pmtk[] = "$PMTK225,0*2B\r\n";
+    DEBUG("Sending:", (char *)pmtk);
+    uart->write(pmtk, sizeof(pmtk));
 }
 
 void GPS::standby_mode() {
-    const uint8_t standby[] = "$PMTK161,0*28\r\n";
-    uart->write(standby, sizeof(standby));
+    const uint8_t ptmk[] = "$PMTK161,0*28\r\n";
+    DEBUG("Sending:", (char *)ptmk);
+    uart->write(ptmk, sizeof(ptmk));
 }
 
-
+void GPS::reset_system_defaults() {
+    const uint8_t pmtk[] = "$PMTK314,-1*04\r\n";
+    DEBUG("Sending:", (char *)pmtk);
+    uart->write(pmtk, sizeof(pmtk));
+}
