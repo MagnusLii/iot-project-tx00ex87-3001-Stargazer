@@ -1,9 +1,4 @@
-//
-// Created by Keijo Länsikunnas on 4.2.2024.
-//
-
-#ifndef UART_IRQ_PICOUART_H
-#define UART_IRQ_PICOUART_H
+#pragma once
 
 #include <hardware/uart.h>
 #include <hardware/irq.h>
@@ -21,8 +16,6 @@ public:
     int send(const char *str);
     int send(const std::string &str);
     int flush();
-    int get_fifo_level();
-    int get_baud();
 private:
     void uart_irq_rx();
     void uart_irq_tx();
@@ -32,7 +25,4 @@ private:
     int irqn;
     int speed;
 };
-
-
-#endif //UART_IRQ_PICOUART_H
 

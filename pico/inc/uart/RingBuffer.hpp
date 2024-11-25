@@ -1,9 +1,5 @@
-//
-// Created by Keijo Länsikunnas on 4.2.2024.
-//
+#pragma once
 
-#ifndef UART_IRQ_RINGBUFFER_H
-#define UART_IRQ_RINGBUFFER_H
 #include <vector>
 #include <cstdint>
 
@@ -19,7 +15,4 @@ private:
     uint32_t tail;
     std::vector<uint8_t> buffer;
 };
-
-
-#endif //UART_IRQ_RINGBUFFER_H
 

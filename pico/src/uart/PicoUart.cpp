@@ -1,6 +1,3 @@
-//
-// Created by Keijo Länsikunnas on 4.2.2024.
-//
 
 #include <hardware/gpio.h>
 #include <cstring>
@@ -128,23 +125,4 @@ void PicoUart::uart_irq_tx() {
     }
 
 }
-
-int PicoUart::get_fifo_level() {
-    const uint8_t flv[]={4, 8,16, 24, 28, 0, 0, 0, 0 };
-    // figure out fifo level to calculate timeout
-    uint32_t lcr_h = uart_get_hw(uart)->lcr_h;
-    uint32_t fcr = (uart_get_hw(uart)->ifls >> 3) & 0x7;
-    // if fifo is enabled we need to take into account delay caused by the fifo
-    if(!(lcr_h | UART_UARTLCR_H_FEN_BITS)) {
-        fcr = 8; // last is dummy entry that is outside of normal fcr range. it is used to ensure we return zero
-    }
-    return flv[fcr];
-}
-
-int PicoUart::get_baud() {
-    return speed;
-}
-
-
-
 

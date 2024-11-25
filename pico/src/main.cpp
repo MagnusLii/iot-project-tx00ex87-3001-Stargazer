@@ -1,4 +1,5 @@
 #include "PicoUart.hpp"
+#include "gps.hpp"
 #include "pico/stdio.h"
 #include "pico/stdlib.h"
 #include <iostream>
@@ -12,19 +13,18 @@ int main() {
     DEBUG("Booted");
 
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto gps = std::make_unique<GPS>(uart);
 
-    uint8_t buffer[256] = {0};
-
-    DEBUG("Sleepy time set to", 50, "ms");
+    gps->locate_position(600);
     for (;;) {
-        
-        uart->read(buffer, sizeof(buffer));
-        if (buffer[0] != 0) {
-            std::cout << buffer;
-            std::fill_n(buffer, sizeof(buffer), 0);
+        sleep_ms(1000);
+        Coordinates coords = gps->get_coordinates();
+        if (coords.status) {
+            std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
+        } else {
+            std::cout << "No fix" << std::endl;
+            gps->locate_position(600);
         }
-        
-        sleep_ms(50);
     }
 
     return 0;

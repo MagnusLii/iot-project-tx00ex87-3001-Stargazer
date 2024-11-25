@@ -1,7 +1,3 @@
-//
-// Created by Keijo Länsikunnas on 4.2.2024.
-//
-
 #include "RingBuffer.hpp"
 
 RingBuffer::RingBuffer(int size): head{0}, tail{0}, buffer(size) {
