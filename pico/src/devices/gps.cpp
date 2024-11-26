@@ -8,7 +8,6 @@ GPS::GPS(std::shared_ptr<PicoUart> uart, bool gpgga_on, bool gpgll_on) : gpgga(g
     uart->flush();
 }
 
-// TODO: Maybe split this up a bit to make it more readable
 int GPS::locate_position(uint16_t timeout_s) {
     uint64_t time = time_us_64();
     int empty_reads = 0;
@@ -19,63 +18,73 @@ int GPS::locate_position(uint16_t timeout_s) {
         uart->read(read_buffer, sizeof(read_buffer));
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
-            while (!str_buffer.empty()) {
-                // DEBUG(str_buffer);
-                if (gps_sentence.empty()) {
-                    if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
-                    if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
-                        gps_sentence = str_buffer.substr(0, pos);
-                        gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
-                                           gps_sentence.end());
-                        str_buffer.erase(0, pos + 1);
-                        if (gpgga && gps_sentence.find("$GPGGA") != std::string::npos) {
-                            DEBUG(gps_sentence);
-                            if (parse_gpgga() == 0) { status = true; }
-                        } else if (gpgll && gps_sentence.find("$GPGLL") != std::string::npos) {
-                            DEBUG(gps_sentence);
-                            if (parse_gpgll() == 0) { status = true; }
-                        } else if (gps_sentence.find("$PMTK") != std::string::npos) {
-                            DEBUG(gps_sentence);
-                        } else if (gps_sentence.find("$PQ") != std::string::npos) {
-                            gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
-                                               gps_sentence.end());
-                            DEBUG(gps_sentence);
-                        }
-                        gps_sentence.clear();
-                    } else {
-                        gps_sentence = str_buffer;
-                        str_buffer.clear();
-                    }
-                } else {
-                    if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
-                        gps_sentence += str_buffer.substr(0, pos);
-                        gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
-                                           gps_sentence.end());
-                        str_buffer.erase(0, pos + 1);
-                        if (gps_sentence.find("$GPGGA") != std::string::npos) {
-                            if (parse_gpgga() == 0) { status = true; }
-                        } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
-                            if (parse_gpgll() == 0) { status = true; }
-                        }
-                        gps_sentence.clear();
-                    } else {
-                        gps_sentence += str_buffer;
-                        str_buffer.clear();
-                    }
-                }
-            }
-
+            parse_output(std::move(str_buffer));
             empty_reads = 0;
             std::fill_n(read_buffer, sizeof(read_buffer), 0);
         } else {
             empty_reads++;
-            if (empty_reads % 5 == 0) { DEBUG("Reading nothing from GPS, is it connected?"); }
+            if (empty_reads % 10 == 0) { DEBUG("Reading nothing from GPS, is it connected?"); }
         }
-        sleep_ms(200);
-
+        sleep_ms(250);
     } while (status == false && time_us_64() - time < timeout_s * 1000000);
 
     return status;
+}
+
+int GPS::parse_output(std::string output) {
+    // DEBUG(output);
+    while (!output.empty()) {
+        switch (sentence_state) {
+            case SentenceState::EMPTY:
+                if (size_t pos = output.find("$"); pos != std::string::npos) { output.erase(0, pos); }
+
+                if (size_t pos = output.find("\n"); pos != std::string::npos) {
+                    gps_sentence = output.substr(0, pos);
+                    gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
+                                       gps_sentence.end());
+                    output.erase(0, pos + 1);
+                    sentence_state = SentenceState::COMPLETE;
+                    break;
+                } else {
+                    gps_sentence = output;
+                    output.clear();
+                    sentence_state = SentenceState::INCOMPLETE;
+                    break;
+                }
+            case SentenceState::INCOMPLETE:
+                if (size_t pos = output.find("\n"); pos != std::string::npos) {
+                    gps_sentence += output.substr(0, pos);
+                    gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
+                                       gps_sentence.end());
+                    output.erase(0, pos + 1);
+                    sentence_state = SentenceState::COMPLETE;
+                } else {
+                    gps_sentence += output;
+                    output.clear();
+                    break;
+                }
+            case SentenceState::COMPLETE:
+                if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                    DEBUG(gps_sentence);
+                    if (parse_gpgga() == 0) { status = true; }
+                } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                    DEBUG(gps_sentence);
+                    if (parse_gpgll() == 0) { status = true; }
+                } else if (gps_sentence.find("$PMTK") != std::string::npos) {
+                    DEBUG(gps_sentence);
+                } else if (gps_sentence.find("$PQ") != std::string::npos) {
+                    DEBUG(gps_sentence);
+                }
+                gps_sentence.clear();
+                sentence_state = SentenceState::EMPTY;
+                break;
+            default:
+                DEBUG("Unknown sentence state");
+                break;
+        }
+    }
+
+    return 0;
 }
 
 Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitude, status}; }
@@ -89,22 +98,6 @@ void GPS::set_mode(Mode mode) {
         alwayslocate_mode();
     }
 }
-
-// Command doesn't seem to actually do anything..
-/*
-void GPS::set_nmea_output_frequencies(uint8_t gll, uint8_t rmc, uint8_t vtg, uint8_t gga, uint8_t gsa, uint8_t gsv) {
-    if (gll < 0 || gll > 5 || rmc < 0 || rmc > 5 || vtg < 0 || vtg > 5 || gga < 0 || gga > 5 || gsa < 0 || gsa > 5 ||
-        gsv < 0 || gsv > 5) {
-        DEBUG("Invalid NMEA output frequency");
-        return;
-    }
-    std::string msg = "$PMTK314," + std::to_string(gll) + "," + std::to_string(rmc) + "," + std::to_string(vtg) + "," +
-                      std::to_string(gga) + "," + std::to_string(gsa) + "," + std::to_string(gsv) +
-                      ",0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n";
-    DEBUG("Sending: " + msg);
-    uart->write((uint8_t *)msg.c_str(), msg.length());
-}
-*/
 
 int GPS::parse_gpgga() {
     std::stringstream ss(gps_sentence);
@@ -228,20 +221,6 @@ int GPS::parse_gpgll() {
     return 0;
 }
 
-/*
-void GPS::set_gptxt_output(bool enable, bool save) {
-    std::string pq = "$PQTXT,W," + std::to_string(enable) + "," + std::to_string(save) + "*22\r\n";
-    DEBUG("Sending: " + pq);
-    uart->write((uint8_t *)pq.c_str(), pq.length());
-}
-
-void GPS::full_cold_start() {
-    const uint8_t pmtk[] = "$PMTK104*37\r\n";
-    DEBUG("Sending:", (char *)pmtk);
-    uart->write(pmtk, sizeof(pmtk));
-}
-*/
-
 int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direction) {
     if (value.empty() || direction.empty()) { return 1; }
 
@@ -289,10 +268,3 @@ void GPS::alwayslocate_mode() {
     uart->write(pmtk, sizeof(pmtk));
 }
 
-/*
-void GPS::reset_system_defaults() {
-    const uint8_t pmtk[] = "$PMTK314,-1*04\r\n";
-    DEBUG("Sending:", (char *)pmtk);
-    uart->write(pmtk, sizeof(pmtk));
-}
-*/
