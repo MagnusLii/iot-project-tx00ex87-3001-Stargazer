@@ -17,7 +17,7 @@ int GPS::locate_position(uint16_t timeout_s) {
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
             while (!str_buffer.empty()) {
-                // DEBUG(str_buffer);
+                DEBUG(str_buffer);
                 if (gps_sentence.empty()) {
                     if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
@@ -31,7 +31,6 @@ int GPS::locate_position(uint16_t timeout_s) {
                             if (gps_sentence.find("\r") != std::string::npos) {
                                 DEBUG(gps_sentence.substr(0, gps_sentence.find("\r")));
                             }
-                            DEBUG(gps_sentence);
                         } else if (gps_sentence.find("$PQ") != std::string::npos) {
                         }
                         gps_sentence.clear();
@@ -88,6 +87,7 @@ void GPS::set_nmea_output_frequencies(uint8_t gll, uint8_t rmc, uint8_t vtg, uin
 */
 
 int GPS::parse_gpgga() {
+    DEBUG(gps_sentence);
     std::stringstream ss(gps_sentence);
     std::string token;
     std::getline(ss, token, ','); // Message ID
@@ -187,6 +187,7 @@ void GPS::full_cold_start() {
 }
 */
 int GPS::parse_gpgll() {
+    DEBUG(gps_sentence);
     std::stringstream ss(gps_sentence);
     std::string token;
     std::getline(ss, token, ','); // Message ID

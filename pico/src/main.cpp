@@ -17,9 +17,9 @@ int main() {
     sleep_ms(2000);
     gps->set_mode(GPS::Mode::STANDBY);
     sleep_ms(2000);
-    gps->locate_position(15);
-    sleep_ms(2000);
-    gps->set_mode(GPS::Mode::ALWAYSLOCATE);
+    //gps->locate_position(15);
+    //sleep_ms(2000);
+    //gps->set_mode(GPS::Mode::ALWAYSLOCATE);
 
     for (;;) {
         sleep_ms(1000);
@@ -35,7 +35,7 @@ int main() {
             std::cout << "No fix, trying again in 5s" << std::endl;
             sleep_ms(5000);
             gps->set_mode(GPS::Mode::FULL_ON);
-            gps->locate_position(30);
+            gps->locate_position(300);
         }
     }
 

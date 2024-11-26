@@ -52,7 +52,7 @@ class GPS {
   private:
     double latitude;
     double longitude;
-    bool status; // false if coordinates not found
+    bool status = false; // false if coordinates not found
 
     std::string gps_sentence;
 
