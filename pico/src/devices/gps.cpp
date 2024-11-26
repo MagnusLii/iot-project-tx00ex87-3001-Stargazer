@@ -1,9 +1,12 @@
 #include "gps.hpp"
 
 #include "debug.hpp"
+#include <algorithm>
 #include <cstdint>
 
-GPS::GPS(std::shared_ptr<PicoUart> uart) : uart(uart) { uart->flush(); }
+GPS::GPS(std::shared_ptr<PicoUart> uart, bool gpgga_on, bool gpgll_on) : gpgga(gpgga_on), gpgll(gpgll_on), uart(uart) {
+    uart->flush();
+}
 
 // TODO: Maybe split this up a bit to make it more readable
 int GPS::locate_position(uint16_t timeout_s) {
@@ -17,21 +20,26 @@ int GPS::locate_position(uint16_t timeout_s) {
         if (read_buffer[0] != 0) {
             std::string str_buffer((char *)read_buffer);
             while (!str_buffer.empty()) {
-                DEBUG(str_buffer);
+                // DEBUG(str_buffer);
                 if (gps_sentence.empty()) {
                     if (size_t pos = str_buffer.find("$"); pos != std::string::npos) { str_buffer.erase(0, pos); }
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
                         gps_sentence = str_buffer.substr(0, pos);
+                        gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
+                                           gps_sentence.end());
                         str_buffer.erase(0, pos + 1);
-                        if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                        if (gpgga && gps_sentence.find("$GPGGA") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgga() == 0) { status = true; }
-                        } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                        } else if (gpgll && gps_sentence.find("$GPGLL") != std::string::npos) {
+                            DEBUG(gps_sentence);
                             if (parse_gpgll() == 0) { status = true; }
                         } else if (gps_sentence.find("$PMTK") != std::string::npos) {
-                            if (gps_sentence.find("\r") != std::string::npos) {
-                                DEBUG(gps_sentence.substr(0, gps_sentence.find("\r")));
-                            }
+                            DEBUG(gps_sentence);
                         } else if (gps_sentence.find("$PQ") != std::string::npos) {
+                            gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
+                                               gps_sentence.end());
+                            DEBUG(gps_sentence);
                         }
                         gps_sentence.clear();
                     } else {
@@ -41,6 +49,8 @@ int GPS::locate_position(uint16_t timeout_s) {
                 } else {
                     if (size_t pos = str_buffer.find("\n"); pos != std::string::npos) {
                         gps_sentence += str_buffer.substr(0, pos);
+                        gps_sentence.erase(std::remove_if(gps_sentence.begin(), gps_sentence.end(), ::isspace),
+                                           gps_sentence.end());
                         str_buffer.erase(0, pos + 1);
                         if (gps_sentence.find("$GPGGA") != std::string::npos) {
                             if (parse_gpgga() == 0) { status = true; }
@@ -70,6 +80,16 @@ int GPS::locate_position(uint16_t timeout_s) {
 
 Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitude, status}; }
 
+void GPS::set_mode(Mode mode) {
+    if (mode == Mode::FULL_ON) {
+        full_on_mode();
+    } else if (mode == Mode::STANDBY) {
+        standby_mode();
+    } else if (mode == Mode::ALWAYSLOCATE) {
+        alwayslocate_mode();
+    }
+}
+
 // Command doesn't seem to actually do anything..
 /*
 void GPS::set_nmea_output_frequencies(uint8_t gll, uint8_t rmc, uint8_t vtg, uint8_t gga, uint8_t gsa, uint8_t gsv) {
@@ -87,7 +107,6 @@ void GPS::set_nmea_output_frequencies(uint8_t gll, uint8_t rmc, uint8_t vtg, uin
 */
 
 int GPS::parse_gpgga() {
-    DEBUG(gps_sentence);
     std::stringstream ss(gps_sentence);
     std::string token;
     std::getline(ss, token, ','); // Message ID
@@ -163,31 +182,7 @@ int GPS::parse_gpgga() {
     return 0;
 }
 
-void GPS::set_mode(Mode mode) {
-    if (mode == Mode::FULL_ON) {
-        full_on_mode();
-    } else if (mode == Mode::STANDBY) {
-        standby_mode();
-    } else if (mode == Mode::ALWAYSLOCATE) {
-        alwayslocate_mode();
-    }
-}
-
-/*
-void GPS::set_gptxt_output(bool enable, bool save) {
-    std::string pq = "$PQTXT,W," + std::to_string(enable) + "," + std::to_string(save) + "*22\r\n";
-    DEBUG("Sending: " + pq);
-    uart->write((uint8_t *)pq.c_str(), pq.length());
-}
-
-void GPS::full_cold_start() {
-    const uint8_t pmtk[] = "$PMTK104*37\r\n";
-    DEBUG("Sending:", (char *)pmtk);
-    uart->write(pmtk, sizeof(pmtk));
-}
-*/
 int GPS::parse_gpgll() {
-    DEBUG(gps_sentence);
     std::stringstream ss(gps_sentence);
     std::string token;
     std::getline(ss, token, ','); // Message ID
@@ -232,6 +227,20 @@ int GPS::parse_gpgll() {
 
     return 0;
 }
+
+/*
+void GPS::set_gptxt_output(bool enable, bool save) {
+    std::string pq = "$PQTXT,W," + std::to_string(enable) + "," + std::to_string(save) + "*22\r\n";
+    DEBUG("Sending: " + pq);
+    uart->write((uint8_t *)pq.c_str(), pq.length());
+}
+
+void GPS::full_cold_start() {
+    const uint8_t pmtk[] = "$PMTK104*37\r\n";
+    DEBUG("Sending:", (char *)pmtk);
+    uart->write(pmtk, sizeof(pmtk));
+}
+*/
 
 int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direction) {
     if (value.empty() || direction.empty()) { return 1; }

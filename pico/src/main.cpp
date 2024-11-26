@@ -15,8 +15,6 @@ int main() {
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
     auto gps = std::make_unique<GPS>(uart);
     sleep_ms(2000);
-    gps->set_mode(GPS::Mode::STANDBY);
-    sleep_ms(2000);
     //gps->locate_position(15);
     //sleep_ms(2000);
     //gps->set_mode(GPS::Mode::ALWAYSLOCATE);

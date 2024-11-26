@@ -30,7 +30,7 @@ class GPS {
     };
     */
   public:
-    GPS(std::shared_ptr<PicoUart> uart/*, StartType start_type = StartType::NONE*/);
+    GPS(std::shared_ptr<PicoUart> uart, bool gpgga_on = true, bool gpgll_on = true);
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
 
@@ -53,6 +53,8 @@ class GPS {
     double latitude;
     double longitude;
     bool status = false; // false if coordinates not found
+    bool gpgga = false;
+    bool gpgll = false;
 
     std::string gps_sentence;
 
