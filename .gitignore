@@ -1,8 +1,11 @@
 build
 cmake-build-*
+target
+assets
 .clangd
 .vscode
 .idea
 .cache
 *.log
 *.override.yml
+*.lock
