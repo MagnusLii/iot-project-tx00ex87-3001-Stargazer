@@ -18,6 +18,16 @@ async fn main() {
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:7878".to_string());
 
+    // Create tmp dir for caching
+    let tmp = env::temp_dir();
+    match fs::create_dir_all(&tmp.join("sgwebserver")) {
+        Ok(_) => println!("Created tmp dir"),
+        Err(e) => panic!("Error creating tmp dir: {}", e),
+    };
+
+    // Update images
+    update_images().await;
+
     let app: Router = Router::new()
         .route("/", get(root))
         .route("/images", get(images))
@@ -36,19 +46,57 @@ async fn root() -> impl IntoResponse {
     (StatusCode::OK, Html(std::include_str!("../index.html")))
 }
 
-async fn images() -> impl IntoResponse {
+async fn update_images() -> bool {
+    let tmp = env::temp_dir();
     let directory = ImageDirectory::default();
     let images = directory.find_images();
 
-    println!("{:?}", images);
-
-    let html = images
+    let mut html = std::include_str!("../images.html").to_string();
+    let html_images = images
         .iter()
         .map(|image| format!("<img src=\"{}\"/>", image.display().to_string()))
         .collect::<Vec<String>>()
         .join("\n");
+    html = html.replace("<!--IMAGES-->", &html_images);
 
-    (StatusCode::OK, Html(html))
+    println!(
+        "Writ path: {}",
+        &tmp.join("sgwebserver/images.html").display()
+    );
+
+    let result = match fs::write(&tmp.join("sgwebserver/images.html"), html) {
+        Ok(_) => true,
+        Err(e) => {
+            eprintln!("Error updating images: {}", e);
+            false
+        }
+    };
+
+    result
+}
+
+async fn images() -> impl IntoResponse {
+    let tmp = env::temp_dir();
+
+    if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")) {
+        println!("Using cached images.html");
+        return (StatusCode::OK, Html(cached_html));
+    }
+
+    let updated = update_images().await;
+
+    let status: StatusCode;
+    let html: Vec<u8>;
+
+    if !updated {
+        status = StatusCode::INTERNAL_SERVER_ERROR;
+        html = "Error updating images".as_bytes().to_vec();
+    } else {
+        status = StatusCode::OK;
+        html = fs::read(&tmp.join("sgwebserver/images.html")).unwrap();
+    }
+
+    (status, Html(html.into()))
 }
 
 // Parse the body of the POST request for base64 encoded image
@@ -68,6 +116,8 @@ async fn upload(body: Body) -> impl IntoResponse {
     let path = format!("./assets/{}.png", now);
 
     fs::write(path, decoded).unwrap();
+
+    update_images().await;
 
     (StatusCode::OK, "Success\n")
 }
