@@ -1,0 +1,33 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+    <title>Login - Stargazer</title> 
+    <meta charset="utf-8">
+    <style>
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        * {
+            background: black;
+            color: white;
+        }
+    </style>
+</head> 
+    <body> 
+        <h1>Stargazer</h1> 
+        <form method="post"> 
+            <legend><b>Login</b></legend>
+                <label for="username">Username:</label> 
+                <input type="text" id="username" name="username" required> 
+                <br> 
+                <label for="password">Password:</label> 
+                <input type="password" id="password" name="password" required> 
+                <br>
+                <input type="submit" value="login"> 
+        </form> 
+    </body> 
+</html>

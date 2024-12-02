@@ -1,5 +1,7 @@
 build
 cmake-build-*
+target
+assets
 .clangd
 .vscode
 .idea
@@ -8,5 +10,5 @@ cmake-build-*
 *.override.yml
 *esp-test
 *sdkconfig*
-Dependencies.lock
 managed_components
+*.lock
