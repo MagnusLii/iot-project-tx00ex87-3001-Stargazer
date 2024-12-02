@@ -112,7 +112,7 @@ pub async fn login(
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     println!("User logged in: {}", user.id());
-    Redirect::to("/images").into_response()
+    Redirect::to("/").into_response()
 }
 
 pub async fn create_tables(db: &SqlitePool) {
