@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Redirect},
     Form,
 };
-use password_auth::verify_password;
+//use password_auth::verify_password;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use tokio::task;
@@ -115,12 +115,24 @@ pub async fn login(
     Redirect::to("/").into_response()
 }
 
-pub async fn create_tables(db: &SqlitePool) {
+pub async fn create_user_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL
+        )",
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+pub async fn create_api_keys_table(db: &SqlitePool) {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY,
+            api_key TEXT NOT NULL UNIQUE
         )",
     )
     .execute(db)

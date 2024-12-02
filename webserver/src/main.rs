@@ -36,7 +36,8 @@ async fn main() {
     // Create tables and admin user if first run
     if first_run {
         println!("First run detected. Creating tables and admin user");
-        sg_auth::create_tables(&db).await;
+        sg_auth::create_user_table(&db).await;
+        sg_auth::create_api_keys_table(&db).await;
         sg_auth::create_admin(&db).await;
     }
 
@@ -81,6 +82,7 @@ async fn login_page() -> impl IntoResponse {
     (StatusCode::OK, Html(std::include_str!("../login.html")))
 }
 
+// TODO: Maybe look in to using proper html templates
 async fn update_images() -> bool {
     let tmp = env::temp_dir();
     let directory = ImageDirectory::default();
