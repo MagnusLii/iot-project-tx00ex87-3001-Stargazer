@@ -12,6 +12,7 @@ use axum_login::{
 };
 use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
+use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::{env, fs};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -25,9 +26,23 @@ async fn main() {
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:7878".to_string());
 
+    // Does database exist?
+    let first_run = !std::path::Path::new("db/users.db").exists();
+
+    let options = SqliteConnectOptions::new()
+        .filename("db/users.db")
+        .create_if_missing(true);
+    let db = SqlitePool::connect_with(options).await.unwrap();
+    // Create tables and admin user if first run
+    if first_run {
+        println!("First run detected. Creating tables and admin user");
+        sg_auth::create_tables(&db).await;
+        sg_auth::create_admin(&db).await;
+    }
+
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store);
-    let backend = sg_auth::Backend::default();
+    let backend = sg_auth::Backend::new(db);
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     // Create tmp dir for caching
@@ -42,13 +57,13 @@ async fn main() {
 
     let app: Router = Router::new()
         .route("/", get(root))
+        .route("/images", get(images))
+        .nest_service("/assets", ServeDir::new("assets"))
         .route_layer(login_required!(sg_auth::Backend, login_url = "/login"))
         .route("/login", get(login_page))
         .route("/login", post(sg_auth::login))
         .layer(auth_layer)
-        .route("/images", get(images))
         .route("/upload", post(upload))
-        .nest_service("/assets", ServeDir::new("assets"))
         .fallback(unknown_route);
 
     let listener = TcpListener::bind(&address).await.unwrap();
@@ -80,7 +95,7 @@ async fn update_images() -> bool {
     html = html.replace("<!--IMAGES-->", &html_images);
 
     println!(
-        "Writ path: {}",
+        "Write path: {}",
         &tmp.join("sgwebserver/images.html").display()
     );
 
