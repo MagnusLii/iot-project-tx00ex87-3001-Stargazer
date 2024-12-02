@@ -8,7 +8,6 @@ services:
         command:
             sh -c ' 
             cd /home/pico-build/pico && 
-            rm -rf build && 
             mkdir -p build && 
             cd build && 
             cmake -DCMAKE_BUILD_TYPE=Debug .. && 
