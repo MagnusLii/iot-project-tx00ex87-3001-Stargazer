@@ -6,3 +6,7 @@ cmake-build-*
 .cache
 *.log
 *.override.yml
+*esp-test
+*sdkconfig*
+Dependencies.lock
+managed_components
