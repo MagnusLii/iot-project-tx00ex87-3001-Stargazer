@@ -15,21 +15,42 @@ struct Coordinates {
 
 class GPS {
   public:
-    GPS(std::shared_ptr<PicoUart> uart);
+    enum class Mode {
+        FULL_ON,
+        STANDBY,
+        ALWAYSLOCATE // Full-on/Standby
+    };
+
+    enum class SentenceState {
+        EMPTY,
+        INCOMPLETE,
+        COMPLETE
+    };
+
+  public:
+    GPS(std::shared_ptr<PicoUart> uart, bool gpgga_on = true, bool gpgll_on = true);
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
+    void set_mode(Mode mode);
 
   private:
+    int parse_output(std::string output);
     int parse_gpgga();
     int parse_gpgll();
     int nmea_to_decimal_deg(const std::string &value, const std::string &direction);
+    void full_on_mode();
+    void standby_mode();
+    void alwayslocate_mode();
 
   private:
     double latitude;
     double longitude;
-    bool status; // false if coordinates not found
+    bool status = false; // false if coordinates not found
+    bool gpgga = false;
+    bool gpgll = false;
 
     std::string gps_sentence;
+    SentenceState sentence_state = SentenceState::EMPTY;
 
     std::shared_ptr<PicoUart> uart;
 };
