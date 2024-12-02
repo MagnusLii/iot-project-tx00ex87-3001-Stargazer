@@ -5,6 +5,11 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum_login::{
+    login_required,
+    tower_sessions::{MemoryStore, SessionManagerLayer},
+    AuthManagerLayerBuilder,
+};
 use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
 use std::{env, fs};
@@ -12,11 +17,18 @@ use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 use webserver::ImageDirectory;
 
+mod sg_auth;
+
 #[tokio::main]
 async fn main() {
     let address = env::args()
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:7878".to_string());
+
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store);
+    let backend = sg_auth::Backend::default();
+    let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     // Create tmp dir for caching
     let tmp = env::temp_dir();
@@ -30,6 +42,10 @@ async fn main() {
 
     let app: Router = Router::new()
         .route("/", get(root))
+        .route_layer(login_required!(sg_auth::Backend, login_url = "/login"))
+        .route("/login", get(login_page))
+        .route("/login", post(sg_auth::login))
+        .layer(auth_layer)
         .route("/images", get(images))
         .route("/upload", post(upload))
         .nest_service("/assets", ServeDir::new("assets"))
@@ -44,6 +60,10 @@ async fn main() {
 
 async fn root() -> impl IntoResponse {
     (StatusCode::OK, Html(std::include_str!("../index.html")))
+}
+
+async fn login_page() -> impl IntoResponse {
+    (StatusCode::OK, Html(std::include_str!("../login.html")))
 }
 
 async fn update_images() -> bool {
