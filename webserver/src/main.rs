@@ -75,11 +75,17 @@ async fn main() {
 }
 
 async fn root() -> impl IntoResponse {
-    (StatusCode::OK, Html(std::include_str!("../index.html")))
+    (
+        StatusCode::OK,
+        Html(std::include_str!("../html/index.html")),
+    )
 }
 
 async fn login_page() -> impl IntoResponse {
-    (StatusCode::OK, Html(std::include_str!("../login.html")))
+    (
+        StatusCode::OK,
+        Html(std::include_str!("../html/login.html")),
+    )
 }
 
 // TODO: Maybe look in to using proper html templates
@@ -88,7 +94,7 @@ async fn update_images() -> bool {
     let directory = ImageDirectory::default();
     let images = directory.find_images();
 
-    let mut html = std::include_str!("../images.html").to_string();
+    let mut html = std::include_str!("../html/images.html").to_string();
     let html_images = images
         .iter()
         .map(|image| format!("<img src=\"{}\"/>", image.display().to_string()))
@@ -162,6 +168,6 @@ async fn upload(body: Body) -> impl IntoResponse {
 async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
-        Html(std::include_str!("../404.html")),
+        Html(std::include_str!("../html/404.html")),
     )
 }

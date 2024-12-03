@@ -146,3 +146,35 @@ pub async fn create_admin(db: &SqlitePool) {
         .await
         .unwrap();
 }
+
+pub async fn create_api_key(db: &SqlitePool) -> String {
+    let api_key = uuid::Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO api_keys (api_key) VALUES (?)")
+        .bind(&api_key)
+        .execute(db)
+        .await
+        .unwrap();
+    api_key
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ApiKey {
+    pub id: i64,
+    pub api_key: String,
+}
+
+pub async fn get_api_keys(db: &SqlitePool) -> Result<Vec<ApiKey>, Error> {
+    let api_keys: Vec<ApiKey> = sqlx::query_as("SELECT * FROM api_keys")
+        .fetch_all(db)
+        .await?;
+
+    Ok(api_keys)
+}
+
+pub async fn delete_api_key(db: &SqlitePool, id: i64) {
+    sqlx::query("DELETE FROM api_keys WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await
+        .unwrap();
+}

@@ -15,3 +15,4 @@ sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite", "time"] }
 thiserror = "2.0.3"
 tokio = { version = "1.41.1", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["fs"] }
+uuid = { version = "1.11.0", features = ["v4"] }
