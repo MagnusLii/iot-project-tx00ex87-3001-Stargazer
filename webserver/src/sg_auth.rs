@@ -8,6 +8,7 @@ use axum::{
     Form,
 };
 //use password_auth::verify_password;
+use crate::sg_err::Error;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use tokio::task;
@@ -48,15 +49,6 @@ impl Backend {
 pub struct Credentials {
     pub username: String,
     pub password: String,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-
-    #[error(transparent)]
-    TaskJoin(#[from] task::JoinError),
 }
 
 #[async_trait]
