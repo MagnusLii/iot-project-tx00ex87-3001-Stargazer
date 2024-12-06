@@ -38,7 +38,11 @@
         <a href="/control">Back</a>
         <p>Keys page</p>
         <br>
-        <button value="Generate new key" onclick="generateKey()">Generate new key</button><input type="text" id="ro-key" value="" readonly>
+        <div id="gen-key">
+            <button value="Generate new key" onclick="generateKey()">Generate new key</button>
+            <input type="text" id="ro-key" value="" readonly>
+            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+        </div>
         <br>
         <ul id="keys">
             <!--API_KEYS-->

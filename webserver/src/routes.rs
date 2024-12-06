@@ -30,10 +30,10 @@ pub fn configure(user_db: SqlitePool) -> Router<sg_api::ApiState> {
         .route("/", get(root))
         .route("/gallery", get(gallery))
         .route("/control", get(control))
-        //.route("/control/command", post(command))
         .route("/control/keys", get(sg_api::api_keys))
         .route("/control/keys", post(sg_api::new_key))
         .route("/control/keys", delete(sg_api::delete_key))
+        .route("/control/command", post(sg_api::new_command))
         .nest_service("/images", ServeDir::new("images"))
         .route_layer(login_required!(sg_auth::Backend, login_url = "/login"))
         .route("/login", get(login_page))
@@ -44,7 +44,7 @@ pub fn configure(user_db: SqlitePool) -> Router<sg_api::ApiState> {
             "/api/upload",
             post(upload).layer(DefaultBodyLimit::max(262_144_000)),
         )
-        //.route("/api/command", get(command))
+        .route("/api/command", get(sg_api::fetch_command))
         .fallback(unknown_route)
 }
 
@@ -115,11 +115,18 @@ async fn gallery() -> impl IntoResponse {
     (status, Html(html.into()))
 }
 
-async fn control() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        Html(std::include_str!("../html/control.html")),
-    )
+async fn control(State(state): State<sg_api::ApiState>) -> impl IntoResponse {
+    let mut html = std::include_str!("../html/control.html").to_string();
+    let html_keys = sg_api::get_api_keys(&state.db)
+        .await
+        .unwrap()
+        .iter()
+        .map(|key| format!("<option>{}</option>", key.id))
+        .collect::<Vec<String>>()
+        .join("\n");
+    html = html.replace("<!--API_KEYS-->", &html_keys);
+
+    (StatusCode::OK, Html(html))
 }
 
 #[derive(Deserialize)]

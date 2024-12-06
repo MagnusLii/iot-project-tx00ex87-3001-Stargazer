@@ -38,6 +38,7 @@ async fn main() {
     if token_first_run {
         println!("First run detected. Creating api keys table");
         sg_api::create_api_keys_table(&api_state.db).await;
+        sg_api::create_command_table(&api_state.db).await;
     }
 
     // let session_store = MemoryStore::default();

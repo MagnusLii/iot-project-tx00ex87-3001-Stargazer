@@ -1,6 +1,6 @@
 use crate::sg_err::Error;
 use axum::{
-    extract::{Query, State},
+    extract::{Json, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
@@ -77,8 +77,6 @@ pub async fn create_api_keys_table(db: &SqlitePool) {
     .unwrap();
 }
 
-pub async fn create_command_table(db: &SqlitePool) {}
-
 pub async fn get_api_keys(db: &SqlitePool) -> Result<Vec<ApiKey>, Error> {
     let api_keys: Vec<ApiKey> = sqlx::query_as("SELECT * FROM api_keys")
         .fetch_all(db)
@@ -153,4 +151,94 @@ pub async fn verify_key(key: &str, db: &SqlitePool) -> bool {
         }
     }
     false
+}
+
+pub async fn create_command_table(db: &SqlitePool) {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS commands (
+            id INTEGER PRIMARY KEY,
+            target TEXT NOT NULL,
+            associated_key INTEGER NOT NULL,
+            FOREIGN KEY (associated_key) REFERENCES api_keys (id)
+        )",
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+pub async fn create_command(
+    db: &SqlitePool,
+    command: &str,
+    associated_key: i64,
+) -> Result<(), Error> {
+    sqlx::query("INSERT INTO commands (target, associated_key) VALUES (?, ?)")
+        .bind(command)
+        .bind(associated_key)
+        .execute(db)
+        .await
+        .unwrap();
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct CommandJson {
+    target: String,
+    associated_key_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct CommandSql {
+    target: String,
+}
+
+pub async fn new_command(
+    State(state): State<ApiState>,
+    Json(payload): Json<CommandJson>,
+) -> impl IntoResponse {
+    println!(
+        "Creating command: {}, associated key: {}",
+        payload.target, payload.associated_key_id
+    );
+    let int_key: i64 = payload.associated_key_id.parse().unwrap();
+
+    create_command(&state.db, &payload.target, int_key)
+        .await
+        .unwrap();
+    (StatusCode::OK, "Success\n")
+}
+
+pub async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
+    let command = sqlx::query_as(
+        "SELECT commands.target AS target FROM commands 
+        JOIN api_keys ON commands.associated_key = api_keys.id
+        WHERE api_keys.api_key = ?",
+    )
+    .bind(key)
+    .fetch_one(db)
+    .await?;
+
+    Ok(command)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetCommand {
+    api_key: String,
+}
+
+pub async fn _get_commands(
+    State(_state): State<ApiState>,
+    Query(_get_command): Query<GetCommand>,
+) -> impl IntoResponse {
+    (StatusCode::OK, "Success\n")
+}
+
+pub async fn fetch_command(
+    State(state): State<ApiState>,
+    Query(key): Query<GetCommand>,
+) -> impl IntoResponse {
+    println!("Fetching command: {:?}", key);
+    let command = retrieve_command(&key.api_key, &state.db).await.unwrap();
+    // TODO: Should we delete the command now or wait for some kind of confirmation from the device?
+    (StatusCode::OK, Html(command.target))
 }

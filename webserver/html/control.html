@@ -15,6 +15,26 @@
                     alert("Issue generating key");                    
                 });
             }
+
+            function queuePicture() {
+                const data = JSON.stringify({
+                    "target": document.getElementById("targets").value,
+                    "associated_key_id": document.getElementById("selected_key").value
+                });
+                console.log(data);
+
+                fetch(`/control/command`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: data        
+                })/*.then(() => {
+                    location.reload();
+                })*/.catch(() => {
+                    alert("Issue taking picture");                    
+                });
+            }
         </script>
     </head>
     <body>
@@ -25,13 +45,22 @@
             <li><a href="/gallery">Gallery</a></li>
         </ul>
         <p>Control page</p>
+        <label for="targets">Take a picture of:</label>
+        <select name="targets" id="targets">
+            <option value="moon">Moon</option>
+            <option value="uranus">Uranus</option>
+        </select>
         <br>
-        <a href="/control/keys">Keys</a>
+        <label for="selected_key">Selected key:</label>
+        <select name="selected_key" id="selected_key">
+            <!--API_KEYS-->
+        </select>
         <br>
-        <div id="gen-key">
-            <button value="Generate new key" onclick="generateKey()">Generate new key</button>
-            <input type="text" id="ro-key" value="" readonly>
-            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
-        </div>
+        <button value="Take picture" onclick="queuePicture();">Confirm</button>
+        <br>
+        <br>
+        <a href="/control/keys">Key management</a>
+        <br>
+        <br>
     </body>
 </html>
