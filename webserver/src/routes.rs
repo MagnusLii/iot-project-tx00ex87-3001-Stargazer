@@ -1,6 +1,6 @@
 use crate::{sg_api, sg_auth};
 use axum::{
-    body::{to_bytes, Body},
+    extract::{DefaultBodyLimit, Json, State},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{delete, get, post},
@@ -13,6 +13,8 @@ use axum_login::{
 };
 use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
+use infer;
+use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::{env, fs};
 use tower_http::services::ServeDir;
@@ -38,7 +40,10 @@ pub fn configure(user_db: SqlitePool) -> Router<sg_api::ApiState> {
         .route("/login", post(sg_auth::login))
         .layer(auth_layer)
         .nest_service("/assets", ServeDir::new("assets"))
-        .route("/api/upload", post(upload))
+        .route(
+            "/api/upload",
+            post(upload).layer(DefaultBodyLimit::max(262_144_000)),
+        )
         //.route("/api/command", get(command))
         .fallback(unknown_route)
 }
@@ -117,21 +122,37 @@ async fn control() -> impl IntoResponse {
     )
 }
 
+#[derive(Deserialize)]
+pub struct UploadImage {
+    key: String,
+    data: String,
+}
+
 // Parse the body of the POST request for base64 encoded image
 // TODO: Handle errors
-async fn upload(body: Body) -> impl IntoResponse {
-    let bytes = to_bytes(body, 262144000).await.unwrap();
+async fn upload(
+    State(state): State<sg_api::ApiState>,
+    Json(payload): Json<UploadImage>,
+) -> impl IntoResponse {
+    //let bytes = to_bytes(payload.data, 262144000).await.unwrap();
+    if !sg_api::verify_key(&payload.key, &state.db).await {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized\n");
+    }
 
-    let converted = String::from_utf8(bytes.to_vec()).unwrap();
-    //println!("{}", converted);
+    let data = payload.data;
+    println!("{}", data);
 
-    let decoded = general_purpose::STANDARD.decode(converted).unwrap();
+    let decoded = general_purpose::STANDARD.decode(data).unwrap();
+    assert!(infer::is_image(&decoded));
+
+    let file_info = infer::get(&decoded).expect("file type is known");
+    println!("{:?}", file_info.mime_type());
 
     let now = Utc::now().timestamp();
     //println!("{}", now);
 
     // Write path, TODO: Can technically be a collision
-    let path = format!("./images/{}.png", now);
+    let path = format!("./images/{}.{}", now, file_info.extension());
 
     fs::write(path, decoded).unwrap();
 

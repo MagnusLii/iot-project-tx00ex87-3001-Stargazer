@@ -4,6 +4,18 @@
         <meta charset="UTF-8">
         <title>Control - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
+        <script>
+            function generateKey() {
+                fetch(`/control/keys`, {
+                    method: "POST"
+                }).then(response => response.text()).then(data => {
+                    console.log(data);
+                    document.getElementById("ro-key").value = data;
+                }).catch(() => {
+                    alert("Issue generating key");                    
+                });
+            }
+        </script>
     </head>
     <body>
         <h1>Control</h1>
@@ -16,6 +28,10 @@
         <br>
         <a href="/control/keys">Keys</a>
         <br>
-        <button value="Generate new key" onclick="generateKey()">Generate new key</button><input type="text" id="ro-key" value="" readonly>
+        <div id="gen-key">
+            <button value="Generate new key" onclick="generateKey()">Generate new key</button>
+            <input type="text" id="ro-key" value="" readonly>
+            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+        </div>
     </body>
 </html>

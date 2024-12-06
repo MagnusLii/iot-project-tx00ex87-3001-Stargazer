@@ -3,8 +3,6 @@
     color: white;
 }
 
-
-
 img {
     margin: 50px;
     max-width: 50%;
@@ -24,4 +22,8 @@ img {
 #nav li {
     display: inline;
     margin-right: 5rem;
+}
+
+#ro-key input {
+    width: 500px
 }

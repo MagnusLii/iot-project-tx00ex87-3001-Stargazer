@@ -4,6 +4,12 @@
 
 # Test upload images
 ```
-curl -X POST --data @base 127.0.0.1:7878/upload
+curl -H "Content-Type: application/json" --request POST --data @img.json 127.0.0.1:7878/api/upload
 ```
-where @base is a base64 encoded image
+where @img.json contains:
+```
+{
+    "key":"<api_key>",
+    "data":"<base64_data>"
+}
+```

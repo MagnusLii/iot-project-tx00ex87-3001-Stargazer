@@ -77,6 +77,8 @@ pub async fn create_api_keys_table(db: &SqlitePool) {
     .unwrap();
 }
 
+pub async fn create_command_table(db: &SqlitePool) {}
+
 pub async fn get_api_keys(db: &SqlitePool) -> Result<Vec<ApiKey>, Error> {
     let api_keys: Vec<ApiKey> = sqlx::query_as("SELECT * FROM api_keys")
         .fetch_all(db)
@@ -141,4 +143,14 @@ pub async fn delete_key(
     delete_api_key(&state.db, delete_key.id).await;
 
     (StatusCode::OK, "Success\n")
+}
+
+pub async fn verify_key(key: &str, db: &SqlitePool) -> bool {
+    let api_keys = get_api_keys(db).await.unwrap();
+    for api_key in api_keys {
+        if api_key.api_key == key {
+            return true;
+        }
+    }
+    false
 }
