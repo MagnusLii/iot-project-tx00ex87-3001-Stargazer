@@ -3,7 +3,7 @@ use axum::{
     body::{to_bytes, Body},
     http::StatusCode,
     response::{Html, IntoResponse},
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use axum_login::{
@@ -26,16 +26,20 @@ pub fn configure(user_db: SqlitePool) -> Router<sg_api::ApiState> {
 
     Router::<_>::new()
         .route("/", get(root))
-        .route("/images", get(images))
+        .route("/gallery", get(gallery))
         .route("/control", get(control))
+        //.route("/control/command", post(command))
         .route("/control/keys", get(sg_api::api_keys))
         .route("/control/keys", post(sg_api::new_key))
-        .nest_service("/assets", ServeDir::new("assets"))
+        .route("/control/keys", delete(sg_api::delete_key))
+        .nest_service("/images", ServeDir::new("images"))
         .route_layer(login_required!(sg_auth::Backend, login_url = "/login"))
         .route("/login", get(login_page))
         .route("/login", post(sg_auth::login))
         .layer(auth_layer)
-        .route("/upload", post(upload))
+        .nest_service("/assets", ServeDir::new("assets"))
+        .route("/api/upload", post(upload))
+        //.route("/api/command", get(command))
         .fallback(unknown_route)
 }
 
@@ -54,7 +58,7 @@ async fn login_page() -> impl IntoResponse {
 }
 
 // TODO: Maybe look in to using proper html templates
-pub async fn update_images() -> bool {
+pub async fn update_gallery() -> bool {
     let tmp = env::temp_dir();
     let directory = ImageDirectory::default();
     let images = directory.find_images();
@@ -83,15 +87,14 @@ pub async fn update_images() -> bool {
     result
 }
 
-async fn images() -> impl IntoResponse {
+async fn gallery() -> impl IntoResponse {
     let tmp = env::temp_dir();
 
     if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")) {
-        println!("Using cached images.html");
         return (StatusCode::OK, Html(cached_html));
     }
 
-    let updated = update_images().await;
+    let updated = update_gallery().await;
 
     let status: StatusCode;
     let html: Vec<u8>;
@@ -120,19 +123,19 @@ async fn upload(body: Body) -> impl IntoResponse {
     let bytes = to_bytes(body, 262144000).await.unwrap();
 
     let converted = String::from_utf8(bytes.to_vec()).unwrap();
-    println!("{}", converted);
+    //println!("{}", converted);
 
     let decoded = general_purpose::STANDARD.decode(converted).unwrap();
 
     let now = Utc::now().timestamp();
-    println!("{}", now);
+    //println!("{}", now);
 
     // Write path, TODO: Can technically be a collision
-    let path = format!("./assets/{}.png", now);
+    let path = format!("./images/{}.png", now);
 
     fs::write(path, decoded).unwrap();
 
-    update_images().await;
+    update_gallery().await;
 
     (StatusCode::OK, "Success\n")
 }

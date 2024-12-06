@@ -1,6 +1,6 @@
 use crate::sg_err::Error;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
@@ -86,13 +86,17 @@ pub async fn get_api_keys(db: &SqlitePool) -> Result<Vec<ApiKey>, Error> {
 }
 
 pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
-    let mut html = "<ul><!--API_KEYS--></ul>".to_string();
-
+    let mut html = include_str!("../html/keys.html").to_string();
     let html_keys = get_api_keys(&state.db)
         .await
         .unwrap()
         .iter()
-        .map(|key| format!("<li>{}</li>", key.api_key))
+        .map(|key| {
+            format!(
+                "<li>{}</li><button onclick=\"deleteKey({})\">Delete</button>",
+                key.api_key, key.id
+            )
+        })
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--API_KEYS-->", &html_keys);
@@ -121,9 +125,20 @@ pub async fn delete_api_key(db: &SqlitePool, id: i64) {
 pub async fn new_key(State(state): State<ApiState>) -> impl IntoResponse {
     let key = create_api_key(&state.db).await;
 
-    let html = format!(
-        "<a href=\"/control/keys\">Back</a><br><p>Created key: <code>{}</code></p>",
-        key
-    );
-    (StatusCode::OK, Html(html))
+    (StatusCode::OK, Html(key))
+}
+
+#[derive(Deserialize)]
+pub struct DeleteKey {
+    id: i64,
+}
+
+pub async fn delete_key(
+    State(state): State<ApiState>,
+    Query(delete_key): Query<DeleteKey>,
+) -> impl IntoResponse {
+    println!("Deleting key: {}", delete_key.id);
+    delete_api_key(&state.db, delete_key.id).await;
+
+    (StatusCode::OK, "Success\n")
 }

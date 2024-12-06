@@ -55,7 +55,7 @@ async fn main() {
     };
 
     // Update images
-    routes::update_images().await;
+    routes::update_gallery().await;
 
     //let api_db = SqlitePool::connect("sqlite:db/api.db").await.unwrap();
     //let api_service = ServiceBuilder::new().layer(AddExtension(api_db)).finish();

@@ -26,7 +26,7 @@ impl ImageDirectory {
 impl Default for ImageDirectory {
     fn default() -> Self {
         Self {
-            path: PathBuf::from("./assets"),
+            path: PathBuf::from("./images"),
             extensions: vec![
                 String::from("png"),
                 String::from("jpg"),
@@ -40,7 +40,7 @@ impl Default for ImageDirectory {
 }
 
 pub fn generate_image_url(path: &PathBuf) -> String {
-    format!("/assets/{}", path.file_name().unwrap().to_str().unwrap())
+    format!("/images/{}", path.file_name().unwrap().to_str().unwrap())
 }
 
 pub fn generate_html(images: Vec<PathBuf>) -> String {
