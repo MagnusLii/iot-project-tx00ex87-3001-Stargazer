@@ -10,7 +10,6 @@ axum-login = "0.16.0"
 base64 = "0.22.1"
 chrono = "0.4.38"
 infer = "0.16.0"
-password-auth = "1.0.0"
 serde = "1.0.215"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite", "time"] }
 thiserror = "2.0.3"

@@ -1,6 +1,6 @@
-use crate::{sg_api, sg_auth};
+use crate::sg::{api, auth, images::ImageDirectory};
 use axum::{
-    extract::{DefaultBodyLimit, Json, State},
+    extract::{DefaultBodyLimit, State},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{delete, get, post},
@@ -11,40 +11,35 @@ use axum_login::{
     tower_sessions::{MemoryStore, SessionManagerLayer},
     AuthManagerLayerBuilder,
 };
-use base64::{engine::general_purpose, Engine as _};
-use chrono::Utc;
-use infer;
-use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::{env, fs};
 use tower_http::services::ServeDir;
-use webserver::ImageDirectory;
 
-pub fn configure(user_db: SqlitePool) -> Router<sg_api::ApiState> {
+pub fn configure(user_db: SqlitePool) -> Router<api::ApiState> {
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store);
-    let backend = sg_auth::Backend::new(user_db);
+    let backend = auth::Backend::new(user_db);
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     Router::<_>::new()
         .route("/", get(root))
         .route("/gallery", get(gallery))
         .route("/control", get(control))
-        .route("/control/keys", get(sg_api::api_keys))
-        .route("/control/keys", post(sg_api::new_key))
-        .route("/control/keys", delete(sg_api::delete_key))
-        .route("/control/command", post(sg_api::new_command))
+        .route("/control/keys", get(api::api_keys))
+        .route("/control/keys", post(api::new_key))
+        .route("/control/keys", delete(api::delete_key))
+        .route("/control/command", post(api::new_command))
         .nest_service("/images", ServeDir::new("images"))
-        .route_layer(login_required!(sg_auth::Backend, login_url = "/login"))
+        .route_layer(login_required!(auth::Backend, login_url = "/login"))
         .route("/login", get(login_page))
-        .route("/login", post(sg_auth::login))
+        .route("/login", post(auth::login))
         .layer(auth_layer)
         .nest_service("/assets", ServeDir::new("assets"))
         .route(
             "/api/upload",
-            post(upload).layer(DefaultBodyLimit::max(262_144_000)),
+            post(api::upload).layer(DefaultBodyLimit::max(262_144_000)),
         )
-        .route("/api/command", get(sg_api::fetch_command))
+        .route("/api/command", get(api::fetch_command))
         .fallback(unknown_route)
 }
 
@@ -115,9 +110,9 @@ async fn gallery() -> impl IntoResponse {
     (status, Html(html.into()))
 }
 
-async fn control(State(state): State<sg_api::ApiState>) -> impl IntoResponse {
+async fn control(State(state): State<api::ApiState>) -> impl IntoResponse {
     let mut html = std::include_str!("../html/control.html").to_string();
-    let html_keys = sg_api::get_api_keys(&state.db)
+    let html_keys = api::get_api_keys(&state.db)
         .await
         .unwrap()
         .iter()
@@ -129,6 +124,7 @@ async fn control(State(state): State<sg_api::ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/*
 #[derive(Deserialize)]
 pub struct UploadImage {
     key: String,
@@ -138,11 +134,11 @@ pub struct UploadImage {
 // Parse the body of the POST request for base64 encoded image
 // TODO: Handle errors
 async fn upload(
-    State(state): State<sg_api::ApiState>,
+    State(state): State<api::ApiState>,
     Json(payload): Json<UploadImage>,
 ) -> impl IntoResponse {
     //let bytes = to_bytes(payload.data, 262144000).await.unwrap();
-    if !sg_api::verify_key(&payload.key, &state.db).await {
+    if !api::verify_key(&payload.key, &state.db).await {
         return (StatusCode::UNAUTHORIZED, "Unauthorized\n");
     }
 
@@ -167,7 +163,7 @@ async fn upload(
 
     (StatusCode::OK, "Success\n")
 }
-
+*/
 async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,

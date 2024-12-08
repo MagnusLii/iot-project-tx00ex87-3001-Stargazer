@@ -1,11 +1,14 @@
-use crate::sg_err::Error;
+use crate::sg::{err::Error, images};
 use axum::{
     extract::{Json, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
+use base64::{engine::general_purpose, Engine as _};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
+use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ApiKey {
@@ -13,58 +16,11 @@ pub struct ApiKey {
     pub api_key: String,
 }
 
-/*
-pub struct ApiBackend {
-    db: SqlitePool,
-}
-impl ApiBackend {
-    pub fn new(db: SqlitePool) -> Self {
-        Self { db }
-    }
-
-    pub async fn get_api_keys(&self) -> Result<Vec<ApiKey>, Error> {
-        let api_keys: Vec<ApiKey> = sqlx::query_as("SELECT * FROM api_keys")
-            .fetch_all(&self.db)
-            .await?;
-
-        Ok(api_keys)
-    }
-
-    pub async fn create_api_key(db: &SqlitePool) -> String {
-        let api_key = uuid::Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO api_keys (api_key) VALUES (?)")
-            .bind(&api_key)
-            .execute(db)
-            .await
-            .unwrap();
-        api_key
-    }
-
-    pub async fn delete_api_key(db: &SqlitePool, id: i64) {
-        sqlx::query("DELETE FROM api_keys WHERE id = ?")
-            .bind(id)
-            .execute(db)
-            .await
-            .unwrap();
-    }
-}
-*/
 #[derive(Clone)]
 pub struct ApiState {
     pub db: SqlitePool,
 }
 
-/*
-pub async fn api_routes() -> Router<ApiState> {
-    let state = ApiState {
-        db: SqlitePool::connect("sqlite:db/api.db").await.unwrap(),
-    };
-
-    Router::new()
-        .route("/control/keys", get(api_keys))
-        .with_state(state)
-}
-*/
 pub async fn create_api_keys_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS api_keys (
@@ -86,7 +42,7 @@ pub async fn get_api_keys(db: &SqlitePool) -> Result<Vec<ApiKey>, Error> {
 }
 
 pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
-    let mut html = include_str!("../html/keys.html").to_string();
+    let mut html = include_str!("../../html/keys.html").to_string();
     let html_keys = get_api_keys(&state.db)
         .await
         .unwrap()
@@ -104,7 +60,7 @@ pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-pub async fn create_api_key(db: &SqlitePool) -> String {
+async fn create_api_key(db: &SqlitePool) -> String {
     let api_key = uuid::Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO api_keys (api_key) VALUES (?)")
         .bind(&api_key)
@@ -114,7 +70,7 @@ pub async fn create_api_key(db: &SqlitePool) -> String {
     api_key
 }
 
-pub async fn delete_api_key(db: &SqlitePool, id: i64) {
+async fn delete_api_key(db: &SqlitePool, id: i64) {
     sqlx::query("DELETE FROM api_keys WHERE id = ?")
         .bind(id)
         .execute(db)
@@ -167,11 +123,7 @@ pub async fn create_command_table(db: &SqlitePool) {
     .unwrap();
 }
 
-pub async fn create_command(
-    db: &SqlitePool,
-    command: &str,
-    associated_key: i64,
-) -> Result<(), Error> {
+async fn create_command(db: &SqlitePool, command: &str, associated_key: i64) -> Result<(), Error> {
     sqlx::query("INSERT INTO commands (target, associated_key) VALUES (?, ?)")
         .bind(command)
         .bind(associated_key)
@@ -208,7 +160,7 @@ pub async fn new_command(
     (StatusCode::OK, "Success\n")
 }
 
-pub async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
+async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
     let command = sqlx::query_as(
         "SELECT commands.target AS target FROM commands 
         JOIN api_keys ON commands.associated_key = api_keys.id
@@ -241,4 +193,41 @@ pub async fn fetch_command(
     let command = retrieve_command(&key.api_key, &state.db).await.unwrap();
     // TODO: Should we delete the command now or wait for some kind of confirmation from the device?
     (StatusCode::OK, Html(command.target))
+}
+
+#[derive(Deserialize)]
+pub struct UploadImage {
+    key: String,
+    data: String,
+}
+
+// Parse the body of the POST request for base64 encoded image
+// TODO: Handle errors
+pub async fn upload(
+    State(state): State<ApiState>,
+    Json(payload): Json<UploadImage>,
+) -> impl IntoResponse {
+    if !verify_key(&payload.key, &state.db).await {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized\n");
+    }
+
+    let data = payload.data;
+    println!("{}", data);
+
+    let decoded = general_purpose::STANDARD.decode(data).unwrap();
+    assert!(infer::is_image(&decoded));
+
+    let file_info = infer::get(&decoded).expect("file type is known");
+    println!("{:?}", file_info.mime_type());
+
+    let now = Utc::now().timestamp();
+
+    // Write path, TODO: Can technically be a collision
+    let path = format!("./images/{}.{}", now, file_info.extension());
+
+    fs::write(path, decoded).unwrap();
+
+    images::update_gallery().await;
+
+    (StatusCode::OK, "Success\n")
 }

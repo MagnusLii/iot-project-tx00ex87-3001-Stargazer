@@ -1,14 +1,12 @@
+use crate::sg::err::Error;
 use async_trait::async_trait;
-use axum_login::{AuthUser, AuthnBackend, UserId};
-
 use axum::{
     debug_handler,
     http::StatusCode,
     response::{IntoResponse, Redirect},
     Form,
 };
-//use password_auth::verify_password;
-use crate::sg_err::Error;
+use axum_login::{AuthUser, AuthnBackend, UserId};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use tokio::task;
@@ -127,8 +125,10 @@ pub async fn create_admin(db: &SqlitePool) {
         .unwrap();
 }
 
+/*
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ApiKey {
     pub id: i64,
     pub api_key: String,
 }
+*/
