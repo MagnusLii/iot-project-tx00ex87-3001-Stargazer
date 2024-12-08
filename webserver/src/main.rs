@@ -2,9 +2,10 @@ use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::{env, fs};
 use tokio::net::TcpListener;
 
-use webserver::routes;
-use webserver::sg::api;
-use webserver::sg::auth;
+use webserver::{
+    routes,
+    sg::{api, auth, images},
+};
 
 #[tokio::main]
 async fn main() {
@@ -50,7 +51,7 @@ async fn main() {
     };
 
     // Update images before serving
-    routes::update_gallery().await;
+    images::update_gallery().await;
 
     let listener = TcpListener::bind(&address).await.unwrap();
 

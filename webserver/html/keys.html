@@ -18,7 +18,11 @@
             }
             function generateKey() {
                 fetch(`/control/keys`, {
-                    method: "POST"
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({"name": document.getElementById("name-key").value})
                 }).then(response => response.text()).then(data => {
                     console.log(data);
                     document.getElementById("ro-key").value = data;
@@ -29,7 +33,7 @@
         </script>
     </head>
     <body>
-        <h1>Keys</h1>
+        <h1>Key management</h1>
         <ul id="nav">
             <li><a href="/">Home</a></li>
             <li><a href="/control">Control</a></li>
@@ -39,13 +43,14 @@
         <p>Keys page</p>
         <br>
         <div id="gen-key">
+            <input type="text" id="name-key">
             <button value="Generate new key" onclick="generateKey()">Generate new key</button>
             <input type="text" id="ro-key" value="" readonly>
             <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
         </div>
         <br>
-        <ul id="keys">
+        <ol id="keys">
             <!--API_KEYS-->
-        </ul>
+        </ol>
     </body>
 </html>

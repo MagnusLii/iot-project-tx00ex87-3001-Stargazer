@@ -44,7 +44,7 @@
             <li><a href="/control">Control</a></li>
             <li><a href="/gallery">Gallery</a></li>
         </ul>
-        <p>Control page</p>
+        <br>
         <label for="targets">Take a picture of:</label>
         <select name="targets" id="targets">
             <option value="moon">Moon</option>
@@ -57,6 +57,16 @@
         </select>
         <br>
         <button value="Take picture" onclick="queuePicture();">Confirm</button>
+        <br>
+        <table id="commands">
+            <tr>
+                <th>Nr.</th>
+                <th>Target</th>
+                <th>Key name</th>
+                <th>Key id</th>
+            </tr>
+            <!--API_COMMANDS-->
+        </table>
         <br>
         <br>
         <a href="/control/keys">Key management</a>

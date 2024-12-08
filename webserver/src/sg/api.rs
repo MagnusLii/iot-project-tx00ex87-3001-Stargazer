@@ -14,6 +14,7 @@ use std::fs;
 pub struct ApiKey {
     pub id: i64,
     pub api_key: String,
+    pub name: String,
 }
 
 #[derive(Clone)]
@@ -25,7 +26,8 @@ pub async fn create_api_keys_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY,
-            api_key TEXT NOT NULL UNIQUE
+            api_key TEXT NOT NULL UNIQUE,
+            name TEXT
         )",
     )
     .execute(db)
@@ -49,8 +51,8 @@ pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
         .iter()
         .map(|key| {
             format!(
-                "<li>{}</li><button onclick=\"deleteKey({})\">Delete</button>",
-                key.api_key, key.id
+                "<li value=\"{}\">{}: {}</li><button onclick=\"deleteKey({})\">Delete</button>",
+                key.id, key.name, key.api_key, key.id
             )
         })
         .collect::<Vec<String>>()
@@ -60,10 +62,11 @@ pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-async fn create_api_key(db: &SqlitePool) -> String {
+async fn create_api_key(db: &SqlitePool, name: String) -> String {
     let api_key = uuid::Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO api_keys (api_key) VALUES (?)")
+    sqlx::query("INSERT INTO api_keys (api_key, name) VALUES (?, ?)")
         .bind(&api_key)
+        .bind(name)
         .execute(db)
         .await
         .unwrap();
@@ -78,8 +81,13 @@ async fn delete_api_key(db: &SqlitePool, id: i64) {
         .unwrap();
 }
 
-pub async fn new_key(State(state): State<ApiState>) -> impl IntoResponse {
-    let key = create_api_key(&state.db).await;
+#[derive(Deserialize)]
+pub struct NewKey {
+    name: String,
+}
+
+pub async fn new_key(State(state): State<ApiState>, Json(name): Json<NewKey>) -> impl IntoResponse {
+    let key = create_api_key(&state.db, name.name).await;
 
     (StatusCode::OK, Html(key))
 }
@@ -141,7 +149,9 @@ pub struct CommandJson {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CommandSql {
-    target: String,
+    pub id: i64,
+    pub target: String,
+    pub associated_key: i64,
 }
 
 pub async fn new_command(
@@ -162,7 +172,7 @@ pub async fn new_command(
 
 async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
     let command = sqlx::query_as(
-        "SELECT commands.target AS target FROM commands 
+        "SELECT commands.id AS id, commands.target AS target , commands.associated_key AS associated_key FROM commands 
         JOIN api_keys ON commands.associated_key = api_keys.id
         WHERE api_keys.api_key = ?",
     )
@@ -173,26 +183,58 @@ async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Erro
     Ok(command)
 }
 
-#[derive(Debug, Deserialize)]
-pub struct GetCommand {
-    api_key: String,
+async fn delete_command(db: &SqlitePool, id: i64) {
+    println!("Deleting command: {}", id);
+    sqlx::query("DELETE FROM commands WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await
+        .unwrap();
 }
 
-pub async fn _get_commands(
-    State(_state): State<ApiState>,
-    Query(_get_command): Query<GetCommand>,
-) -> impl IntoResponse {
-    (StatusCode::OK, "Success\n")
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct AllCommandSql {
+    pub target: String,
+    pub associated_key: i64,
+    pub id: i64,
+    pub name: String,
+}
+
+pub async fn get_commands(db: &SqlitePool) -> Result<Vec<AllCommandSql>, Error> {
+    let commands = sqlx::query_as(
+        "SELECT commands.id AS id, 
+        commands.target AS target, 
+        commands.associated_key AS associated_key, 
+        api_keys.name as name 
+        FROM commands 
+        JOIN api_keys ON commands.associated_key = api_keys.id",
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(commands)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FetchCommand {
+    api_key: String,
 }
 
 pub async fn fetch_command(
     State(state): State<ApiState>,
-    Query(key): Query<GetCommand>,
+    Query(key): Query<FetchCommand>,
 ) -> impl IntoResponse {
     println!("Fetching command: {:?}", key);
-    let command = retrieve_command(&key.api_key, &state.db).await.unwrap();
-    // TODO: Should we delete the command now or wait for some kind of confirmation from the device?
-    (StatusCode::OK, Html(command.target))
+    //let command = retrieve_command(&key.api_key, &state.db).await.unwrap();
+    // Retrieve command and if not errors occur, delete the command
+    match retrieve_command(&key.api_key, &state.db).await {
+        Ok(command) => {
+            delete_command(&state.db, command.id).await;
+            (StatusCode::OK, command.target)
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
+
+    //(StatusCode::OK, command.target)
 }
 
 #[derive(Deserialize)]
