@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
     src/uart/PicoUart.cpp
     src/uart/RingBuffer.cpp
     src/devices/gps.cpp
+    src/devices/compass.cpp
 )
 
 # Create map/bin/hex/uf2 files
