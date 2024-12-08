@@ -12,6 +12,11 @@ int main() {
     sleep_ms(1000);
     DEBUG("Booted");
 
+    Compass compass;
+    compass.init();
+
+    float heading;
+
     auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
     auto gps = std::make_unique<GPS>(uart);
     sleep_ms(2000);
@@ -19,6 +24,10 @@ int main() {
     //sleep_ms(2000);
     //gps->set_mode(GPS::Mode::ALWAYSLOCATE);
 
+    heading = compass.getHeading();
+    printf("we are pointing at %.2f degrees", heading);
+
+    gps->locate_position(600);
     for (;;) {
         sleep_ms(1000);
         Coordinates coords = gps->get_coordinates();
