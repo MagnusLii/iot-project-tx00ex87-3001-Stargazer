@@ -1,0 +1,21 @@
+services:
+    esp-builder:
+        build:
+            context: .
+        hostname: pico-build
+        volumes:
+        - .:/home/sources
+        - esp-idf:/opt/esp-idf
+        - esp-tools:/opt/esp-tools
+        devices:
+        - /dev/ttyUSB0:/dev/ttyACM0
+        command:
+          /bin/bash -c '. /opt/esp-idf/export.sh &&
+          cd /home/sources &&
+          idf.py flash'
+
+volumes:
+  esp-idf:
+    name: esp-idf
+  esp-tools:
+    name: esp-tools
