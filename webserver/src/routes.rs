@@ -8,16 +8,25 @@ use axum::{
 };
 use axum_login::{
     login_required,
-    tower_sessions::{MemoryStore, SessionManagerLayer},
+    tower_sessions::{cookie::Key, Expiry, MemoryStore, SessionManagerLayer},
     AuthManagerLayerBuilder,
 };
 use sqlx::SqlitePool;
 use std::{env, fs};
+use time::Duration;
+use tokio::{signal, task::AbortHandle};
 use tower_http::services::ServeDir;
 
 pub fn configure(user_db: SqlitePool) -> Router<api::ApiState> {
     let session_store = MemoryStore::default();
-    let session_layer = SessionManagerLayer::new(session_store);
+
+    let key = Key::generate();
+
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false)
+        .with_expiry(Expiry::OnInactivity(Duration::days(1)))
+        .with_signed(key);
+
     let backend = auth::Backend::new(user_db);
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
