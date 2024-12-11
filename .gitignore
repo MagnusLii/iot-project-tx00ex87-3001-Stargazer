@@ -10,3 +10,4 @@ cmake-build-*
 *sdkconfig*
 Dependencies.lock
 managed_components
+*/testMacros.hpp
