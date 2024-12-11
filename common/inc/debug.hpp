@@ -18,6 +18,7 @@ template <typename... Args> void print(const char *file, int line, Args... args)
 #endif
 #ifdef ENABLE_ESP_DEBUG
 #include "esp_log.h"
+#include <type_traits>
 
 namespace dbg {
 template <typename... Args>
@@ -29,9 +30,16 @@ void print(const char *file, int line, Args... args) {
     auto append_to_buffer = [&buffer, &offset](auto arg) {
         if (offset < sizeof(buffer)) {
             if constexpr (std::is_integral_v<decltype(arg)>) {
-                // Integers
-                int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%d ", arg);
-                offset += (written > 0) ? written : 0;
+                // Check if the argument is long
+                if constexpr (std::is_same_v<decltype(arg), long int>) {
+                    // Long integers
+                    int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%ld ", arg);
+                    offset += (written > 0) ? written : 0;
+                } else {
+                    // Regular integers
+                    int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%d ", arg);
+                    offset += (written > 0) ? written : 0;
+                }
             } else if constexpr (std::is_floating_point_v<decltype(arg)>) {
                 // Floats
                 int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%.2f ", arg);
@@ -41,7 +49,7 @@ void print(const char *file, int line, Args... args) {
                 int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%s ", arg);
                 offset += (written > 0) ? written : 0;
             } else {
-                // Pointers
+                // Pointers or unsupported types
                 int written = snprintf(buffer + offset, sizeof(buffer) - offset, "<unsupported> ");
                 offset += (written > 0) ? written : 0;
             }
