@@ -64,13 +64,7 @@ impl AuthnBackend for Backend {
             .fetch_optional(&self.db)
             .await?;
 
-        task::spawn_blocking(move || {
-            Ok(user.filter(|u| {
-                creds.password == u.password
-                //verify_password(creds.password, &u.password).is_ok()
-            }))
-        })
-        .await?
+        task::spawn_blocking(move || Ok(user.filter(|u| creds.password == u.password))).await?
     }
 
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
@@ -124,11 +118,3 @@ pub async fn create_admin(db: &SqlitePool) {
         .await
         .unwrap();
 }
-
-/*
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct ApiKey {
-    pub id: i64,
-    pub api_key: String,
-}
-*/

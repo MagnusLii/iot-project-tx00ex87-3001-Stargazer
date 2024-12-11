@@ -224,17 +224,17 @@ pub async fn fetch_command(
     Query(key): Query<FetchCommand>,
 ) -> impl IntoResponse {
     println!("Fetching command: {:?}", key);
-    //let command = retrieve_command(&key.api_key, &state.db).await.unwrap();
     // Retrieve command and if not errors occur, delete the command
     match retrieve_command(&key.api_key, &state.db).await {
         Ok(command) => {
             delete_command(&state.db, command.id).await;
             (StatusCode::OK, command.target)
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        Err(e) => {
+            println!("Fetch command error: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Error\n".to_string())
+        }
     }
-
-    //(StatusCode::OK, command.target)
 }
 
 #[derive(Deserialize)]
@@ -254,7 +254,7 @@ pub async fn upload(
     }
 
     let data = payload.data;
-    println!("{}", data);
+    //println!("{}", data);
 
     let decoded = general_purpose::STANDARD.decode(data).unwrap();
     assert!(infer::is_image(&decoded));
@@ -272,4 +272,12 @@ pub async fn upload(
     images::update_gallery().await;
 
     (StatusCode::OK, "Success\n")
+}
+
+pub async fn diagnostics(State(state): State<ApiState>) -> impl IntoResponse {
+    (StatusCode::OK, "todo\n")
+}
+
+pub async fn time(State(state): State<ApiState>) -> impl IntoResponse {
+    (StatusCode::OK, "todo\n")
 }

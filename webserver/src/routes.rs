@@ -37,7 +37,6 @@ pub fn configure(user_db: SqlitePool) -> Router<api::ApiState> {
         .route("/control/keys", get(api::api_keys))
         .route("/control/keys", post(api::new_key))
         .route("/control/keys", delete(api::delete_key))
-        //.route("/control/command", get(api::get_commands))
         .route("/control/command", post(api::new_command))
         .nest_service("/images", ServeDir::new("images"))
         .route_layer(login_required!(auth::Backend, login_url = "/login"))
@@ -50,6 +49,8 @@ pub fn configure(user_db: SqlitePool) -> Router<api::ApiState> {
             post(api::upload).layer(DefaultBodyLimit::max(262_144_000)),
         )
         .route("/api/command", get(api::fetch_command))
+        .route("/api/diagnostics", post(api::diagnostics))
+        .route("/api/time", get(api::time))
         .fallback(unknown_route)
 }
 

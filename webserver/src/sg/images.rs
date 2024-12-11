@@ -50,7 +50,7 @@ pub fn generate_html(images: Vec<PathBuf>) -> String {
     }
     html
 }
-//
+
 // TODO: Maybe look in to using proper html templates
 pub async fn update_gallery() -> bool {
     let tmp = env::temp_dir();
