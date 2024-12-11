@@ -1,16 +1,15 @@
 file(GLOB SRCS
     "main.cpp"
-    "../src/components/*.cpp"
+    "../src/*.cpp"
 )
 
 file(GLOB INCLUDE_DIRS
     "../inc"
-    "../inc/components"
-    "../../common/inc"
+    "../../common/inc" # Debug functions
 )
 
 idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS ${INCLUDE_DIRS}
-    REQUIRES driver sdmmc esp_event fatfs nvs_flash
+    REQUIRES driver sdmmc esp_event fatfs nvs_flash esp_wifi
 )
