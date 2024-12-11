@@ -1,7 +1,10 @@
 #include "PicoUart.hpp"
+#include "clock.hpp"
+#include "compass.hpp"
 #include "gps.hpp"
 #include "pico/stdio.h"
 #include "pico/stdlib.h"
+#include <hardware/rtc.h>
 #include <iostream>
 #include <memory>
 
@@ -9,24 +12,36 @@
 
 int main() {
     stdio_init_all();
-    sleep_ms(1000);
+    sleep_ms(2000);
     DEBUG("Booted");
 
-    Compass compass;
-    compass.init();
+    // Compass compass;
+    // compass.init();
 
-    float heading;
+    // float heading;
 
-    auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
-    auto gps = std::make_unique<GPS>(uart);
+    // auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    // auto gps = std::make_unique<GPS>(uart);
+    auto clock = std::make_unique<Clock>();
     sleep_ms(2000);
-    //gps->locate_position(15);
-    //sleep_ms(2000);
-    //gps->set_mode(GPS::Mode::ALWAYSLOCATE);
 
-    heading = compass.getHeading();
-    printf("we are pointing at %.2f degrees", heading);
+    while (!clock->is_synced()) {
+        DEBUG("Waiting for RTC to sync");
+        // Request time from ESP32
+        sleep_ms(5000);
+        uint64_t unixtime_via_esp32 = 1733785923;
+        clock->update(unixtime_via_esp32);
+    }
 
+    for (;;) {
+        sleep_ms(10000);
+        datetime_t now = clock->get_datetime();
+        DEBUG("Time:", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":",
+              unsigned(now.min), ":", unsigned(now.sec));
+    }
+    // heading = compass.getHeading();
+    // printf("we are pointing at %.2f degrees", heading);
+    /*
     gps->locate_position(600);
     for (;;) {
         sleep_ms(1000);
@@ -45,6 +60,6 @@ int main() {
             gps->locate_position(300);
         }
     }
-
+    */
     return 0;
 }
