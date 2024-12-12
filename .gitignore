@@ -11,3 +11,4 @@ cmake-build-*
 Dependencies.lock
 managed_components
 esp32-cam/inc/testMacros.hpp
+*idf_component.yml
