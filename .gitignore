@@ -12,10 +12,8 @@ db
 *esp-test
 *sdkconfig*
 managed_components
-<<<<<<< HEAD
 *.lock
 config.toml
 */testMacros.hpp
-=======
 esp32-cam/inc/testMacros.hpp
->>>>>>> b272ae6 (update gitignore)
+*idf_component.yml
