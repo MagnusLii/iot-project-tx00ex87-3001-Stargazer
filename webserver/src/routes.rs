@@ -14,7 +14,6 @@ use axum_login::{
 use sqlx::SqlitePool;
 use std::{env, fs};
 use time::Duration;
-use tokio::{signal, task::AbortHandle};
 use tower_http::services::ServeDir;
 
 pub fn configure(user_db: SqlitePool) -> Router<api::ApiState> {

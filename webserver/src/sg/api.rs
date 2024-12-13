@@ -274,10 +274,57 @@ pub async fn upload(
     (StatusCode::OK, "Success\n")
 }
 
-pub async fn diagnostics(State(state): State<ApiState>) -> impl IntoResponse {
-    (StatusCode::OK, "todo\n")
+// TODO: Exact fields still TBD
+#[derive(Deserialize)]
+pub struct DiagnosticsJson {
+    key: String,
+    status: String,
+    message: String,
 }
 
-pub async fn time(State(state): State<ApiState>) -> impl IntoResponse {
-    (StatusCode::OK, "todo\n")
+pub async fn diagnostics(
+    State(state): State<ApiState>,
+    Json(payload): Json<DiagnosticsJson>,
+) -> impl IntoResponse {
+    if !verify_key(&payload.key, &state.db).await {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized\n");
+    }
+
+    println!(
+        "New diagnostic data: [{}] {}",
+        payload.status, payload.message
+    );
+    new_diagnostic(&state.db, &payload.key, &payload.status, &payload.message).await;
+
+    (StatusCode::OK, "Success\n")
+}
+
+async fn new_diagnostic(db: &SqlitePool, key: &str, status: &str, message: &str) {
+    sqlx::query("INSERT INTO diagnostics (key, status, message) VALUES (?, ?, ?)")
+        .bind(key)
+        .bind(status)
+        .bind(message)
+        .execute(db)
+        .await
+        .unwrap();
+}
+
+pub async fn create_diagnostics_table(db: &SqlitePool) {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS diagnostics (
+            id INTEGER PRIMARY KEY,
+            key TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT,
+            FOREIGN KEY (key) REFERENCES api_keys (api_key)
+        )",
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+pub async fn time() -> impl IntoResponse {
+    let now = Utc::now().timestamp();
+    (StatusCode::OK, now.to_string())
 }

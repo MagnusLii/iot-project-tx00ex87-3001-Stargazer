@@ -39,6 +39,7 @@ async fn main() {
         println!("First run detected. Creating api keys table");
         api::create_api_keys_table(&api_state.db).await;
         api::create_command_table(&api_state.db).await;
+        api::create_diagnostics_table(&api_state.db).await;
     }
 
     let app = routes::configure(user_db).with_state(api_state);
