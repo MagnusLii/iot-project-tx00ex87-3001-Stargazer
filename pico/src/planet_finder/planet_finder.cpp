@@ -3,6 +3,22 @@
 PRIVATE
 */
 
+float normalize_degrees(float degrees) {
+    degrees = fmod(degrees, 360.0);
+    if (degrees < 0) {
+        degrees += 360.0;
+    }
+    return degrees;
+}
+
+float normalize_radians(float radians) {
+    radians = fmod(radians, 2 * M_PI);
+    if (radians < 0) {
+        radians += 2 * M_PI;
+    }
+    return radians;
+}
+
 
 float datetime_to_julian_day(datetime_t &date) {
     int year = date.year;

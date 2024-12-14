@@ -11,4 +11,6 @@
 PRIVATE
 */
 
+float normalize_degrees(float degrees);
 float datetime_to_julian_day(datetime_t &date);
+float normalize_radians(float radians);
