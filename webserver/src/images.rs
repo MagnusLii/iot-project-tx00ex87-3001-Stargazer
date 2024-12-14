@@ -57,7 +57,7 @@ pub async fn update_gallery() -> bool {
     let directory = ImageDirectory::default();
     let images = directory.find_images();
 
-    let mut html = std::include_str!("../../html/images.html").to_string();
+    let mut html = std::include_str!("../html/images.html").to_string();
     let html_images = images
         .iter()
         .map(|image| format!("<img src=\"{}\"/>", image.display().to_string()))

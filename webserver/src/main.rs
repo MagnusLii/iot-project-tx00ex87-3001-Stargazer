@@ -2,10 +2,7 @@ use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::{env, fs};
 use tokio::net::TcpListener;
 
-use webserver::{
-    routes,
-    sg::{api, auth, images},
-};
+use webserver::{api, auth, images, routes};
 
 #[tokio::main]
 async fn main() {
@@ -24,8 +21,8 @@ async fn main() {
     // Create tables and admin user if first run
     if first_run {
         println!("First run detected. Creating tables and admin user");
-        auth::create_user_table(&user_db).await;
-        auth::create_admin(&user_db).await;
+        auth::setup::create_user_table(&user_db).await;
+        auth::setup::create_admin(&user_db).await;
     }
 
     let options_api = SqliteConnectOptions::new()
@@ -37,9 +34,9 @@ async fn main() {
     // Create tables and admin user if first run
     if token_first_run {
         println!("First run detected. Creating api keys table");
-        api::create_api_keys_table(&api_state.db).await;
-        api::create_command_table(&api_state.db).await;
-        api::create_diagnostics_table(&api_state.db).await;
+        api::setup::create_api_keys_table(&api_state.db).await;
+        api::setup::create_command_table(&api_state.db).await;
+        api::setup::create_diagnostics_table(&api_state.db).await;
     }
 
     let app = routes::configure(user_db).with_state(api_state);
@@ -56,7 +53,7 @@ async fn main() {
 
     let listener = TcpListener::bind(&address).await.unwrap();
 
-    println!("Listening on: {}", address);
+    println!("Listening on: http://{}", address);
 
     axum::serve(listener, app).await.unwrap();
 }
