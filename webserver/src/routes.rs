@@ -1,77 +1,26 @@
 use crate::{
-    api::{commands, diagnostics, keys, time_srv, upload, ApiState},
-    auth::{
-        backend::Backend,
-        login::{login, login_page},
-    },
+    api::{commands, keys, ApiState},
     images,
 };
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::State,
     http::StatusCode,
     response::{Html, IntoResponse},
-    routing::{delete, get, post},
-    Router,
 };
-use axum_login::{
-    login_required,
-    tower_sessions::{cookie::Key, Expiry, MemoryStore, SessionManagerLayer},
-    AuthManagerLayerBuilder,
-};
-use sqlx::SqlitePool;
-use std::{env, fs};
-use time::Duration;
-use tower_http::services::ServeDir;
+use std::env;
+use tokio::fs;
 
-pub fn configure(user_db: SqlitePool) -> Router<ApiState> {
-    let session_store = MemoryStore::default();
-
-    let key = Key::generate();
-
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false)
-        .with_expiry(Expiry::OnInactivity(Duration::days(1)))
-        .with_signed(key);
-
-    let backend = Backend::new(user_db);
-    let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
-
-    Router::<_>::new()
-        .route("/", get(root))
-        .route("/gallery", get(gallery))
-        .route("/control", get(control))
-        .route("/control/keys", get(api_keys))
-        .route("/control/keys", post(keys::new_key))
-        .route("/control/keys", delete(keys::delete_key))
-        .route("/control/command", post(commands::new_command))
-        .route("/control/diagnostics", get(diagnostics))
-        .nest_service("/images", ServeDir::new("images"))
-        .route_layer(login_required!(Backend, login_url = "/login"))
-        .route("/login", get(login_page))
-        .route("/login", post(login))
-        .layer(auth_layer)
-        .nest_service("/assets", ServeDir::new("assets"))
-        .route(
-            "/api/upload",
-            post(upload::upload_image).layer(DefaultBodyLimit::max(262_144_000)),
-        )
-        .route("/api/command", get(commands::fetch_command))
-        .route("/api/diagnostics", post(diagnostics::send_diagnostics))
-        .route("/api/time", get(time_srv::time))
-        .fallback(unknown_route)
-}
-
-async fn root() -> impl IntoResponse {
+pub async fn root() -> impl IntoResponse {
     (
         StatusCode::OK,
         Html(std::include_str!("../html/index.html")),
     )
 }
 
-async fn gallery() -> impl IntoResponse {
+pub async fn gallery() -> impl IntoResponse {
     let tmp = env::temp_dir();
 
-    if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")) {
+    if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")).await {
         return (StatusCode::OK, Html(cached_html));
     }
 
@@ -85,13 +34,15 @@ async fn gallery() -> impl IntoResponse {
         html = "Error updating images".as_bytes().to_vec();
     } else {
         status = StatusCode::OK;
-        html = fs::read(&tmp.join("sgwebserver/images.html")).unwrap();
+        html = fs::read(&tmp.join("sgwebserver/images.html"))
+            .await
+            .unwrap();
     }
 
     (status, Html(html.into()))
 }
 
-async fn control(State(state): State<ApiState>) -> impl IntoResponse {
+pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
     let mut html = std::include_str!("../html/control.html").to_string();
     let html_keys = keys::get_api_keys(&state.db)
         .await
@@ -139,14 +90,14 @@ pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
 }
 
 // TODO: Show diagnostics
-async fn diagnostics() -> impl IntoResponse {
+pub async fn diagnostics() -> impl IntoResponse {
     (
         StatusCode::OK,
         Html(std::include_str!("../html/diagnostics.html")),
     )
 }
 
-async fn unknown_route() -> impl IntoResponse {
+pub async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
         Html(std::include_str!("../html/404.html")),
