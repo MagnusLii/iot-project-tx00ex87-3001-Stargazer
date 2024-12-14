@@ -235,5 +235,5 @@ def calculate_moon_position(date: datetime, longitude: float, latitude: float):
 if __name__ == "__main__":
     date = datetime.datetime.now(datetime.timezone.utc)
     date2 = datetime.datetime(1991, 5, 19, 13)
-    alt, az = calculate_moon_position(date, 24.931695, 60.180726)
+    alt, az = calculate_moon_position(date, 24.941511, 60.171546)
     print("Altitude:", alt, "Azimuth:", az)

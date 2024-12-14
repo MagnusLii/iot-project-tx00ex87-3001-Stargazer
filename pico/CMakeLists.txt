@@ -20,7 +20,12 @@ add_executable(${PROJECT_NAME}
     src/uart/RingBuffer.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
+    src/planet_finder/planet_finder.cpp
 )
+
+add_executable(test_planet_finder tests/planet_finder/test_planet_finder.cpp src/planet_finder/planet_finder.cpp tests/unity/unity.c)
+target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -31,6 +36,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     inc
     inc/uart
     inc/devices
+    inc/planet_finder
     ${COMMON_DIR}/inc
 )
 
@@ -38,6 +44,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     hardware_i2c
     hardware_gpio
+    hardware_rtc
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
