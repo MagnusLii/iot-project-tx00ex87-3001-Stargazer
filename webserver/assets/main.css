@@ -24,6 +24,17 @@ img {
     margin-right: 5rem;
 }
 
+#subnav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+#subnav li {
+    display: inline;
+    margin-right: 5rem;
+}
+
 #ro-key input {
     width: 500px
 }

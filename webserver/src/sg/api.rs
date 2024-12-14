@@ -282,7 +282,7 @@ pub struct DiagnosticsJson {
     message: String,
 }
 
-pub async fn diagnostics(
+pub async fn send_diagnostics(
     State(state): State<ApiState>,
     Json(payload): Json<DiagnosticsJson>,
 ) -> impl IntoResponse {
