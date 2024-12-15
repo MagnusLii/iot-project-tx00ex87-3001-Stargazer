@@ -1,6 +1,6 @@
 use crate::{api, auth, images};
 use sqlx::SqlitePool;
-use std::env;
+use std::{env, path::Path};
 use tokio::{fs, io};
 
 pub struct Databases {
@@ -30,13 +30,18 @@ pub async fn setup(
         Err(e) => panic!("Error setting up tmp dir: {}", e),
     };
 
-    images::update_gallery().await;
+    match setup_file_dirs("assets").await {
+        Ok(_) => {
+            images::update_gallery().await;
+        }
+        Err(e) => panic!("Error setting up file dirs: {}", e),
+    };
 
     Ok(Databases { user_db, api_state })
 }
 
 pub async fn setup_user_database(user_db_path: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
-    let path = std::path::Path::new(user_db_path);
+    let path = Path::new(user_db_path);
     let exists = path.exists();
 
     if !exists {
@@ -60,7 +65,7 @@ pub async fn setup_user_database(user_db_path: &str) -> Result<sqlx::SqlitePool,
 }
 
 pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx::Error> {
-    let path = std::path::Path::new(api_db_path);
+    let path = Path::new(api_db_path);
     let exists = path.exists();
 
     if !exists {
@@ -87,5 +92,15 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx
 pub async fn setup_cache_dir(tmp_dir: &str) -> Result<(), io::Error> {
     let cache_dir_path = env::temp_dir().join(tmp_dir);
     fs::create_dir_all(&cache_dir_path).await?;
+    Ok(())
+}
+
+// Creates the assets and images directories if they don't exist
+// This is mostly for purposes of preventing the server from crashing if the directories are missing
+// but at least the assets directory should be there and populated before the server is started
+pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
+    let assets_path = Path::new(assets_dir_path);
+
+    fs::create_dir_all(assets_path.join("images")).await?;
     Ok(())
 }

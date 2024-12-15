@@ -26,7 +26,7 @@ impl ImageDirectory {
 impl Default for ImageDirectory {
     fn default() -> Self {
         Self {
-            path: PathBuf::from("./images"),
+            path: PathBuf::from("./assets/images"),
             extensions: vec![
                 String::from("png"),
                 String::from("jpg"),
@@ -40,7 +40,10 @@ impl Default for ImageDirectory {
 }
 
 fn generate_image_url(path: &PathBuf) -> String {
-    format!("/images/{}", path.file_name().unwrap().to_str().unwrap())
+    format!(
+        "/assets/images/{}",
+        path.file_name().unwrap().to_str().unwrap()
+    )
 }
 
 pub fn generate_html(images: Vec<PathBuf>) -> String {
@@ -64,11 +67,6 @@ pub async fn update_gallery() -> bool {
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--IMAGES-->", &html_images);
-
-    println!(
-        "Write path: {}",
-        &tmp.join("sgwebserver/images.html").display()
-    );
 
     let result = match fs::write(&tmp.join("sgwebserver/images.html"), html) {
         Ok(_) => true,

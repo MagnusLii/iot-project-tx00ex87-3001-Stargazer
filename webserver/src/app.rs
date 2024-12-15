@@ -62,7 +62,7 @@ impl App {
             .route("/control/keys", delete(keys::delete_key))
             .route("/control/command", post(commands::new_command))
             .route("/control/diagnostics", get(routes::diagnostics))
-            .nest_service("/images", ServeDir::new("images"))
+            .nest_service("/assets/images", ServeDir::new("assets/images"))
             .route_layer(login_required!(Backend, login_url = "/login"))
             .route("/login", get(login_page))
             .route("/login", post(login))
