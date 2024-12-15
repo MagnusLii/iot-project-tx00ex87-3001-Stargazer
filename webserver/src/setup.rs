@@ -1,5 +1,6 @@
 use crate::{api, auth, images};
 use sqlx::SqlitePool;
+use std::env;
 use tokio::{fs, io};
 
 pub struct Databases {
@@ -24,7 +25,7 @@ pub async fn setup(
         Err(e) => panic!("Error setting up API database: {}", e),
     };
 
-    match setup_tmp_dir("tmp").await {
+    match setup_cache_dir("sgwebserver").await {
         Ok(_) => {}
         Err(e) => panic!("Error setting up tmp dir: {}", e),
     };
@@ -35,11 +36,12 @@ pub async fn setup(
 }
 
 pub async fn setup_user_database(user_db_path: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
-    let user_db_exists = std::path::Path::new(user_db_path).exists();
+    let path = std::path::Path::new(user_db_path);
+    let exists = path.exists();
 
-    if !user_db_exists {
+    if !exists {
         println!("User database does not exist. Creating...");
-        fs::create_dir_all(user_db_path)
+        fs::create_dir_all(path.parent().unwrap())
             .await
             .expect("Failed to create directory");
     }
@@ -49,7 +51,7 @@ pub async fn setup_user_database(user_db_path: &str) -> Result<sqlx::SqlitePool,
         .create_if_missing(true);
     let user_db = sqlx::SqlitePool::connect_with(options_users).await.unwrap();
 
-    if !user_db_exists {
+    if !exists {
         auth::setup::create_user_table(&user_db).await;
         auth::setup::create_admin(&user_db).await;
     }
@@ -58,11 +60,12 @@ pub async fn setup_user_database(user_db_path: &str) -> Result<sqlx::SqlitePool,
 }
 
 pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx::Error> {
-    let api_db_exists = std::path::Path::new(api_db_path).exists();
+    let path = std::path::Path::new(api_db_path);
+    let exists = path.exists();
 
-    if !api_db_exists {
+    if !exists {
         println!("API database does not exist. Creating...");
-        fs::create_dir_all(api_db_path)
+        fs::create_dir_all(path.parent().unwrap())
             .await
             .expect("Failed to create directory");
     }
@@ -72,7 +75,7 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx
         .create_if_missing(true);
     let api_db = sqlx::SqlitePool::connect_with(options_api).await.unwrap();
 
-    if !api_db_exists {
+    if !exists {
         api::setup::create_api_keys_table(&api_db).await;
         api::setup::create_command_table(&api_db).await;
         api::setup::create_diagnostics_table(&api_db).await;
@@ -81,7 +84,8 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx
     Ok(api::ApiState { db: api_db }) // Return the api_db in an ApiState struct
 }
 
-pub async fn setup_tmp_dir(tmp_dir_path: &str) -> Result<(), io::Error> {
-    fs::create_dir_all(tmp_dir_path).await?;
+pub async fn setup_cache_dir(tmp_dir: &str) -> Result<(), io::Error> {
+    let cache_dir_path = env::temp_dir().join(tmp_dir);
+    fs::create_dir_all(&cache_dir_path).await?;
     Ok(())
 }
