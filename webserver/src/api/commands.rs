@@ -69,14 +69,14 @@ async fn delete_command(db: &SqlitePool, id: i64) {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct AllCommandsSql {
+pub struct MultipleCommandSql {
     pub target: String,
     pub associated_key: i64,
     pub id: i64,
     pub name: String,
 }
 
-pub async fn get_commands(db: &SqlitePool) -> Result<Vec<AllCommandsSql>, Error> {
+pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Error> {
     let commands = sqlx::query_as(
         "SELECT commands.id AS id, 
         commands.target AS target, 

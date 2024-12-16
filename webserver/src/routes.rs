@@ -1,12 +1,13 @@
 use crate::{
     api::{commands, keys, ApiState},
-    images,
+    web::{diagnostics::get_diagnostics, images},
 };
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
+use serde::Deserialize;
 use std::env;
 use tokio::fs;
 
@@ -89,12 +90,32 @@ pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-// TODO: Show diagnostics
-pub async fn diagnostics() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        Html(std::include_str!("../html/diagnostics.html")),
-    )
+#[derive(Debug, Deserialize)]
+pub struct DiagnosticQuery {
+    name: Option<String>,
+}
+
+pub async fn diagnostics(
+    State(state): State<ApiState>,
+    Query(name): Query<DiagnosticQuery>,
+) -> impl IntoResponse {
+    let mut html = include_str!("../html/diagnostics.html").to_string();
+
+    let html_diagnostics = get_diagnostics(name.name, &state.db)
+        .await
+        .unwrap()
+        .iter()
+        .map(|diagnostic| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                diagnostic.name, diagnostic.status, diagnostic.message
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+    html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+
+    (StatusCode::OK, Html(html))
 }
 
 pub async fn unknown_route() -> impl IntoResponse {

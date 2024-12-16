@@ -1,4 +1,4 @@
-use crate::{api, auth, images};
+use crate::{api, auth, web::images};
 use sqlx::SqlitePool;
 use std::{env, path::Path};
 use tokio::{fs, io};
