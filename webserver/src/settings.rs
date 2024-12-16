@@ -21,7 +21,7 @@ impl Settings {
             .set_default("port", 8080)?
             .set_default("db_dir", "db")?
             .set_default("assets_dir", "assets")?
-            .add_source(File::with_name("config"))
+            .add_source(File::with_name("config").required(false))
             .set_override_option("address", address)?
             .set_override_option("port", port)?
             .set_override_option("db_dir", db_dir)?
