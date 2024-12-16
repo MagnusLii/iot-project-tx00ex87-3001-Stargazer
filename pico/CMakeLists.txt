@@ -20,6 +20,7 @@ add_executable(${PROJECT_NAME}
     src/uart/RingBuffer.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
+    src/hardware/clock.cpp
 )
 
 # Create map/bin/hex/uf2 files
@@ -31,6 +32,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     inc
     inc/uart
     inc/devices
+    inc/hardware
     ${COMMON_DIR}/inc
 )
 
@@ -38,6 +40,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     hardware_i2c
     hardware_gpio
+    hardware_rtc
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
