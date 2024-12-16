@@ -9,6 +9,7 @@ axum = { version = "0.7.9", features = ["macros"] }
 axum-login = "0.16.0"
 base64 = "0.22.1"
 chrono = "0.4.38"
+clap = { version = "4.5.23", features = ["derive"] }
 config = { version = "0.14.1", default-features = false, features = ["async", "async-trait", "convert-case", "convert_case", "toml"] }
 infer = "0.16.0"
 serde = "1.0.215"

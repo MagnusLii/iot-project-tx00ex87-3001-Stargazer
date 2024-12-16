@@ -11,6 +11,7 @@ pub struct Databases {
 pub async fn setup(
     user_db_path: &str,
     api_db_path: &str,
+    assets_dir_path: &str,
 ) -> Result<Databases, Box<dyn std::error::Error>> {
     let user_db: SqlitePool;
     let api_state: api::ApiState;
@@ -30,7 +31,7 @@ pub async fn setup(
         Err(e) => panic!("Error setting up tmp dir: {}", e),
     };
 
-    match setup_file_dirs("assets").await {
+    match setup_file_dirs(assets_dir_path).await {
         Ok(_) => {
             images::update_gallery().await;
         }
