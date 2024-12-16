@@ -1,21 +1,18 @@
 use sqlx::SqlitePool;
-use std::env;
-
-use webserver::{api::ApiState, app::App, setup::setup};
+use webserver::{api::ApiState, app::App, settings::Settings, setup::setup};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let address = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "127.0.0.1:7878".to_string());
+    let settings = Settings::new(None, None, None, None).unwrap();
 
-    let user_db_path = "db/users.db";
-    let api_db_path = "db/api.db";
+    let address = format!("{}:{}", settings.address, settings.port);
+    let user_db_path = format!("{}/users.db", settings.db_dir);
+    let api_db_path = format!("{}/api.db", settings.db_dir);
 
     let user_db: SqlitePool;
     let api_state: ApiState;
 
-    if let Ok(dbs) = setup(user_db_path, api_db_path).await {
+    if let Ok(dbs) = setup(&user_db_path, &api_db_path).await {
         user_db = dbs.user_db;
         api_state = dbs.api_state;
     } else {

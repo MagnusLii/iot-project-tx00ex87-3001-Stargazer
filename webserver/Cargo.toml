@@ -9,6 +9,7 @@ axum = { version = "0.7.9", features = ["macros"] }
 axum-login = "0.16.0"
 base64 = "0.22.1"
 chrono = "0.4.38"
+config = { version = "0.14.1", default-features = false, features = ["async", "async-trait", "convert-case", "convert_case", "toml"] }
 infer = "0.16.0"
 serde = "1.0.215"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite", "time"] }
