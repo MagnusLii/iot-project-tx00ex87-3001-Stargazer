@@ -28,7 +28,6 @@ impl Settings {
             .set_override_option("assets_dir", assets_dir)?;
 
         let config = builder.build()?;
-        dbg!(&config);
 
         Ok(Settings {
             address: config.get("address")?,
@@ -36,5 +35,12 @@ impl Settings {
             db_dir: config.get("db_dir")?,
             assets_dir: config.get("assets_dir")?,
         })
+    }
+
+    pub fn print(&self) {
+        println!("Address: {}", self.address);
+        println!("Port: {}", self.port);
+        println!("DB Dir: {}", self.db_dir);
+        println!("Assets Dir: {}", self.assets_dir);
     }
 }

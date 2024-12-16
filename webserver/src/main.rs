@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let settings = Settings::new(args.address, args.port, args.db_dir, args.assets_dir).unwrap();
+    settings.print();
 
     let address = format!("{}:{}", settings.address, settings.port);
     let user_db_path = format!("{}/users.db", settings.db_dir);
