@@ -1,5 +1,5 @@
 # Requirements
-- Rust compiler (tested on 1.82)
+- Rust compiler (tested on 1.823
 - sqlite3
 
 # Test upload images
@@ -9,7 +9,7 @@ curl -H "Content-Type: application/json" --request POST --data @img.json 127.0.0
 where @img.json contains:
 ```
 {
-    "key":"<api_key>",
+    "toke":"<api_token>",
     "data":"<base64_data>"
 }
 ```
