@@ -24,30 +24,51 @@
 #include "requestHandler.hpp"
 #include "debug.hpp"
 
+#include "esp_sntp.h"
+#include "timesync-lib.hpp"
+
 extern "C" {
     void app_main(void);
 }
 void app_main(void){
-    // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096, NULL, TaskPriorities::ABSOLUTE, NULL);
+    DEBUG("Starting main");
 
-    DEBUG("Starting main\n");
-    // while (1){
-    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //     DEBUG("Still running\n");
-    // }
+
+
+
+    // // while (1){
+    // //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // //     DEBUG("Still running\n");
+    // // }
     
 
     WirelessHandler wifi;
     wifi.connect(WIFI_SSID, WIFI_PASSWORD);
-    while (!wifi.isConnected())
-    {
+    while (!wifi.isConnected()){
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    xTaskCreate(http_get_task, "http_get_task", 4096, NULL, TaskPriorities::LOW, NULL);
-    while (1)
-    {
+    set_tz();
+
+    char time[20];
+    if (get_localtime_string(time, 20) == timeSyncLibReturnCodes::SUCCESS){
+        DEBUG(time);
+    }
+    SDcard sdcard("/sdcard");
+    RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_PATH, std::make_shared<WirelessHandler>(wifi), std::make_shared<SDcard>(sdcard));
+    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
+
+    xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096, (void*)&cameraPtr, TaskPriorities::ABSOLUTE, NULL);
+
+    // xTaskCreate(http_get_task, "http_get_task", 4096, NULL, TaskPriorities::LOW, NULL);
+    // while (1)
+    // {
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // }
+
+
+    while (1){
+        // DEBUG("app_main endless catch");
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-
 }
