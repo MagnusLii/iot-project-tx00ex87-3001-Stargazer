@@ -38,7 +38,7 @@ async fn delete_command(db: &SqlitePool, id: i64) {
 
 #[derive(Debug, Deserialize)]
 pub struct FetchCommandQuery {
-    api_key: String,
+    token: String,
 }
 
 pub async fn fetch_command(
@@ -47,14 +47,26 @@ pub async fn fetch_command(
 ) -> impl IntoResponse {
     println!("Fetching command with: {:?}", key);
     // Retrieve command and if not errors occur, delete the command
-    match retrieve_command(&key.api_key, &state.db).await {
+    match retrieve_command(&key.token, &state.db).await {
         Ok(command) => {
             delete_command(&state.db, command.id).await; // TODO: Maybe mark as fetched instead?
             (StatusCode::OK, command.target)
         }
-        Err(e) => {
-            println!("Fetch command error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Error\n".to_string())
-        }
+        Err(e) => match e {
+            Error::Sqlx(e) => match e {
+                sqlx::Error::RowNotFound => {
+                    println!("Error: {}", e);
+                    (StatusCode::OK, "empty".to_string())
+                }
+                _ => {
+                    println!("Error: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Error".to_string())
+                }
+            },
+            _ => {
+                println!("Error: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Error".to_string())
+            }
+        },
     }
 }

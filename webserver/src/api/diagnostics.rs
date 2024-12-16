@@ -10,7 +10,7 @@ use sqlx::SqlitePool;
 // TODO: Exact fields still TBD
 #[derive(Deserialize)]
 pub struct DiagnosticsJson {
-    key: String,
+    token: String,
     status: String,
     message: String,
 }
@@ -19,7 +19,7 @@ pub async fn send_diagnostics(
     State(state): State<ApiState>,
     Json(payload): Json<DiagnosticsJson>,
 ) -> impl IntoResponse {
-    if !verify_key(&payload.key, &state.db).await {
+    if !verify_key(&payload.token, &state.db).await {
         return (StatusCode::UNAUTHORIZED, "Unauthorized\n");
     }
 
@@ -27,14 +27,14 @@ pub async fn send_diagnostics(
         "New diagnostic data: [{}] {}",
         payload.status, payload.message
     );
-    new_diagnostic(&state.db, &payload.key, &payload.status, &payload.message).await;
+    new_diagnostic(&state.db, &payload.token, &payload.status, &payload.message).await;
 
     (StatusCode::OK, "Success\n")
 }
 
-async fn new_diagnostic(db: &SqlitePool, key: &str, status: &str, message: &str) {
-    sqlx::query("INSERT INTO diagnostics (key, status, message) VALUES (?, ?, ?)")
-        .bind(key)
+async fn new_diagnostic(db: &SqlitePool, token: &str, status: &str, message: &str) {
+    sqlx::query("INSERT INTO diagnostics (token, status, message) VALUES (?, ?, ?)")
+        .bind(token)
         .bind(status)
         .bind(message)
         .execute(db)
