@@ -1,5 +1,5 @@
 # Requirements
-- Rust compiler (tested on 1.823
+- Rust compiler (tested on 1.83)
 - sqlite3
 
 # Test upload images
