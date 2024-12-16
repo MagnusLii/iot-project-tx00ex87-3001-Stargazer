@@ -1,4 +1,0 @@
-address = "127.0.0.1"
-port = 8080
-db_dir = "/home/rsth/Code/Stargazer-Project/webserver/db"
-assets_dir = "/home/rsth/Code/Stargazer-Project/webserver/assets"

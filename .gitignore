@@ -13,3 +13,4 @@ db
 *sdkconfig*
 managed_components
 *.lock
+config.toml
