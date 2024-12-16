@@ -2,6 +2,8 @@
 #include "clock.hpp"
 #include "compass.hpp"
 #include "gps.hpp"
+#include "compass.hpp"
+#include "stepper-motor.hpp"
 #include "pico/stdio.h"
 #include "pico/stdlib.h"
 #include <hardware/rtc.h>
@@ -15,7 +17,12 @@ int main() {
     sleep_ms(2000);
     DEBUG("Booted");
 
-    Compass compass;
+    Motor motor_one(6, 7, 8, 9);
+    motor_one.initialize();
+    for (int i = 0; i < 100; ++i) {
+        motor_one.turnSteps(1024);
+    }
+    /* Compass compass;
     compass.init();
 
     float heading;
@@ -59,6 +66,7 @@ int main() {
             gps->locate_position(300);
         }
     }
+*/
 
     return 0;
 }
