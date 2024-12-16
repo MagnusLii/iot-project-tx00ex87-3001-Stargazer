@@ -15,14 +15,14 @@ int main() {
     sleep_ms(2000);
     DEBUG("Booted");
 
-    // Compass compass;
-    // compass.init();
+    Compass compass;
+    compass.init();
 
-    // float heading;
+    float heading;
 
-    // auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
-    // auto gps = std::make_unique<GPS>(uart);
-    auto clock = std::make_unique<Clock>();
+    auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto gps = std::make_unique<GPS>(uart);
+    auto clock = std::make_shared<Clock>();
     sleep_ms(2000);
 
     while (!clock->is_synced()) {
@@ -33,15 +33,14 @@ int main() {
         clock->update(unixtime_via_esp32);
     }
 
-    for (;;) {
-        sleep_ms(10000);
-        datetime_t now = clock->get_datetime();
-        DEBUG("Time:", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":",
-              unsigned(now.min), ":", unsigned(now.sec));
-    }
-    // heading = compass.getHeading();
-    // printf("we are pointing at %.2f degrees", heading);
-    /*
+    sleep_ms(10000);
+    datetime_t now = clock->get_datetime();
+    DEBUG("Time:", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":",
+          unsigned(now.min), ":", unsigned(now.sec));
+
+    heading = compass.getHeading();
+    printf("we are pointing at %.2f degrees", heading);
+
     gps->locate_position(600);
     for (;;) {
         sleep_ms(1000);
@@ -60,6 +59,6 @@ int main() {
             gps->locate_position(300);
         }
     }
-    */
+
     return 0;
 }
