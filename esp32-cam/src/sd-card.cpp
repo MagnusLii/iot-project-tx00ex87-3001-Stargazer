@@ -9,7 +9,10 @@
 SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2, int D3) {
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
                                                      .max_files = max_open_files,
-                                                     .allocation_unit_size = 16 * 1024};
+                                                     .allocation_unit_size = 16 * 1024,
+                                                     .disk_status_check_enable = false,
+                                                     .use_one_fat = false
+                                                    };
     sdmmc_card_t *card;
 
     const char* mount_point = mount_point_arg.c_str();
@@ -26,7 +29,7 @@ SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0,
     sd_card_status = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
 
     if (sd_card_status != ESP_OK) {
-        DEBUG("Failed to mount SD card\n");
+        DEBUG("Failed to mount SD card");
         // TODO: Handle error
     }
 
