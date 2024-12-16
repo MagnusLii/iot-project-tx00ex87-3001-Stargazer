@@ -1,4 +1,4 @@
-use crate::api::{keys::verify_key, ApiState};
+use crate::{api::ApiState, keys::verify_key};
 use axum::{
     extract::{Json, State},
     http::StatusCode,

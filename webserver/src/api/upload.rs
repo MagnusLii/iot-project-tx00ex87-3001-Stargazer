@@ -1,7 +1,4 @@
-use crate::{
-    api::{keys::verify_key, ApiState},
-    web::images,
-};
+use crate::{api::ApiState, keys::verify_key, web::images};
 use axum::{
     extract::{Json, State},
     http::StatusCode,

@@ -1,6 +1,7 @@
 use crate::{
-    api::{commands, keys, ApiState},
-    web::{diagnostics::get_diagnostics, images},
+    api::ApiState,
+    keys,
+    web::{commands::get_commands, diagnostics::get_diagnostics, images},
 };
 use axum::{
     extract::{Query, State},
@@ -14,7 +15,7 @@ use tokio::fs;
 pub async fn root() -> impl IntoResponse {
     (
         StatusCode::OK,
-        Html(std::include_str!("../html/index.html")),
+        Html(std::include_str!("../../html/index.html")),
     )
 }
 
@@ -44,8 +45,8 @@ pub async fn gallery() -> impl IntoResponse {
 }
 
 pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
-    let mut html = std::include_str!("../html/control.html").to_string();
-    let html_keys = keys::get_api_keys(&state.db)
+    let mut html = std::include_str!("../../html/control.html").to_string();
+    let html_keys = keys::get_keys(&state.db)
         .await
         .unwrap()
         .iter()
@@ -54,7 +55,7 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
         .join("\n");
     html = html.replace("<!--API_KEYS-->", &html_keys);
 
-    let html_commands = commands::get_commands(&state.db)
+    let html_commands = get_commands(&state.db)
         .await
         .unwrap()
         .iter()
@@ -72,15 +73,15 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
 }
 
 pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
-    let mut html = include_str!("../html/keys.html").to_string();
-    let html_keys = keys::get_api_keys(&state.db)
+    let mut html = include_str!("../../html/keys.html").to_string();
+    let html_keys = keys::get_keys(&state.db)
         .await
         .unwrap()
         .iter()
         .map(|key| {
             format!(
                 "<li value=\"{}\">{}: {}</li><button onclick=\"deleteKey({})\">Delete</button>",
-                key.id, key.name, key.api_key, key.id
+                key.id, key.name, key.api_token, key.id
             )
         })
         .collect::<Vec<String>>()
@@ -99,7 +100,7 @@ pub async fn diagnostics(
     State(state): State<ApiState>,
     Query(name): Query<DiagnosticQuery>,
 ) -> impl IntoResponse {
-    let mut html = include_str!("../html/diagnostics.html").to_string();
+    let mut html = include_str!("../../html/diagnostics.html").to_string();
 
     let html_diagnostics = get_diagnostics(name.name, &state.db)
         .await
@@ -121,6 +122,6 @@ pub async fn diagnostics(
 pub async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
-        Html(std::include_str!("../html/404.html")),
+        Html(std::include_str!("../../html/404.html")),
     )
 }

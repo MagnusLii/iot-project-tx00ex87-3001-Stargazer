@@ -15,8 +15,8 @@ pub async fn get_diagnostics(
 ) -> Result<Vec<DiagnosticsSql>, Error> {
     if let Some(name) = name {
         let diagnostics = sqlx::query_as(
-            "SELECT api_keys.name AS name, diagnostics.status AS status, diagnostics.message AS message 
-            FROM diagnostics JOIN api_keys ON diagnostics.key = api_keys.api_key WHERE name = ?"
+            "SELECT keys.name AS name, diagnostics.status AS status, diagnostics.message AS message 
+            FROM diagnostics JOIN keys ON diagnostics.token = keys.api_token WHERE name = ?"
         )
         .bind(name)
         .fetch_all(db)
@@ -24,8 +24,8 @@ pub async fn get_diagnostics(
         Ok(diagnostics)
     } else {
         let diagnostics = sqlx::query_as(
-            "SELECT api_keys.name AS name, diagnostics.status AS status, diagnostics.message AS message
-            FROM diagnostics JOIN api_keys ON diagnostics.key = api_keys.api_key"
+            "SELECT keys.name AS name, diagnostics.status AS status, diagnostics.message AS message
+            FROM diagnostics JOIN keys ON diagnostics.token = keys.api_token",
         )
         .fetch_all(db)
         .await?;
