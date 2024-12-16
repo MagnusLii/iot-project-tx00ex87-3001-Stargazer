@@ -1,0 +1,40 @@
+* {
+    background: black;
+    color: white;
+}
+
+img {
+    margin: 50px;
+    max-width: 50%;
+    height: auto;
+}
+
+.active {
+    background-color: #4CAF50;
+}
+
+#nav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+#nav li {
+    display: inline;
+    margin-right: 5rem;
+}
+
+#subnav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+#subnav li {
+    display: inline;
+    margin-right: 5rem;
+}
+
+#ro-key input {
+    width: 500px
+}
