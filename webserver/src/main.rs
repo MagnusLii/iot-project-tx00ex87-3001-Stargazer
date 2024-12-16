@@ -1,6 +1,5 @@
 use clap::Parser;
-use sqlx::SqlitePool;
-use webserver::{api::ApiState, app::App, settings::Settings, setup::setup};
+use webserver::{app::App, init::settings::Settings, init::setup::setup};
 
 /// Stargazer webserver
 #[derive(Parser, Debug)]
@@ -30,15 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_db_path = format!("{}/users.db", settings.db_dir);
     let api_db_path = format!("{}/api.db", settings.db_dir);
 
-    let user_db: SqlitePool;
-    let api_state: ApiState;
-
     if let Ok(dbs) = setup(&user_db_path, &api_db_path, &settings.assets_dir).await {
-        user_db = dbs.user_db;
-        api_state = dbs.api_state;
+        App::new(dbs.user_db, dbs.api_state)
+            .await?
+            .serve(&address)
+            .await
     } else {
         panic!("Error during setup. Exiting..");
     }
-
-    App::new(user_db, api_state).await?.serve(&address).await
 }
