@@ -15,7 +15,7 @@
 ## ESP & Pico comms
 Protocol: UART<br>
 Format: Custom Format<br>
-example: `$<PREFIX>,<stuff>,<stuff2>,...;`<br>
+example: `$<PREFIX>,<stuff>,<stuff2>,...<CRC>;`<br>
 "$" Starts the message, ";" ends the message, `<PREFIX>` is the identifier for data, `<stuffX>` is data value.<br>
 
 Prefix values:<br>
@@ -30,12 +30,12 @@ Prefix values:<br>
 Stuff to send:
 
 -   Datetime (Pico requests, ESP responds)<br>
-    `$<2>,<Timestamp(int)>;`<br>
-    `$<1>,<Bool>;` True = ack, False nack.
+    `$<2>,<Timestamp(int)>,<CRC>;`<br>
+    `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   ESP init ready state message (ESP sends to pico when it's done initializing)<br>
-    `$<3>,<bool>;` True = ready, False = ESP is fucked.<br>
-    `$<1>,<Bool>;` True = ack, False nack.
+    `$<3>,<bool>,<CRC>;` True = ready, False = ESP is fucked.<br>
+    `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   Image taking<br>
     ESP sends id of object to take picture of.<br>
@@ -43,11 +43,11 @@ Stuff to send:
     Pico responds when the device is pointed at the celectial object and is ready to take a picture.<br>
     ESP takes picture and sends confirmation to Pico.<br>
 
-    `$<4>,<Celestial object ID (int)>,<Image/command ID (int)>;`<br>
-    `$<1>,<Bool>;` True = ack, False nack.<br>
-    `$<5>,<Celestial object ID (int)>,<Image/command ID (int);`<br>
-    `$<1>,<Bool>;` True = ack, False nack.<br>
+    `$<4>,<Celestial object ID (int)>,<Image/command ID (int)>,<CRC>;`<br>
+    `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
+    `$<5>,<Celestial object ID (int)>,<Image/command ID (int),<CRC>;`<br>
+    `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
 
 -   Diagnostics data from pico.<br>
-    `$<6>,<TBD>...;`<br>
-    `$<1>,<Bool>;` True = ack, False nack.<br>
+    `$<6>,<TBD>,...,<CRC>;`<br>
+    `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
