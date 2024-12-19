@@ -21,6 +21,14 @@ add_executable(${PROJECT_NAME}
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/hardware/clock.cpp
+    src/devices/stepper-motor.cpp
+)
+
+add_executable(${PROJECT_NAME}_test
+    src/test_main.cpp
+    src/uart/PicoUart.cpp
+    src/uart/RingBuffer.cpp
+    src/hardware/clock.cpp
 )
 
 # Create map/bin/hex/uf2 files
@@ -36,7 +44,23 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${COMMON_DIR}/inc
 )
 
+target_include_directories(${PROJECT_NAME}_test PRIVATE
+    src
+    inc
+    inc/uart
+    inc/devices
+    inc/hardware
+    ${COMMON_DIR}/inc
+)
+
 target_link_libraries(${PROJECT_NAME} 
+    pico_stdlib
+    hardware_i2c
+    hardware_gpio
+    hardware_rtc
+)
+
+target_link_libraries(${PROJECT_NAME}_test 
     pico_stdlib
     hardware_i2c
     hardware_gpio
@@ -51,3 +75,5 @@ ENDIF()
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
+pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 0)
