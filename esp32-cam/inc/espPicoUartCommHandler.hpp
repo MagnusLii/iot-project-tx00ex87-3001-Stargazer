@@ -18,11 +18,17 @@ class EspPicoCommHandler {
                                                               .rx_flow_ctrl_thresh = 122,
                                                           });
 
+    void send_data(const char* data, size_t len);
+    int receive_data(char* buffer, size_t max_len);
+
+    uart_port_t get_uart_num();
+    uart_config_t get_uart_config();
+    QueueHandle_t get_uart_event_queue();
+
   private:
     uart_port_t uart_num;
     uart_config_t uart_config;
     QueueHandle_t uart_event_queue;
-
 };
 
 #endif
