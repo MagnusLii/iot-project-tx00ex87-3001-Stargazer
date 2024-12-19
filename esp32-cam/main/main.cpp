@@ -2,12 +2,12 @@
 #define BUFFER_SIZE 1024
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
 #include <nvs_flash.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/param.h>
 
 #include "freertos/FreeRTOS.h"
@@ -75,7 +75,7 @@ void app_main(void) {
     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
     // }
 
-    while (1) {
+    while (1){
         // DEBUG("app_main endless catch");
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
