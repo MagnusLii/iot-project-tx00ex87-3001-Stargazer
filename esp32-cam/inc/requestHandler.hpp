@@ -5,6 +5,7 @@
 #include "wireless.hpp"
 #include <memory>
 #include <string>
+#include "defines.hpp"
 
 #define ENQUEUE_REQUEST_RETRIES 3
 #define QUEUE_SIZE              10
