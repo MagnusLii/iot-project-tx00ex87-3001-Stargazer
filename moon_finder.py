@@ -235,8 +235,12 @@ def calculate_moon_position(date: datetime, longitude: float, latitude: float):
 if __name__ == "__main__":
     date = datetime.datetime.now(datetime.timezone.utc)
     date2 = datetime.datetime(1991, 5, 19, 13)
+    date3 = datetime.datetime(1990, 4, 19, 0, 0)
     # alt, az = calculate_moon_position(date, 24.941511, 60.171546)
     # print("Altitude:", alt, "Azimuth:", az)
     julian = calculate_julian_day(date2)
+    julian3 = calculate_julian_day(date3)
+    j2000 = calculate_J2000_day(julian3)
     print(julian)
     print(calculate_J2000_day(julian))
+    print(calculate_local_sidereal_time(j2000, 24.9384))

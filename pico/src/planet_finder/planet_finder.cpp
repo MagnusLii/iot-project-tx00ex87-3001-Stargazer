@@ -4,7 +4,7 @@ PRIVATE
 */
 
 
-orbital_elements::orbital_elements(float J2000_day, Planets planet) {
+orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     switch (planet) {
     case SUN:
         N = 0.0;
@@ -81,7 +81,7 @@ orbital_elements::orbital_elements(float J2000_day, Planets planet) {
     }
 }
 
-float normalize_degrees(float degrees) {
+double normalize_degrees(double degrees) {
     degrees = fmod(degrees, 360.0);
     if (degrees < 0) {
         degrees += 360.0;
@@ -89,7 +89,7 @@ float normalize_degrees(float degrees) {
     return degrees;
 }
 
-float normalize_radians(float radians) {
+double normalize_radians(double radians) {
     radians = fmod(radians, 2 * M_PI);
     if (radians < 0) {
         radians += 2 * M_PI;
@@ -97,22 +97,24 @@ float normalize_radians(float radians) {
     return radians;
 }
 
-static inline float to_rads(float degrees) {
+static inline double to_rads(double degrees) {
     return degrees * M_PI / 180.0;
 }
 
-static inline float to_degrees(float rads) {
+static inline double to_degrees(double rads) {
     return rads * 180.0 / M_PI;
 }
 
-float datetime_to_j2000_day(datetime_t &date) {
+double datetime_to_j2000_day(datetime_t &date) {
     int d = 367*date.year - 7 * ( date.year + (date.month+9)/12 ) / 4 - 3 * ( ( date.year + (date.month-9)/7 ) / 100 + 1 ) / 4 + 275*date.month/9 + date.day - 730515;
-    float ut = (float)date.hour + ((float)date.min / 60.0); // can add seconds too but there's no point
-    return (float)d + ut / 24.0;
+    double ut = (double)date.hour + ((double)date.min / 60.0); // can add seconds too but there's no point
+    return (double)d + ut / 24.0;
 }
 
-float local_sidereal_time(float J2000_day, float longitude) {
-    float LMST = 280.46061837 + 360.98564736629 * J2000_day + longitude;
+double local_sidereal_time(double J2000_day, double longitude) {
+    double J = J2000_day + 2451543.5 - 2451545.0;
+    double T = J / 36525.0;
+    double LMST = 280.46061837 + 360.98564736629 * J + 0.000387933*T*T - T*T*T / 38710000.0 + longitude; // degrees
     return normalize_degrees(LMST);
 
 }
