@@ -29,6 +29,9 @@ add_executable(${PROJECT_NAME}_test
     src/uart/PicoUart.cpp
     src/uart/RingBuffer.cpp
     src/hardware/clock.cpp
+    src/convert.cpp
+    src/commbridge.cpp
+    src/message.cpp
 )
 
 # Create map/bin/hex/uf2 files
