@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include "convert.hpp"
+#include "crc.hpp"
+#include <cstdint>
 
 enum MessageType {
     UNASSIGNED = 0,   // don't use

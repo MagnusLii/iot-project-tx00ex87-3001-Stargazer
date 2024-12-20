@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}_test
     src/convert.cpp
     src/commbridge.cpp
     src/message.cpp
+    src/crc.cpp
 )
 
 # Create map/bin/hex/uf2 files

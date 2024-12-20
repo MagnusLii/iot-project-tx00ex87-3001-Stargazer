@@ -27,8 +27,10 @@ void CommBridge::send(const Message &msg) {
         formatted_msg += ",";
         formatted_msg += it->c_str();
     }
-    formatted_msg += ";";
-    // TODO: Add checksum
+    uint16_t crc = crc16(formatted_msg);
+    std::string crc_str;
+    num_to_hex_str(crc, crc_str, 4, true, true);
+    formatted_msg += "," + crc_str + ";";
 
     formatted_msg += "\r\n"; // TODO: Remove
 
@@ -42,27 +44,26 @@ int CommBridge::parse(std::string &str) {
         if (string_buffer.empty()) {
             size_t pos;
             if (pos = str.find("$"); pos == std::string::npos) { return 1; }
-            str.erase(0, pos + 1);
-            if (str.empty()) { str = " "; }
+            str.erase(0, pos);
+            // str.erase(0, pos + 1);
+            // if (str.empty()) { str = " "; }
         }
 
         // Check if the message is complete and stash if not
-        if (size_t pos = str.find(";"); pos != std::string::npos) {
-            string_buffer += str.substr(0, pos);
-            str.erase(0, pos + 1);
-        } else {
+        if (size_t pos = str.find(";"); pos == std::string::npos) {
             string_buffer += str;
             str.clear();
-            return 2;
+            // return 2;
+        } else {
+            string_buffer += str.substr(0, pos);
+            str.erase(0, pos + 1);
+
+            Message msg;
+            if (convert_to_message(string_buffer, msg) == 0) { queue->push(msg); }
+
+            string_buffer.clear();
         }
 
-        Message msg;
-        if (int result = convert_to_message(string_buffer, msg) != 0) {
-            DEBUG("Error parsing message: ", result);
-            return 3;
-        }
-
-        queue->push(msg);
     } while (!str.empty());
 
     return 0;
@@ -87,4 +88,3 @@ int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity
 
     return result;
 }
-

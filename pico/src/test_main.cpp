@@ -23,6 +23,24 @@ uint8_t checksum8(const std::string &input) {
     return static_cast<uint8_t>(sum % 256);
 }
 
+/*
+uint16_t crc16(const std::string &input) {
+    uint16_t crc = 0xFFFF;
+    for (char c : input) {
+        crc ^= static_cast<uint16_t>(c);
+        for (int i = 0; i < 8; i++) {
+            if (crc & 0x0001) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
+*/
+
 int main() {
     stdio_init_all();
     sleep_ms(5000);
@@ -39,7 +57,7 @@ int main() {
             uart->send("Sleepy time\r\n");
         } else {
             uart->send("Received wakeup signal\r\n");
-            bridge.read_and_parse(10000);
+            bridge.read_and_parse(10000, true);
         }
 
         while (queue->size() > 0) {
