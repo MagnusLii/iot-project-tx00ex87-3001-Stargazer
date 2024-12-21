@@ -11,14 +11,13 @@ use sqlx::{FromRow, SqlitePool};
 struct CommandSql {
     pub id: i64,
     pub target: String,
-    pub associated_key: i64,
 }
 
 async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
     let command = sqlx::query_as(
         "SELECT commands.id AS id, commands.target AS target FROM commands 
         JOIN keys ON commands.associated_key = keys.id
-        WHERE keys.api_token = ?",
+        WHERE keys.api_token = ? AND commands.status = 0",
     )
     .bind(key)
     .fetch_one(db)
@@ -54,13 +53,12 @@ pub async fn fetch_command(
     State(state): State<ApiState>,
     Query(key): Query<FetchCommandQuery>,
 ) -> impl IntoResponse {
-    println!("Fetching command with: {:?}", key);
+    println!("Fetching command with: {:?}", key.token);
 
     match retrieve_command(&key.token, &state.db).await {
         Ok(command) => {
-            //delete_command(&state.db, command.id).await;
             let json_response = format!(
-                r#"{{"target": "{}", "id": "{}"}}"#,
+                r#"{{"target": "{}", "id": {}}}"#,
                 command.target, command.id
             );
             modify_command_status(&state.db, command.id, 1).await; // Mark as fetched (status = 1)
@@ -69,17 +67,17 @@ pub async fn fetch_command(
         Err(e) => match e {
             Error::Sqlx(e) => match e {
                 sqlx::Error::RowNotFound => {
-                    println!("Error: {}", e);
+                    println!("No commands in queue");
                     (StatusCode::OK, "{}".to_string())
                 }
                 _ => {
-                    println!("Error: {}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Error".to_string())
+                    println!("Sqlx Error: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "{}".to_string())
                 }
             },
             _ => {
-                println!("Error: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Error".to_string())
+                println!("Other Error: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "{}".to_string())
             }
         },
     }
