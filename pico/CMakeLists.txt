@@ -50,6 +50,7 @@ target_link_libraries(${PROJECT_NAME}
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
+    target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
 # Enable usb output, disable uart output

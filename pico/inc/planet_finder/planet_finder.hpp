@@ -38,21 +38,23 @@ struct spherical_coordinates {
     double distance=1.0;
 };
 
-class Celestial {
-    public:
-    protected:
-        std::vector<Coordinates> coord_table; // Right ascension and Declination
-        double eccentric_anomaly(double e, double M);
-        double true_anomaly(double e, double E);
-        double distance(double e, double E);
+struct ecliptic_coordinates {
+    double lat;
+    double lon;
 };
 
-class Moon : public Celestial {
+struct azimuthal_coordinates {
+    double azimuth;
+    double altitude;
+};
+
+class Celestial {
     public:
-        Moon();
+        Celestial(Planets planet);
+        azimuthal_coordinates get_coordinates(datetime_t &date);
     private:
-        double true_anomaly(double e, double E);
-        double distance(double e, double E);
+        Planets planet;
+        std::vector<Coordinates> coord_table; // Right ascension and Declination
 };
 
 struct orbital_elements {
@@ -65,6 +67,10 @@ struct orbital_elements {
     double M; // mean anomaly (0 at perihelion; increases uniformly with time)
 };
 
+double sun_true_longitude(double sun_v, double sun_w);
+double eccentric_anomaly(double e, double M);
+double true_anomaly(rect_coordinates coords);
+double distance(rect_coordinates coords);
 
 double normalize_degrees(double degrees);
 double normalize_radians(double radians);
@@ -72,4 +78,7 @@ double datetime_to_j2000_day(datetime_t &date);
 double local_sidereal_time(double J2000_day, double longitude);
 double obliquity_of_eplectic(double J2000_day);
 rect_coordinates to_rectangular_coordinates(spherical_coordinates sp);
+rect_coordinates to_rectangular_coordinates(double a, double e, double E);
+rect_coordinates to_rectangular_coordinates(double N, double i, double w, double v, double r);
 spherical_coordinates to_spherical_coordinates(rect_coordinates rc);
+ecliptic_coordinates to_ecliptic_coordinates(rect_coordinates rc);

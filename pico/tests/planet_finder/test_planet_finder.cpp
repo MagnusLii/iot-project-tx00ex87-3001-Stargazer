@@ -157,7 +157,9 @@ void test_orbital_elements(void) {
 
 int main() {
     stdio_init_all();
+    #ifdef ENABLE_DEBUG
     std::cout << sizeof(float) << " hello " << sizeof(double) << std::endl;
+    #endif
     UNITY_BEGIN();
     RUN_TEST(test_datetime_to_j2000_day);
     RUN_TEST(test_normalize_degrees);

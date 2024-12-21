@@ -99,7 +99,30 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-double Celestial::eccentric_anomaly(double e, double M) {
+Celestial::Celestial(Planets planet) : planet(planet) {
+
+}
+
+azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
+    double J2000 = datetime_to_j2000_day(date);
+    orbital_elements oe(J2000, planet);
+
+    double E = eccentric_anomaly(oe.e, oe.M);
+    rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
+    double v = true_anomaly(xy);
+    double r = distance(xy);
+
+    rect_coordinates xyz = to_rectangular_coordinates(oe.N, oe.i, oe.w, v, r);
+    ecliptic_coordinates ecl = to_ecliptic_coordinates(xyz);
+
+    // next up pertubations
+}
+
+double sun_true_longitude(double sun_v, double sun_w) {
+    return normalize_radians(sun_v + sun_w);
+}
+
+double eccentric_anomaly(double e, double M) {
     double E0 = M + e * sin(M) * (1.0 + e * cos(M));
     double E1 = 0;
     int iterations = 0;
@@ -111,17 +134,14 @@ double Celestial::eccentric_anomaly(double e, double M) {
     return E0; // in radians
 }
 
-double Celestial::true_anomaly(double a, double e, double E) {
-    double xv = a * (cos(E) - e);
-    double yv = a * (sqrt(1.0 - e*e) * sin(E));
-    return atan2(yv, xv);
+double true_anomaly(rect_coordinates coords) {
+    return atan2(coords.y, coords.x);
 }
 
-double Celestial::distance(double e, double E) {
-    double xv = a * (cos(E) - e);
-    double yv = a * (sqrt(1.0 - e*e) * sin(E));
-    return sqrt(xv*xv + yv*yv);
+double distance(rect_coordinates coords) {
+    return sqrt(coords.x*coords.x + coords.y*coords.y);
 }
+
 
 double normalize_degrees(double degrees) {
     degrees = fmod(degrees, 360.0);
@@ -166,11 +186,35 @@ rect_coordinates to_rectangular_coordinates(spherical_coordinates sp) {
     return result;
 }
 
+rect_coordinates to_rectangular_coordinates(double a, double e, double E) {
+    rect_coordinates result;
+    result.x = a * (cos(E) - e);
+    result.y = a * (sqrt(1.0 - e*e) * sin(E));
+    result.z = 1.0;
+    return result;
+}
+
+rect_coordinates to_rectangular_coordinates(double N, double i, double w, double v, double r) {
+    rect_coordinates result;
+    result.x = r * (cos(N) * cos(v+w) - sin(N) * sin(v+w) * cos(i));
+    result.y = r * (sin(N) * cos(v+w) + cos(N) * sin(v+w) * cos(i));
+    result.z = r * sin(v+w) * sin(i);
+    return result;
+}
+
 spherical_coordinates to_spherical_coordinates(rect_coordinates rc) {
     spherical_coordinates result;
     result.RA = atan2(rc.y, rc.x);
     result.DECL = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
     result.distance = sqrt(rc.x*rc.x + rc.y*rc.y + rc.z*rc.z);
     if (result.distance > 0.999 && result.distance < 1.001) result.distance = 1.0;
+    return result;
+}
+
+ecliptic_coordinates to_ecliptic_coordinates(rect_coordinates rc) {
+    // this is same as to spherical coordinates but without distance. Done so we don't mix these
+    ecliptic_coordinates result;
+    result.lat = atan2(rc.y, rc.x);
+    result.lon = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
     return result;
 }
