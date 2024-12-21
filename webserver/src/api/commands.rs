@@ -16,7 +16,7 @@ struct CommandSql {
 
 async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
     let command = sqlx::query_as(
-        "SELECT commands.id AS id, commands.target AS target , commands.associated_key AS associated_key FROM commands 
+        "SELECT commands.id AS id, commands.target AS target FROM commands 
         JOIN keys ON commands.associated_key = keys.id
         WHERE keys.api_token = ?",
     )
@@ -36,6 +36,15 @@ async fn delete_command(db: &SqlitePool, id: i64) {
         .unwrap();
 }
 
+pub async fn modify_command_status(db: &SqlitePool, id: i64, status: i64) {
+    sqlx::query("UPDATE commands SET status = ? WHERE id = ?")
+        .bind(status)
+        .bind(id)
+        .execute(db)
+        .await
+        .unwrap();
+}
+
 #[derive(Debug, Deserialize)]
 pub struct FetchCommandQuery {
     token: String,
@@ -46,17 +55,22 @@ pub async fn fetch_command(
     Query(key): Query<FetchCommandQuery>,
 ) -> impl IntoResponse {
     println!("Fetching command with: {:?}", key);
-    // Retrieve command and if not errors occur, delete the command
+
     match retrieve_command(&key.token, &state.db).await {
         Ok(command) => {
-            delete_command(&state.db, command.id).await; // TODO: Maybe mark as fetched instead?
-            (StatusCode::OK, command.target)
+            //delete_command(&state.db, command.id).await;
+            let json_response = format!(
+                r#"{{"target": "{}", "id": "{}"}}"#,
+                command.target, command.id
+            );
+            modify_command_status(&state.db, command.id, 1).await; // Mark as fetched (status = 1)
+            (StatusCode::OK, json_response)
         }
         Err(e) => match e {
             Error::Sqlx(e) => match e {
                 sqlx::Error::RowNotFound => {
                     println!("Error: {}", e);
-                    (StatusCode::OK, "empty".to_string())
+                    (StatusCode::OK, "{}".to_string())
                 }
                 _ => {
                     println!("Error: {}", e);

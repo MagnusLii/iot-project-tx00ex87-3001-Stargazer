@@ -19,6 +19,7 @@ pub async fn create_command_table(db: &SqlitePool) {
             id INTEGER PRIMARY KEY,
             target TEXT NOT NULL,
             associated_key INTEGER NOT NULL,
+            status INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (associated_key) REFERENCES keys (id)
         )",
     )

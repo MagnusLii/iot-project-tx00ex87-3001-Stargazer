@@ -1,4 +1,8 @@
-use crate::{api::ApiState, keys::verify_key, web::images};
+use crate::{
+    api::{commands, ApiState},
+    keys::verify_key,
+    web::images,
+};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -14,6 +18,7 @@ use std::fs;
 pub struct UploadImage {
     token: String,
     data: String,
+    id: i64,
 }
 
 // Parse the body of the POST request for base64 encoded image
@@ -36,12 +41,18 @@ pub async fn upload_image(
 
     let now = Utc::now().timestamp();
 
-    // Write path, TODO: Can technically be a collision
-    let path = format!("assets/images/{}.{}", now, file_info.extension());
+    let path = format!(
+        "assets/images/{}-{}.{}",
+        payload.id,
+        now,
+        file_info.extension()
+    );
 
     fs::write(path, decoded).unwrap();
 
     images::update_gallery().await;
+
+    commands::modify_command_status(&state.db, payload.id, 2).await; // Mark as uploaded (status = 2)
 
     (StatusCode::OK, "Success\n")
 }
