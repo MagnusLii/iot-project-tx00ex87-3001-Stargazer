@@ -155,6 +155,32 @@ void test_orbital_elements(void) {
     TEST_ASSERT_DOUBLE_WITHIN(DELTA, 4.171446868, neptune.M);
 }
 
+void test_perturbations(void) {
+    datetime_t date1(1990, 4, 19, 0, 0, 0, 0); // 19 april 1990, at 0:00 UT
+    double j = datetime_to_j2000_day(date1);
+    orbital_elements moon(j, MOON);
+    orbital_elements sun(j, SUN);
+    orbital_elements jupiter(j, JUPITER);
+    orbital_elements saturn(j, SATURN);
+    orbital_elements uranus(j, URANUS);
+    ecliptic_coordinates result_moon = perturbation_moon(moon, sun);
+    ecliptic_coordinates result_jupiter = perturbation_jupiter(jupiter.M, saturn.M);
+    ecliptic_coordinates result_saturn = perturbation_saturn(jupiter.M, saturn.M);
+    ecliptic_coordinates result_uranus = perturbation_uranus(uranus.M, jupiter.M, saturn.M);
+    // moon
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.024664992, result_moon.lon);
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.0033492868, result_moon.lat);
+    TEST_ASSERT_DOUBLE_WITHIN(0.0001, +0.0066, result_moon.distance); // the example used didn't give more accurate result, so we need to lower the delta.
+    // jupiter
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.000209439510, result_jupiter.lon);
+    // saturn
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.00121998514, result_saturn.lon);
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 9.250245035569947e-05, result_saturn.lat);
+    // uranus
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.000570722665, result_uranus.lon);
+}
+
+
 int main() {
     stdio_init_all();
     #ifdef ENABLE_DEBUG
@@ -168,6 +194,7 @@ int main() {
     RUN_TEST(test_obliquity_of_eplictic);
     RUN_TEST(test_coordinates);
     RUN_TEST(test_orbital_elements);
+    RUN_TEST(test_perturbations);
     UNITY_END();
     while (1) ;
 }

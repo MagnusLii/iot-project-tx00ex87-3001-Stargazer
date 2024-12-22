@@ -25,7 +25,7 @@ add_executable(${PROJECT_NAME}
 
 add_executable(test_planet_finder tests/planet_finder/test_planet_finder.cpp src/planet_finder/planet_finder.cpp tests/unity/unity.c)
 target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
-target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity ${COMMON_DIR}/inc)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 
 # Create map/bin/hex/uf2 files

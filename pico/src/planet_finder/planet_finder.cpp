@@ -99,9 +99,7 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-Celestial::Celestial(Planets planet) : planet(planet) {
-
-}
+Celestial::Celestial(Planets planet) : planet(planet) {}
 
 azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
@@ -110,12 +108,39 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
     double E = eccentric_anomaly(oe.e, oe.M);
     rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
     double v = true_anomaly(xy);
-    double r = distance(xy);
+    double r = distance(xy); // Earth radii in case of moon, Astronomical units otherwise
 
     rect_coordinates xyz = to_rectangular_coordinates(oe.N, oe.i, oe.w, v, r);
-    ecliptic_coordinates ecl = to_ecliptic_coordinates(xyz);
-
     // next up pertubations
+    // Might need to do single calculations of needed orbital elements. right now theres couple of unnecessary calculations
+    if ((planet == MOON) || (planet == SATURN) || (planet == JUPITER) || (planet == URANUS)) {
+        ecliptic_coordinates ecl = to_ecliptic_coordinates(xyz);
+        ecl.distance = r;
+        ecliptic_coordinates perturbations(0,0,0);
+        if (planet == MOON) {
+            orbital_elements sun(J2000, SUN);
+            perturbations = perturbation_moon(oe, sun);
+        } else if (planet == SATURN) {
+            orbital_elements jupiter(J2000, JUPITER);
+            perturbations = perturbation_saturn(jupiter.M, oe.M);
+        } else if (planet == JUPITER) {
+            orbital_elements saturn(J2000, SATURN);
+            perturbations = perturbation_jupiter(oe.M, saturn.M);
+        } else if (planet == URANUS) {
+            orbital_elements jupiter(J2000, JUPITER);
+            orbital_elements saturn(J2000, SATURN);
+            perturbations = perturbation_uranus(oe.M, jupiter.M, saturn.M);
+        }
+        ecl = ecl + perturbations;
+        xyz = to_rectangular_coordinates(ecl);
+    }
+    
+    double obliquity = obliquity_of_eplectic(J2000);
+    xyz = rotate_through_obliquity_of_eplectic(xyz, obliquity);
+    spherical_coordinates sc = to_spherical_coordinates(xyz);
+
+    azimuthal_coordinates aa;
+    return aa;
 }
 
 double sun_true_longitude(double sun_v, double sun_w) {
@@ -131,6 +156,10 @@ double eccentric_anomaly(double e, double M) {
         E0 = E0 - (E0 - e * sin(E0) - M) / (1 - e * cos(E0));
         iterations++;
     }
+    if (fabs(E0 - E1) > ECCENTRIC_ANOMALY_APPROXXIMATION_ERROR)
+        DEBUG("Eccentric anomaly calculation didn't meet the approximation error: ",
+                ECCENTRIC_ANOMALY_APPROXXIMATION_ERROR,
+                " in ", ECCENTRIC_ANOMALY_APPROXXIMATION_MAX_ITER, "iterations");
     return E0; // in radians
 }
 
@@ -140,6 +169,71 @@ double true_anomaly(rect_coordinates coords) {
 
 double distance(rect_coordinates coords) {
     return sqrt(coords.x*coords.x + coords.y*coords.y);
+}
+
+ecliptic_coordinates perturbation_moon(const orbital_elements &moon, const orbital_elements &sun) {
+    double L_sun = sun.M + sun.w; // mean longitude of the sun
+    double L_moon = moon.M + moon.w + moon.N; // mean longitude of the moon
+    double D = L_moon - L_sun; // mean elongation of the moon
+    double F = L_moon - moon.N; // argument of latitude for the moon
+    ecliptic_coordinates result(0,0,0);
+    // longitude corrections
+    result.lon += to_rads(-1.274) * sin(moon.M - 2*D);   // Evection
+    result.lon += to_rads(+0.658) * sin(2*D);            // variation
+    result.lon += to_rads(-0.186) * sin(sun.M);          // Yearly equation
+    result.lon += to_rads(-0.059) * sin(2*moon.M - 2*D);
+    result.lon += to_rads(-0.057) * sin(moon.M - 2*D + sun.M);
+    result.lon += to_rads(+0.053) * sin(moon.M + 2*D);
+    result.lon += to_rads(+0.046) * sin(2*D - sun.M);
+    result.lon += to_rads(+0.041) * sin(moon.M - sun.M);
+    result.lon += to_rads(-0.035) * sin(D);              // Parallatic equation
+    result.lon += to_rads(-0.031) * sin(moon.M + sun.M);
+    result.lon += to_rads(-0.015) * sin(2*F - 2*D);
+    result.lon += to_rads(+0.011) * sin(moon.M - 4*D);
+    // latitude corrections
+    result.lat += to_rads(-0.173) * sin(F - 2*D);
+    result.lat += to_rads(-0.055) * sin(moon.M - F - 2*D);
+    result.lat += to_rads(-0.046) * sin(moon.M + F - 2*D);
+    result.lat += to_rads(+0.033) * sin(F + 2*D);
+    result.lat += to_rads(+0.017) * sin(2*moon.M + F);
+    // distance corrections
+    result.distance += -0.58 * cos(moon.M - 2*D);
+    result.distance += -0.46 * cos(2*D);
+    return result;
+}
+
+ecliptic_coordinates perturbation_jupiter(double Mj, double Ms) {
+    ecliptic_coordinates result(0,0,0);
+    result.lon += to_rads(-0.332) * sin(2*Mj - 5*Ms - 1.1798425);
+    result.lon += to_rads(-0.056) * sin(2*Mj - 2*Ms + 0.3665191);
+    result.lon += to_rads(+0.042) * sin(3*Mj - 5*Ms + 0.3665191);
+    result.lon += to_rads(-0.036) * sin(Mj - 2*Ms);
+    result.lon += to_rads(+0.022) * cos(Mj - Ms);
+    result.lon += to_rads(+0.023) * sin(2*Mj - 3*Ms + 0.907571211);
+    result.lon += to_rads(-0.016) * sin(Mj - 5*Ms - 1.204277183);
+    return result;
+}
+
+ecliptic_coordinates perturbation_saturn(double Mj, double Ms) {
+    ecliptic_coordinates result(0,0,0);
+    // longitude
+    result.lon += to_rads(+0.812) * sin(2*Mj - 5*Ms - 1.179842574);
+    result.lon += to_rads(-0.229) * cos(2*Mj - 4*Ms - 0.034906585);
+    result.lon += to_rads(+0.119) * sin(Mj - 2*Ms - 0.052359877);
+    result.lon += to_rads(+0.046) * sin(2*Mj - 6*Ms - 1.204277183);
+    result.lon += to_rads(+0.014) * sin(Mj - 3*Ms + 0.55850536);
+    // latitude
+    result.lat += to_rads(-0.020) * cos(2*Mj - 4*Ms - 0.034906585);
+    result.lat += to_rads(+0.018) * sin(2*Mj - 6*Ms - 0.85521133);
+    return result;
+}
+
+ecliptic_coordinates perturbation_uranus(double Mu, double Mj, double Ms) {
+    ecliptic_coordinates result(0,0,0);
+    result.lon += to_rads(+0.040) * sin(Ms - 2*Mu + 0.104719755);
+    result.lon += to_rads(+0.035) * sin(Ms - 3*Mu + 0.57595865);
+    result.lon += to_rads(-0.015) * sin(Mj - Mu + 0.34906585);
+    return result;
 }
 
 
@@ -175,7 +269,15 @@ double local_sidereal_time(double J2000_day, double longitude) {
 }
 
 double obliquity_of_eplectic(double J2000_day) {
-    return 23.4393 - 3.563E-7 * J2000_day;
+    return to_rads(23.4393 - 3.563E-7 * J2000_day);
+}
+
+rect_coordinates rotate_through_obliquity_of_eplectic(const rect_coordinates &rc, double obliquity) {
+    rect_coordinates result;
+    result.x = rc.x;
+    result.y = rc.y * cos(obliquity) - rc.z * sin(obliquity);
+    result.z = rc.y * sin(obliquity) + rc.z * cos(obliquity);
+    return result;
 }
 
 rect_coordinates to_rectangular_coordinates(spherical_coordinates sp) {
@@ -183,6 +285,15 @@ rect_coordinates to_rectangular_coordinates(spherical_coordinates sp) {
     result.x = sp.distance * cos(sp.RA) * cos(sp.DECL);
     result.y = sp.distance * sin(sp.RA) * cos(sp.DECL);
     result.z = sp.distance * sin(sp.DECL);
+    return result;
+}
+
+rect_coordinates to_rectangular_coordinates(ecliptic_coordinates ec) {
+    // same as from spherical coordinates. new function for clarity
+    rect_coordinates result;
+    result.x = ec.distance * cos(ec.lon) * cos(ec.lat);
+    result.y = ec.distance * sin(ec.lon) * cos(ec.lat);
+    result.z = ec.distance * sin(ec.lat);
     return result;
 }
 
@@ -216,5 +327,6 @@ ecliptic_coordinates to_ecliptic_coordinates(rect_coordinates rc) {
     ecliptic_coordinates result;
     result.lat = atan2(rc.y, rc.x);
     result.lon = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
+    result.distance = 1; // this gets set elsewhere. Doing this so we don't need to redundant expensive calculations.
     return result;
 }
