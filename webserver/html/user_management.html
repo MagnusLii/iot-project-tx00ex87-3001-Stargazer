@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Control Center - Stargazer</title>
+        <title>User Management - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
         <script src="/assets/main.js"></script>
         <script src="/assets/user.js"></script>
@@ -20,8 +20,18 @@
                 <a id="logout" href="/logout">Logout</a>
             </div>
         </div>
-        <h1>Home</h1>
-        <p>Site under construction</p>
+        <h1>User Management</h1>
+        <form id="add-user>
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password">
+            <input type="submit" value="Add User" onclick="addUser(); return false">
+        </form>
+        <div id="message"></div>
+        <br>
+        <ol id="users">
+            <!--USERS-->
+        </ol>
     </body>
 </html>
-

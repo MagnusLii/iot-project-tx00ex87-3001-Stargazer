@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <title>Images - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/user.js"></script>
     </head>
     <body>
         <div id="header">
@@ -11,9 +12,12 @@
                 <li><a href="/">Home</a></li>
                 <li><a href="/control">Control</a></li>
                 <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">User Management</a></li>
             </ul>
-            <!--USER-->
-            <a href="/logout">Logout</a>
+            <div id="user-login">
+                <label id="user"></label>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
         </div>
         <h1>Images</h1>
         <div class="container">

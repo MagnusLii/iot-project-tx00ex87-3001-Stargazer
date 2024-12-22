@@ -13,6 +13,11 @@ img {
     background-color: #4CAF50;
 }
 
+#header {
+    display: flex;
+    justify-content: space-between;
+}
+
 #nav ul {
     list-style-type: none;
     margin: 0;
@@ -37,4 +42,8 @@ img {
 
 #ro-key input {
     width: 500px
+}
+
+#user-login {
+    display: flex;
 }
