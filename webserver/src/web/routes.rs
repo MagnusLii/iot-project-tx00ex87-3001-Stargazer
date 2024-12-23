@@ -1,5 +1,6 @@
 use crate::{
     api::ApiState,
+    auth::login::AuthSession,
     keys,
     web::{commands::get_commands, diagnostics::get_diagnostics, images},
 };
@@ -13,10 +14,9 @@ use std::env;
 use tokio::fs;
 
 pub async fn root() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        Html(std::include_str!("../../html/index.html")),
-    )
+    let html = std::include_str!("../../html/index.html").to_string();
+
+    (StatusCode::OK, Html(html))
 }
 
 pub async fn gallery() -> impl IntoResponse {
@@ -119,9 +119,60 @@ pub async fn diagnostics(
     (StatusCode::OK, Html(html))
 }
 
+pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
+    if auth_session.user.unwrap().superuser != true {
+        return (
+            StatusCode::FORBIDDEN,
+            Html(include_str!("../../html/403.html").to_string()),
+        );
+    }
+    let mut html = include_str!("../../html/user_management.html").to_string();
+
+    let html_users = auth_session
+        .backend
+        .get_users()
+        .await
+        .unwrap()
+        .iter()
+        .map(|user| {
+            format!(
+                "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button>",
+                user.id, user.username, user.id
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+    html = html.replace("<!--USERS-->", &html_users);
+
+    (StatusCode::OK, Html(html))
+}
+
+pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
+    let html = include_str!("../../html/user.html").to_string();
+
+    let name = auth_session.user.unwrap().username;
+    let html = html.replace("<!--NAME-->", &name);
+
+    (StatusCode::OK, Html(html))
+}
+
 pub async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
         Html(std::include_str!("../../html/404.html")),
     )
+}
+
+pub async fn test(auth_session: AuthSession) -> impl IntoResponse {
+    let mut html = include_str!("../../html/index.html").to_string();
+    if auth_session.user.is_some() {
+        let msg = format!("User: {}", auth_session.user.unwrap().username);
+        html = html.replace("<!--USER-->", &msg);
+        (StatusCode::OK, Html(html))
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Html("You are not logged in.".to_string()),
+        )
+    }
 }

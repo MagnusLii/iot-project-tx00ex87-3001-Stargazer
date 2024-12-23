@@ -2,8 +2,10 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Images - Stargazer</title>
+        <title>User - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/main.js"></script>
+        <script src="/assets/users.js"></script>
         <script src="/assets/display-user.js"></script>
     </head>
     <body>
@@ -20,9 +22,15 @@
                 <a id="logout" href="/logout">Logout</a>
             </div>
         </div>
-        <h1>Images</h1>
-        <div class="container">
-        <!--IMAGES-->
-        </div>
+        <h1>User: <span id="user"></span></h1>
+        <form id="modify-user">
+            <legend><b>Change username or password:</b></legend>
+            <label for="new-username">New username:</label>
+            <input type="text" id="new-username" name="new-username" value="<!--NAME-->">
+            <label for="new-password">New password:</label>
+            <input type="password" id="new-password" name="new-password">
+            <input type="submit" value="Update" onclick="modifyUser(); return false">
+        </form>
+        <div id="message"></div>
     </body>
 </html>

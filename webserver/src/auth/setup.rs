@@ -5,7 +5,8 @@ pub async fn create_user_table(db: &SqlitePool) {
         "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            superuser BOOLEAN NOT NULL DEFAULT 0
         )",
     )
     .execute(db)
@@ -14,8 +15,11 @@ pub async fn create_user_table(db: &SqlitePool) {
 }
 
 pub async fn create_admin(db: &SqlitePool) {
-    sqlx::query("INSERT INTO users (username, password) VALUES ('admin', 'admin')")
-        .execute(db)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO users (username, password, superuser) 
+            VALUES ('admin', 'admin', 1)",
+    )
+    .execute(db)
+    .await
+    .unwrap();
 }

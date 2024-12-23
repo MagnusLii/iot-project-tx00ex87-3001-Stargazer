@@ -4,40 +4,23 @@
         <meta charset="UTF-8">
         <title>Keys - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
-        <script>
-            function deleteKey(id) {
-                if (confirm("Are you sure you want to delete this key?") == true) {
-                    fetch(`/control/keys?id=${id}`, {
-                        method: "DELETE"
-                    }).then(() => {
-                        location.reload();
-                    }).catch(() => {
-                        alert("Issue deleting key");                        
-                    });
-                }
-            }
-            function generateKey() {
-                fetch(`/control/keys`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({"name": document.getElementById("name-key").value})
-                }).then(response => response.text()).then(data => {
-                    console.log(data);
-                    document.getElementById("ro-key").value = data;
-                }).catch(() => {
-                    alert("Issue generating key");                    
-                });
-            }
-        </script>
+        <script src="/assets/main.js"></script>
+        <script src="/assets/display-user.js"></script>
     </head>
     <body>
-        <ul id="nav">
-            <li><a href="/">Home</a></li>
-            <li><a href="/control">Control</a></li>
-            <li><a href="/gallery">Gallery</a></li>
-        </ul>
+        <div id="header">
+            <ul id="nav">
+                <li><a href="/">Home</a></li>
+                <li><a href="/control">Control</a></li>
+                <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">Users</a></li>
+            </ul>
+            <div id="user-login">
+                <a id="user" href="/user"></a>
+                <span> | </span>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
+        </div>
         <h1>Key management</h1>
         <ul id="subnav">
             <li><a href="/control">Commands</a></li>
