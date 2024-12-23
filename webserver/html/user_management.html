@@ -4,8 +4,8 @@
         <meta charset="utf-8">
         <title>User Management - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
-        <script src="/assets/main.js"></script>
-        <script src="/assets/user.js"></script>
+        <script src="/assets/users.js"></script>
+        <script src="/assets/display-user.js"></script>
     </head>
     <body>
         <div id="header">
@@ -13,15 +13,16 @@
                 <li><a href="/">Home</a></li>
                 <li><a href="/control">Control</a></li>
                 <li><a href="/gallery">Gallery</a></li>
-                <li><a href="/users">User Management</a></li>
+                <li><a href="/users">Users</a></li>
             </ul>
             <div id="user-login">
-                <label id="user"></label>
+                <a id="user" href="/user"></a>
+                <span> | </span>
                 <a id="logout" href="/logout">Logout</a>
             </div>
         </div>
         <h1>User Management</h1>
-        <form id="add-user>
+        <form id="add-user">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name">
             <label for="password">Password:</label>

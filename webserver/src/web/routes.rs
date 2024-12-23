@@ -120,6 +120,12 @@ pub async fn diagnostics(
 }
 
 pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
+    if auth_session.user.unwrap().superuser != true {
+        return (
+            StatusCode::FORBIDDEN,
+            Html(include_str!("../../html/403.html").to_string()),
+        );
+    }
     let mut html = include_str!("../../html/user_management.html").to_string();
 
     let html_users = auth_session
@@ -137,6 +143,12 @@ pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--USERS-->", &html_users);
+
+    (StatusCode::OK, Html(html))
+}
+
+pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
+    let html = include_str!("../../html/user.html").to_string();
 
     (StatusCode::OK, Html(html))
 }

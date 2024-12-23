@@ -13,6 +13,7 @@ pub struct User {
     pub id: i64,
     pub username: String,
     pub password: String,
+    pub superuser: bool,
 }
 
 impl AuthUser for User {
@@ -28,16 +29,29 @@ impl AuthUser for User {
 }
 
 pub async fn current_user(auth_session: AuthSession) -> impl IntoResponse {
-    let name: String;
+    let user_details: String;
     if auth_session.user.is_some() {
-        name = auth_session.user.unwrap().username;
+        let user = auth_session.user.unwrap();
+        user_details = format!(r#"{{"username": "{}", "id": {}}}"#, user.username, user.id);
     } else {
-        name = "unknown".to_string()
+        user_details = "{}".to_string();
     }
-    (StatusCode::OK, name)
+
+    (StatusCode::OK, user_details)
 }
 
 pub async fn new_user(auth_session: AuthSession, user: Json<Credentials>) -> impl IntoResponse {
+    if auth_session.user.unwrap().superuser != true {
+        return (StatusCode::FORBIDDEN, "Not authorized").into_response();
+    }
+
+    if !user.username.chars().all(char::is_alphanumeric) {
+        return (StatusCode::BAD_REQUEST, "Invalid username").into_response();
+    }
+    if !user.password.chars().all(char::is_alphanumeric) {
+        return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
+    }
+
     println!("Attempting to add user: {}", user.username);
     if let Ok(_) = auth_session.backend.add_user(user.0).await {
         (StatusCode::OK, "User added").into_response()
@@ -56,8 +70,13 @@ pub async fn remove_user(
     auth_session: AuthSession,
     user: Query<RemoveUserQuery>,
 ) -> impl IntoResponse {
+    let user_session = auth_session.user.unwrap();
+    if user_session.superuser != true {
+        return (StatusCode::FORBIDDEN, "Not authorized").into_response();
+    }
+
     println!("Attempting to remove user: {}", user.id);
-    if auth_session.user.unwrap().id == user.id {
+    if user_session.id == user.id {
         (StatusCode::FORBIDDEN, "Cannot remove yourself").into_response()
     } else {
         if let Ok(_) = auth_session.backend.delete_user(user.id).await {
@@ -67,6 +86,71 @@ pub async fn remove_user(
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModifyUserJson {
+    pub id: Option<i64>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+pub async fn modify_user(
+    auth_session: AuthSession,
+    user: Json<ModifyUserJson>,
+) -> impl IntoResponse {
+    let modified_details = user.0;
+    let user_session = auth_session.user.unwrap();
+
+    let target_user_id;
+    if modified_details.id.is_none() {
+        target_user_id = user_session.id;
+    } else {
+        target_user_id = modified_details.id.unwrap();
+    }
+    if user_session.id != target_user_id {
+        if user_session.superuser != true {
+            return (StatusCode::FORBIDDEN, "Not authorized").into_response();
+        }
+    }
+
+    println!("Attempting to modify user: {}", target_user_id);
+    // Change username if provided
+    if let Some(new_username) = modified_details.username {
+        if !new_username.chars().all(char::is_alphanumeric) {
+            return (StatusCode::BAD_REQUEST, "Invalid username").into_response();
+        }
+
+        if let Ok(_) = auth_session
+            .backend
+            .change_username(target_user_id, new_username)
+            .await
+        {
+            println!("Changed username of user {}", target_user_id);
+        } else {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username").into_response();
+        }
+    }
+
+    // Change password if provided
+    if let Some(new_password) = modified_details.password {
+        if !new_password.chars().all(char::is_alphanumeric) {
+            return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
+        }
+
+        if let Ok(_) = auth_session
+            .backend
+            .change_password(target_user_id, new_password)
+            .await
+        {
+            println!("Changed password of user {}", target_user_id);
+        } else {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing password").into_response();
+        }
+    }
+
+    (StatusCode::OK, "User modified").into_response()
+}
+
 /*
 pub async fn add_user(db: &SqlitePool, user: &User) {
     sqlx::query("INSERT INTO users (username, password) VALUES (?, ?)")
