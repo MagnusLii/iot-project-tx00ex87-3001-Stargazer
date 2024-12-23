@@ -45,6 +45,7 @@ pub struct MultipleCommandSql {
     pub associated_key: i64,
     pub id: i64,
     pub name: String,
+    pub status: i64,
 }
 
 pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Error> {
@@ -52,6 +53,7 @@ pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Er
         "SELECT commands.id AS id, 
         commands.target AS target, 
         commands.associated_key AS associated_key, 
+        commands.status AS status,
         keys.name as name 
         FROM commands 
         JOIN keys ON commands.associated_key = keys.id",
