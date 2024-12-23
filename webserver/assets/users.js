@@ -29,7 +29,7 @@ function deleteUser(id) {
                     throw new Error("Issue deleting user");
                 })
             }
-            location.reload();
+            else { location.reload() };
         }).catch(error => {
             alert(error);
         })

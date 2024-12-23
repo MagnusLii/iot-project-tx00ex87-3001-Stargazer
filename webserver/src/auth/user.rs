@@ -77,7 +77,7 @@ pub async fn remove_user(
 
     println!("Attempting to remove user: {}", user.id);
     if user_session.id == user.id {
-        (StatusCode::FORBIDDEN, "Cannot remove yourself").into_response()
+        (StatusCode::FORBIDDEN, "Can't remove yourself").into_response()
     } else {
         if let Ok(_) = auth_session.backend.delete_user(user.id).await {
             (StatusCode::OK, "User removed").into_response()
@@ -116,7 +116,7 @@ pub async fn modify_user(
     println!("Attempting to modify user: {}", target_user_id);
     // Change username if provided
     if let Some(new_username) = modified_details.username {
-        if !new_username.chars().all(char::is_alphanumeric) {
+        if !new_username.chars().all(char::is_alphanumeric) || new_username.is_empty() {
             return (StatusCode::BAD_REQUEST, "Invalid username").into_response();
         }
 
@@ -133,7 +133,7 @@ pub async fn modify_user(
 
     // Change password if provided
     if let Some(new_password) = modified_details.password {
-        if !new_password.chars().all(char::is_alphanumeric) {
+        if !new_password.chars().all(char::is_alphanumeric) || new_password.is_empty() {
             return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
         }
 
