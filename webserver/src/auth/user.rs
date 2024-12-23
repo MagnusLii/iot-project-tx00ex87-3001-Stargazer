@@ -150,39 +150,3 @@ pub async fn modify_user(
 
     (StatusCode::OK, "User modified").into_response()
 }
-
-/*
-pub async fn add_user(db: &SqlitePool, user: &User) {
-    sqlx::query("INSERT INTO users (username, password) VALUES (?, ?)")
-        .bind(&user.username)
-        .bind(&user.password)
-        .execute(db)
-        .await
-        .unwrap();
-}
-
-pub async fn remove_user(db: &SqlitePool, id: i64) {
-    sqlx::query("DELETE FROM users WHERE id = ?")
-        .bind(id)
-        .execute(db)
-        .await
-        .unwrap();
-}
-
-pub async fn change_password(db: &SqlitePool, id: i64, password: &str) {
-    sqlx::query("UPDATE users SET password = ? WHERE id = ?")
-        .bind(password)
-        .bind(id)
-        .execute(db)
-        .await
-        .unwrap();
-}
-
-pub async fn get_users(db: &SqlitePool) -> Result<Vec<User>, Error> {
-    let users = sqlx::query_as("SELECT id, username FROM users")
-        .fetch_all(db)
-        .await?;
-
-    Ok(users)
-}
-*/

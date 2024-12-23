@@ -2,7 +2,7 @@ use crate::{auth::user::User, err::Error};
 use async_trait::async_trait;
 use axum_login::{AuthnBackend, UserId};
 use serde::Deserialize;
-use sqlx::{FromRow, SqlitePool};
+use sqlx::SqlitePool;
 use tokio::task;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -15,13 +15,6 @@ pub struct Credentials {
 pub struct Backend {
     db: SqlitePool,
 }
-
-/*
-#[derive(Debug, Clone, Deserialize, FromRow)]
-struct Privilege {
-    superuser: bool,
-}
-*/
 
 impl Backend {
     pub fn new(db: SqlitePool) -> Self {
@@ -74,16 +67,6 @@ impl Backend {
 
         Ok(())
     }
-    /*
-        pub async fn get_privilege_level(&self, id: i64) -> Result<bool, Error> {
-            let privilege: Privilege = sqlx::query_as("SELECT superuser FROM users WHERE id = ?")
-                .bind(id)
-                .fetch_one(&self.db)
-                .await?;
-
-            Ok(privilege.superuser)
-        }
-    */
 }
 
 #[async_trait]
