@@ -150,6 +150,9 @@ pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
 pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
     let html = include_str!("../../html/user.html").to_string();
 
+    let name = auth_session.user.unwrap().username;
+    let html = html.replace("<!--NAME-->", &name);
+
     (StatusCode::OK, Html(html))
 }
 

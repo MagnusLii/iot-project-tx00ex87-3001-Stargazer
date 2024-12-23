@@ -12,7 +12,7 @@ use crate::{
     web::{
         commands::new_command,
         routes::{
-            api_keys, control, diagnostics, gallery, root, test, unknown_route, user_management,
+            api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
             user_page,
         },
     },
