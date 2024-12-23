@@ -13,34 +13,6 @@
 
 #include "debug.hpp"
 
-uint8_t checksum8(const std::string &input) {
-    uint32_t sum = 0;
-
-    for (char c : input) {
-        sum += static_cast<unsigned char>(c);
-    }
-
-    return static_cast<uint8_t>(sum % 256);
-}
-
-/*
-uint16_t crc16(const std::string &input) {
-    uint16_t crc = 0xFFFF;
-    for (char c : input) {
-        crc ^= static_cast<uint16_t>(c);
-        for (int i = 0; i < 8; i++) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
-}
-*/
-
 int main() {
     stdio_init_all();
     sleep_ms(5000);
@@ -83,7 +55,7 @@ int main() {
                     break;
                 case DIAGNOSTICS: // Pico should not receive these
                     DEBUG("Received diagnostics for some reason");
-                    break;
+                break;
                 default:
                     DEBUG("Unknown message type: ", msg.type);
                     break;
@@ -94,6 +66,11 @@ int main() {
 
         count++;
         sleep_ms(2000);
+
+        if (clock->is_synced()) {
+            datetime_t now = clock->get_datetime();
+            DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":", unsigned(now.min), ":", unsigned(now.sec));
+        }
     }
 
     return 0;

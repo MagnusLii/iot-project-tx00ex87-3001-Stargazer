@@ -37,6 +37,7 @@ add_executable(${PROJECT_NAME}_test
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
+pico_add_extra_outputs(${PROJECT_NAME}_test)
 
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -73,6 +74,7 @@ target_link_libraries(${PROJECT_NAME}_test
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
+    target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
 ENDIF()
 
 # Enable usb output, disable uart output

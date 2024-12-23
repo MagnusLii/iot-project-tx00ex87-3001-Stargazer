@@ -15,7 +15,7 @@ int CommBridge::read(std::string &str) {
             count += len;
         }
         std::fill_n(rbuffer, sizeof(rbuffer), 0);
-        sleep_ms(100);
+        sleep_ms(20);
     }
 
     return count;
@@ -45,25 +45,22 @@ int CommBridge::parse(std::string &str) {
             size_t pos;
             if (pos = str.find("$"); pos == std::string::npos) { return 1; }
             str.erase(0, pos);
-            // str.erase(0, pos + 1);
-            // if (str.empty()) { str = " "; }
         }
 
         // Check if the message is complete and stash if not
         if (size_t pos = str.find(";"); pos == std::string::npos) {
             string_buffer += str;
             str.clear();
-            // return 2;
         } else {
             string_buffer += str.substr(0, pos);
             str.erase(0, pos + 1);
 
+            DEBUG(string_buffer);
             Message msg;
             if (convert_to_message(string_buffer, msg) == 0) { queue->push(msg); }
 
             string_buffer.clear();
         }
-
     } while (!str.empty());
 
     return 0;
@@ -82,9 +79,7 @@ int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity
             if (reset_on_activity) { time = time_us_64(); }
         }
         if (result == 0) { done = true; }
-        sleep_ms(100);
     }
-    // string_buffer.clear();
 
     return result;
 }
