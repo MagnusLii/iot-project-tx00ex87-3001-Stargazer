@@ -31,6 +31,13 @@ struct rect_coordinates {
     double x;
     double y;
     double z;
+    rect_coordinates operator+(const rect_coordinates ob) {
+        rect_coordinates result;
+        result.x = x + ob.x;
+        result.y = y + ob.y;
+        result.z = z + ob.z;
+        return result;
+    }
 };
 
 struct spherical_coordinates {
@@ -57,15 +64,6 @@ struct azimuthal_coordinates {
     double altitude;
 };
 
-class Celestial {
-    public:
-        Celestial(Planets planet);
-        azimuthal_coordinates get_coordinates(datetime_t &date);
-    private:
-        Planets planet;
-        std::vector<Coordinates> coord_table; // Right ascension and Declination
-};
-
 struct orbital_elements {
     orbital_elements(double J2000_day, Planets planet);
     double N; // longitude of the ascending node
@@ -75,6 +73,27 @@ struct orbital_elements {
     double e; // eccentricity (0=circle, 0-1=ellipse, 1=parabola)
     double M; // mean anomaly (0 at perihelion; increases uniformly with time)
 };
+
+
+class Sun {
+    public:
+        Sun(double J2000_day);
+        orbital_elements oe;
+        double mean_longitude(void);
+        ecliptic_coordinates get_ecliptic_coordinates(void);
+};
+
+
+class Celestial {
+    public:
+        Celestial(Planets planet);
+        azimuthal_coordinates get_coordinates(datetime_t &date, Coordinates observer_coordinates);
+    private:
+        Planets planet;
+        std::vector<Coordinates> coord_table; // Right ascension and Declination
+};
+
+
 
 double sun_true_longitude(double sun_v, double sun_w);
 double eccentric_anomaly(double e, double M);

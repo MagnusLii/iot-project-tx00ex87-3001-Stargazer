@@ -47,14 +47,14 @@ void test_local_sidereal_time(void) {
     double j2 = 9116.847916666884; // 15 Dec 2024 at 20:21 UTC
     double result1 = local_sidereal_time(j1, 24.9384); // Helsinki
     double result2 = local_sidereal_time(j2, 24.9384);
-    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 231.7719322091, result1);
-    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 55.1677094926, result2);
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 4.045183330757889, result1);
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 0.9628581714296003, result2);
 }
 
 void test_obliquity_of_eplictic(void) {
     double j = 9116.847916666884;
     double result = obliquity_of_eplectic(j);
-    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 23.43605166708729, result);
+    TEST_ASSERT_DOUBLE_WITHIN(DELTA, 0.40903626525, result);
 }
 
 void test_coordinates(void) {
@@ -180,6 +180,18 @@ void test_perturbations(void) {
     TEST_ASSERT_DOUBLE_WITHIN(DELTA, -0.000570722665, result_uranus.lon);
 }
 
+void test_moon_get_coordinates(void) {
+    Coordinates coords1;
+    coords1.latitude = 60.1699;
+    coords1.longitude = 24.9384; // Helsinki´
+    datetime_t date1(2024, 12, 15, 0, 20, 21, 0); // 15 Dec 2024 at 20:21 UTC
+    Celestial moon(MOON);
+    azimuthal_coordinates result = moon.get_coordinates(date1, coords1);
+
+    TEST_ASSERT_DOUBLE_WITHIN(0.0001, 0.6342526, result.altitude);
+    TEST_ASSERT_DOUBLE_WITHIN(0.0001, 1.6896532, result.azimuth);
+}
+
 
 int main() {
     stdio_init_all();
@@ -195,6 +207,7 @@ int main() {
     RUN_TEST(test_coordinates);
     RUN_TEST(test_orbital_elements);
     RUN_TEST(test_perturbations);
+    RUN_TEST(test_moon_get_coordinates);
     UNITY_END();
     while (1) ;
 }

@@ -99,11 +99,32 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
+Sun::Sun(double J2000_day) : oe(J2000_day, SUN) {
+}
+
+double Sun::mean_longitude(void) {
+    return normalize_radians(oe.M + oe.w);
+}
+
+ecliptic_coordinates Sun::get_ecliptic_coordinates(void) {
+    double E = eccentric_anomaly(oe.e, oe.M);
+    rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
+    double v = true_anomaly(xy);
+    double r = distance(xy);
+    ecliptic_coordinates result;
+    result.lon = v + oe.w;
+    result.distance = r;
+    result.lat = 0;
+    return result;
+}
+
+
 Celestial::Celestial(Planets planet) : planet(planet) {}
 
-azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
+azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates observer_coordinates) {
     double J2000 = datetime_to_j2000_day(date);
     orbital_elements oe(J2000, planet);
+    orbital_elements sun(J2000, SUN);
 
     double E = eccentric_anomaly(oe.e, oe.M);
     rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
@@ -118,7 +139,6 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
         ecl.distance = r;
         ecliptic_coordinates perturbations(0,0,0);
         if (planet == MOON) {
-            orbital_elements sun(J2000, SUN);
             perturbations = perturbation_moon(oe, sun);
         } else if (planet == SATURN) {
             orbital_elements jupiter(J2000, JUPITER);
@@ -136,16 +156,41 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date) {
     }
     
     double obliquity = obliquity_of_eplectic(J2000);
+
+    if (planet != MOON) {
+        double sun_E = eccentric_anomaly(sun.e, sun.M);
+        rect_coordinates sun_xy = to_rectangular_coordinates(sun.a, sun.e, sun_E);
+        sun_xy.z = 0;
+        xyz = xyz + sun_xy;
+    }
     xyz = rotate_through_obliquity_of_eplectic(xyz, obliquity);
     spherical_coordinates sc = to_spherical_coordinates(xyz);
 
-    azimuthal_coordinates aa;
-    return aa;
+    double lst = local_sidereal_time(J2000, observer_coordinates.longitude);
+    double hour_angle = normalize_radians(lst - sc.RA); // TODO: normalize between -pi and pi
+
+    // TODO: put this in a function or something
+    double x = cos(hour_angle) * cos(sc.DECL);
+    double y = sin(hour_angle) * cos(sc.DECL);
+    double z = sin(sc.DECL);
+
+    double x_horizontal = x * sin(observer_coordinates.latitude) - z * cos(observer_coordinates.latitude);
+    double z_horizontal = x * cos(observer_coordinates.latitude) + z * sin(observer_coordinates.latitude);
+    azimuthal_coordinates ac;
+    ac.azimuth = atan2(y, x_horizontal) + M_PI;
+    ac.altitude = atan2(z_horizontal, sqrt(x_horizontal*x_horizontal + y*y));
+
+    // next up parallax
+    double parallax = 0;
+    if (planet == MOON) {
+        parallax = asin(1 / r);
+    } else {
+        parallax = 4.26345151167726e-05 / r;
+    }
+    ac.altitude = ac.altitude - parallax * cos(ac.altitude);
+    return ac;
 }
 
-double sun_true_longitude(double sun_v, double sun_w) {
-    return normalize_radians(sun_v + sun_w);
-}
 
 double eccentric_anomaly(double e, double M) {
     double E0 = M + e * sin(M) * (1.0 + e * cos(M));
@@ -172,7 +217,7 @@ double distance(rect_coordinates coords) {
 }
 
 ecliptic_coordinates perturbation_moon(const orbital_elements &moon, const orbital_elements &sun) {
-    double L_sun = sun.M + sun.w; // mean longitude of the sun
+    double L_sun = normalize_radians(sun.M + sun.w); // mean longitude of the sun
     double L_moon = moon.M + moon.w + moon.N; // mean longitude of the moon
     double D = L_moon - L_sun; // mean elongation of the moon
     double F = L_moon - moon.N; // argument of latitude for the moon
@@ -264,9 +309,10 @@ double local_sidereal_time(double J2000_day, double longitude) {
     double J = J2000_day + 2451543.5 - 2451545.0;
     double T = J / 36525.0;
     double LMST = 280.46061837 + 360.98564736629 * J + 0.000387933*T*T - T*T*T / 38710000.0 + longitude; // degrees
-    return normalize_degrees(LMST);
+    return to_rads(normalize_degrees(LMST));
 
 }
+
 
 double obliquity_of_eplectic(double J2000_day) {
     return to_rads(23.4393 - 3.563E-7 * J2000_day);
