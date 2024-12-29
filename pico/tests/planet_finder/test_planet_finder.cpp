@@ -181,13 +181,16 @@ void test_perturbations(void) {
 }
 
 void test_moon_get_coordinates(void) {
-    Coordinates coords1;
-    coords1.latitude = 60.1699;
-    coords1.longitude = 24.9384; // Helsinki´
-    datetime_t date1(2024, 12, 15, 0, 20, 21, 0); // 15 Dec 2024 at 20:21 UTC
+    Coordinates coords1(0, 15);
+    Coordinates coords2(60.1699, 24.9384); // helsinki
+    Coordinates coords3(0.8726646, 0.17453292); // somewhere
+    datetime_t date1(1990, 4, 19, 0, 0, 0, 0); // 19 april 1990, at 0:00 UT
+    datetime_t date2(2024, 12, 15, 0, 20, 21, 0); // 15 Dec 2024 at 20:21 UTC
+    datetime_t date3(1991, 5, 19, 0, 13, 0);
+    datetime_t date4(2024, 12, 29, 0, 20, 0);
     Celestial moon(MOON);
-    azimuthal_coordinates result = moon.get_coordinates(date1, coords1);
-
+    azimuthal_coordinates result = moon.get_coordinates(date2, coords2);
+    DEBUG("azimuth: ", result.azimuth*180.0/M_PI, " altitude: ", result.altitude*180.0/M_PI);
     TEST_ASSERT_DOUBLE_WITHIN(0.0001, 0.6342526, result.altitude);
     TEST_ASSERT_DOUBLE_WITHIN(0.0001, 1.6896532, result.azimuth);
 }

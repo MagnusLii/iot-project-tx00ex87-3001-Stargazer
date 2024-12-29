@@ -127,11 +127,11 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates o
     orbital_elements sun(J2000, SUN);
 
     double E = eccentric_anomaly(oe.e, oe.M);
-    rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
+    rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E); // rectangular coordinates in lunar orbit
     double v = true_anomaly(xy);
     double r = distance(xy); // Earth radii in case of moon, Astronomical units otherwise
 
-    rect_coordinates xyz = to_rectangular_coordinates(oe.N, oe.i, oe.w, v, r);
+    rect_coordinates xyz = to_rectangular_coordinates(oe.N, oe.i, oe.w, v, r); // rectangular coordinates in ecliptic orbit
     // next up pertubations
     // Might need to do single calculations of needed orbital elements. right now theres couple of unnecessary calculations
     if ((planet == MOON) || (planet == SATURN) || (planet == JUPITER) || (planet == URANUS)) {
@@ -151,7 +151,10 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates o
             orbital_elements saturn(J2000, SATURN);
             perturbations = perturbation_uranus(oe.M, jupiter.M, saturn.M);
         }
-        ecl = ecl + perturbations;
+        //ecl = ecl + perturbations; // this shit doesn't work
+        ecl.lat = ecl.lat + perturbations.lat;
+        ecl.lon = ecl.lon + perturbations.lon;
+        ecl.distance = ecl.distance + perturbations.distance;
         xyz = to_rectangular_coordinates(ecl);
     }
     
@@ -174,8 +177,8 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates o
     double y = sin(hour_angle) * cos(sc.DECL);
     double z = sin(sc.DECL);
 
-    double x_horizontal = x * sin(observer_coordinates.latitude) - z * cos(observer_coordinates.latitude);
-    double z_horizontal = x * cos(observer_coordinates.latitude) + z * sin(observer_coordinates.latitude);
+    double x_horizontal = x * sin(to_rads(observer_coordinates.latitude)) - z * cos(to_rads(observer_coordinates.latitude));
+    double z_horizontal = x * cos(to_rads(observer_coordinates.latitude)) + z * sin(to_rads(observer_coordinates.latitude));
     azimuthal_coordinates ac;
     ac.azimuth = atan2(y, x_horizontal) + M_PI;
     ac.altitude = atan2(z_horizontal, sqrt(x_horizontal*x_horizontal + y*y));
@@ -209,7 +212,7 @@ double eccentric_anomaly(double e, double M) {
 }
 
 double true_anomaly(rect_coordinates coords) {
-    return atan2(coords.y, coords.x);
+    return normalize_radians(atan2(coords.y, coords.x));
 }
 
 double distance(rect_coordinates coords) {
@@ -361,7 +364,7 @@ rect_coordinates to_rectangular_coordinates(double N, double i, double w, double
 
 spherical_coordinates to_spherical_coordinates(rect_coordinates rc) {
     spherical_coordinates result;
-    result.RA = atan2(rc.y, rc.x);
+    result.RA = normalize_radians(atan2(rc.y, rc.x));
     result.DECL = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
     result.distance = sqrt(rc.x*rc.x + rc.y*rc.y + rc.z*rc.z);
     if (result.distance > 0.999 && result.distance < 1.001) result.distance = 1.0;
@@ -371,8 +374,8 @@ spherical_coordinates to_spherical_coordinates(rect_coordinates rc) {
 ecliptic_coordinates to_ecliptic_coordinates(rect_coordinates rc) {
     // this is same as to spherical coordinates but without distance. Done so we don't mix these
     ecliptic_coordinates result;
-    result.lat = atan2(rc.y, rc.x);
-    result.lon = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
+    result.lon = normalize_radians(atan2(rc.y, rc.x));
+    result.lat = atan2(rc.z, sqrt(rc.x*rc.x + rc.y*rc.y));
     result.distance = 1; // this gets set elsewhere. Doing this so we don't need to redundant expensive calculations.
     return result;
 }
