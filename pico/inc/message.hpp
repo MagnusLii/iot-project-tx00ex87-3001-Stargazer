@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include "convert.hpp"
 #include "crc.hpp"
 #include <cstdint>
+#include <string>
+#include <vector>
 
 enum MessageType {
     UNASSIGNED = 0,   // don't use
@@ -21,6 +21,16 @@ struct Message {
     std::vector<std::string> content;
 };
 
+// Used when receiving messages
 int convert_to_message(std::string &str, Message &msg);
 MessageType verify_message_type(std::string &str);
+int check_message_crc(std::string &str, std::string &crc_str);
+
+// Used when sending messages
 Message response(bool ack);
+Message datetime_request();
+Message datetime_response(/* datetime */);
+Message esp_init(bool success);
+Message instructions(/* instructions */);
+Message picture(int object_id, int image_id);
+Message diagnostics(/* diagnostics */);

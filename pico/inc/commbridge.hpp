@@ -13,6 +13,7 @@ class CommBridge {
     CommBridge(std::shared_ptr<PicoUart> uart, std::shared_ptr<std::queue<Message>> queue);
     int read(std::string &str);
     void send(const Message &msg);
+    void send(const std::string &str);
     int parse(std::string &str);
     int read_and_parse(const uint16_t timeout_ms = 5000, bool reset_on_activity = true);
 

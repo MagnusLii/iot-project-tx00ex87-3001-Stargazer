@@ -38,6 +38,17 @@ void CommBridge::send(const Message &msg) {
     uart->send(formatted_msg.c_str());
 }
 
+void CommBridge::send(const std::string &str) {
+    std::string formatted_msg = str;
+    uint16_t crc = crc16(formatted_msg);
+    std::string crc_str;
+    num_to_hex_str(crc, crc_str, 4, true, true);
+    formatted_msg += "," + crc_str + ";";
+
+    DEBUG("Sending: ", str);
+    uart->send(str.c_str());
+}
+
 int CommBridge::parse(std::string &str) {
     do {
         // Find the first $ in the string unless a partial message is in string_buffer

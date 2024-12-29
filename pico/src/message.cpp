@@ -1,25 +1,14 @@
 #include "message.hpp"
 
 int convert_to_message(std::string &str, Message &msg) {
-    // TODO: To separate function?
     if (size_t pos = str.find_last_of(','); pos == std::string::npos) {
         return 1;
     } else {
         std::string crc_str = str.substr(pos + 1);
         str.erase(pos);
-        // str.erase(pos + 1);
-        if (crc_str.size() != 4) { return 2; }
 
-        uint16_t attached_crc;
-        if (int result; !str_to_int(crc_str, result, true)) {
-            return 3;
-        } else {
-            attached_crc = static_cast<uint16_t>(result);
-        }
-
-        if (attached_crc != crc16(str)) { return 4; }
+        if (check_message_crc(str, crc_str)) { return 2; }
     }
-    // END TODO
 
     std::vector<std::string> tokens;
     if (!str_to_vec(str, ',', tokens)) { return 5; }
@@ -64,9 +53,63 @@ MessageType verify_message_type(std::string &str) {
     }
 }
 
+int check_message_crc(std::string &str, std::string &crc_str) {
+    if (crc_str.size() != 4) { return 1; }
+
+    uint16_t attached_crc;
+    if (int result; !str_to_int(crc_str, result, true)) {
+        return 2;
+    } else {
+        attached_crc = static_cast<uint16_t>(result);
+    }
+
+    if (attached_crc != crc16(str)) { return 3; }
+
+    return 0;
+}
+
 Message response(bool ack) {
-    Message msg;
-    msg.type = RESPONSE;
-    msg.content.push_back(std::to_string(ack));
-    return msg;
+    if (ack) {
+        return Message{.type = RESPONSE, .content = {"1"}};
+    } else {
+        return Message{.type = RESPONSE, .content = {"0"}};
+    }
+}
+
+/*
+Message ack() { return Message{.type = RESPONSE, .content = {"1"}}; }
+
+Message nack() { return Message{.type = RESPONSE, .content = {"0"}}; }
+*/
+
+Message datetime_request() { return Message{.type = DATETIME, .content = {"1"}}; }
+
+Message datetime_response(/* datetime */) {
+    return Message{.type = DATETIME, .content = {/* datetime example */ "1735485940"}};
+}
+
+Message esp_init(bool success) {
+    if (success) {
+        return Message{.type = ESP_INIT, .content = {"1"}};
+    } else {
+        return Message{.type = ESP_INIT, .content = {"0"}};
+    }
+}
+
+/*
+Message esp_init_success() { return Message{.type = ESP_INIT, .content = {"1"}}; }
+
+Message esp_init_failure() { return Message{.type = ESP_INIT, .content = {"0"}}; }
+*/
+
+Message instructions(/* instructions */) {
+    return Message{.type = INSTRUCTIONS, .content = {/* instructions example */ "3", "2", "17"}};
+}
+
+Message picture(int object_id, int image_id) { // NOTE: Do we actually need to send the object id back to the ESP?
+    return Message{.type = PICTURE, .content = {std::to_string(object_id), std::to_string(image_id)}};
+}
+
+Message diagnostics(/* diagnostics */) {
+    return Message{.type = DIAGNOSTICS, .content = {/* diagnostics example */ "TBD"}};
 }
