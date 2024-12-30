@@ -22,7 +22,6 @@ pub struct UploadImage {
 }
 
 // Parse the body of the POST request for base64 encoded image
-// TODO: Handle errors
 pub async fn upload_image(
     State(state): State<ApiState>,
     Json(payload): Json<UploadImage>,
@@ -52,7 +51,7 @@ pub async fn upload_image(
 
     images::update_gallery().await;
 
-    commands::modify_command_status(&state.db, payload.id, 2).await; // Mark as uploaded (status = 2)
+    commands::modify_command_status(&state.db, payload.id, 3).await; // Mark as uploaded (status = 3)
 
     (StatusCode::OK, "Success\n")
 }

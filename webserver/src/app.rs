@@ -1,6 +1,9 @@
 use crate::{
     api::{
-        commands::fetch_command, diagnostics::send_diagnostics, time_srv, upload::upload_image,
+        commands::{fetch_command, respond_command},
+        diagnostics::send_diagnostics,
+        time_srv,
+        upload::upload_image,
         ApiState,
     },
     auth::{
@@ -91,6 +94,7 @@ impl App {
                 post(upload_image).layer(DefaultBodyLimit::max(262_144_000)),
             )
             .route("/api/command", get(fetch_command))
+            .route("/api/command", post(respond_command))
             .route("/api/diagnostics", post(send_diagnostics))
             .route("/api/time", get(time_srv::time))
             .with_state(self.api_state)
