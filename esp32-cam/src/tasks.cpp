@@ -1,5 +1,7 @@
 #include "tasks.hpp"
+#include "TaskPriorities.hpp"
 #include "debug.hpp"
+#include "espPicoUartCommHandler.hpp"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -22,7 +24,7 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
-#include "espPicoUartCommHandler.hpp"
+#include "camera.hpp"
 
 #include "testMacros.hpp"
 
@@ -53,16 +55,19 @@ void get_request_timer_callback(TimerHandle_t timer) {
 void init_task(void *pvParameters) {
     WirelessHandler wifi;
     SDcard sdcard("/sdcard");
-    wifi.connect(WIFI_SSID, WIFI_PASSWORD);
-    do {
-        vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
-        if (!wifi.isConnected()) { wifi.disconnect(); }
-    } while (!wifi.isConnected());
+    // wifi.connect(WIFI_SSID, WIFI_PASSWORD);
+    // do {
+    //     vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
+    //     if (!wifi.isConnected()) { wifi.disconnect(); }
+    // } while (!wifi.isConnected());
     RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
                                   std::make_shared<SDcard>(sdcard));
 
-    xTaskCreate(send_request_task, "send_request_task", 4096, &requestHandler, , nullptr);
-    xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
+    // xTaskCreate(send_request_task, "send_request_task", 4096, &requestHandler, TaskPriorities::HIGH, nullptr);
+    // xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
+
+    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
+    take_picture_and_save_to_sdcard_in_loop_task(&cameraPtr);
 }
 
 void send_request_task(void *pvParameters) {
@@ -100,13 +105,15 @@ void send_request_task(void *pvParameters) {
 void uart_read_task(void *pvParameters) {
     EspPicoCommHandler *commHandler = (EspPicoCommHandler *)pvParameters;
     uart_event_t event;
+    char buffer[BUFFER_SIZE];
+    int len;
     while (true) {
-        if (xQueueReceive(commHandler->get_uart_event_queue(), (void*)&event, portMAX_DELAY)) {
+        if (xQueueReceive(commHandler->get_uart_event_queue(), (void *)&event, portMAX_DELAY)) {
             switch (event.type) {
                 case UART_DATA:
-                    char buffer[128];
-                    int len = uart_read_bytes(commHandler->get_uart_num(), (uint8_t*)buffer, sizeof(buffer), portMAX_DELAY);
-                    buffer[len] = '\0';  // Null-terminate the received string
+                    len =
+                        uart_read_bytes(commHandler->get_uart_num(), (uint8_t *)buffer, sizeof(buffer), portMAX_DELAY);
+                    buffer[len] = '\0'; // Null-terminate the received string
                     // TODO: Process the received data
                     break;
                 default:

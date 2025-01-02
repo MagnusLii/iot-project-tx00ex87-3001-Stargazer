@@ -13,6 +13,7 @@ enum class TaskReturnCode {
     DNS_LOOKUP_FAIL
 };
 
+void init_task(void *pvParameters);
 void get_request_timer_callback(TimerHandle_t timer);
 void send_request_task(void *pvParameters);
 TaskReturnCode send_request_and_enqueue_response(RequestHandler *requestHandler, QueueMessage *message);
