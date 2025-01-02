@@ -1,14 +1,13 @@
 #include "camera.hpp"
 #include "debug.hpp"
 #include "esp_camera.h"
-#include "timesync-lib.hpp"
 #include "requestHandler.hpp"
+#include "timesync-lib.hpp"
 
-Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET,
-               int XCLK, int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC,
-               int HREF, int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL,
-               pixformat_t PIXEL_FORMAT, std::string mount_point, framesize_t FRAME_SIZE, int jpeg_quality,
-               int fb_count) {
+Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
+               int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC, int HREF,
+               int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT,
+               std::string mount_point, framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
 
     DEBUG("Camera constructor called\n");
     DEBUG("PWDN: ", PWDN, "\nRESET: ", RESET, "\nXCLK: ", XCLK, "\nSIOD: ", SIOD, "\nSIOC: ", SIOC, "\nD7: ", D7,
@@ -77,14 +76,26 @@ CameraReturnCode Camera::reinit_cam() {
 CameraReturnCode Camera::take_picture_and_save_to_sdcard(const char *full_filename_str) {
     camera_fb_t *pic = esp_camera_fb_get();
     if (pic) {
+        DEBUG("Picture taken, size: ", pic->len);
+
         FILE *file = fopen(full_filename_str, "w");
 
         DEBUG("Writing picture to ", full_filename_str);
-        if (file) { fwrite(pic->buf, 1, pic->len, file); }
+        if (file) {
+            if (fwrite(pic->buf, 1, pic->len, file) == pic->len) {
+                DEBUG("File write success");
+                esp_camera_fb_return(pic);
+                fclose(file);
+                return CameraReturnCode::SUCCESS;
+            } else {
+                DEBUG("File write failed");
+            }
+        } else {
+            DEBUG("Failed to open file for writing");
+            perror("File open error");
+        }
         esp_camera_fb_return(pic);
         fclose(file);
-        DEBUG("Picture saved");
-        return CameraReturnCode::SUCCESS;
     }
     return CameraReturnCode::GENERIC_ERROR;
 }
