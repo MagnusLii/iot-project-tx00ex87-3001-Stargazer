@@ -8,7 +8,7 @@
 #include "defines.hpp"
 
 #define ENQUEUE_REQUEST_RETRIES 3
-#define QUEUE_SIZE              10
+#define QUEUE_SIZE              3
 
 enum class RequestType {
     GET_COMMANDS,
