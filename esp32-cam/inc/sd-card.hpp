@@ -6,7 +6,7 @@
 
 class SDcard {
   public:
-    SDcard(std::string mount_point_arg, int max_open_files = 5, int CMD = 15, int D0 = 2,
+    SDcard(std::string mount_point_arg, int max_open_files = 2, int CMD = 15, int D0 = 2,
            int D1 = 4, int D2 = 12, int D3 = 13);
 
   private:

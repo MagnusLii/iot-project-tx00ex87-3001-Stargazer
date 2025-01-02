@@ -32,6 +32,6 @@ SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0,
         DEBUG("Failed to mount SD card");
         // TODO: Handle error
     }
-
+    DEBUG("SD card mounted at ", mount_point);
     return;
 }
