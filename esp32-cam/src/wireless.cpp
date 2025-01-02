@@ -14,9 +14,11 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-WirelessHandler::WirelessHandler(int wifi_retry_limit) {
+WirelessHandler::WirelessHandler(const char* ssid, const char* password, int wifi_retry_limit) {
     this->WIFI_RETRY_ATTEMPTS = wifi_retry_limit;
     this->wifi_retry_count = 0;
+    this->ssid = ssid;
+    this->password = password;
 
     this->netif = NULL;
     this->s_wifi_event_group = NULL;
