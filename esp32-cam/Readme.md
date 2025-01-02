@@ -16,4 +16,5 @@
 
 ### Code notes
 
-`.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times. 
+`.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times.  
+^^ this needs to be tested again, I've done code improvements.
