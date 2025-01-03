@@ -7,9 +7,15 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 
-async fn create_command(db: &SqlitePool, command: &str, associated_key: i64) -> Result<(), Error> {
-    sqlx::query("INSERT INTO commands (target, associated_key) VALUES (?, ?)")
+async fn create_command(
+    db: &SqlitePool,
+    command: &str,
+    position: &str,
+    associated_key: i64,
+) -> Result<(), Error> {
+    sqlx::query("INSERT INTO commands (target, position, associated_key) VALUES (?, ?, ?)")
         .bind(command)
+        .bind(position)
         .bind(associated_key)
         .execute(db)
         .await
@@ -20,6 +26,7 @@ async fn create_command(db: &SqlitePool, command: &str, associated_key: i64) -> 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CommandJson {
     target: String,
+    position: String,
     associated_key_id: String,
 }
 
@@ -28,12 +35,12 @@ pub async fn new_command(
     Json(payload): Json<CommandJson>,
 ) -> impl IntoResponse {
     println!(
-        "Creating command: {}, associated key: {}",
-        payload.target, payload.associated_key_id
+        "Creating command: {} at position: {}, associated key: {}",
+        payload.target, payload.position, payload.associated_key_id
     );
     let int_key: i64 = payload.associated_key_id.parse().unwrap();
 
-    create_command(&state.db, &payload.target, int_key)
+    create_command(&state.db, &payload.target, &payload.position, int_key)
         .await
         .unwrap();
     (StatusCode::OK, "Success\n")
@@ -42,6 +49,7 @@ pub async fn new_command(
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct MultipleCommandSql {
     pub target: String,
+    pub position: String,
     pub associated_key: i64,
     pub id: i64,
     pub name: String,
@@ -52,6 +60,7 @@ pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Er
     let commands = sqlx::query_as(
         "SELECT commands.id AS id, 
         commands.target AS target, 
+        commands.position AS position,
         commands.associated_key AS associated_key, 
         commands.status AS status,
         keys.name as name 

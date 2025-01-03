@@ -34,6 +34,13 @@
             <option value="uranus">Uranus</option>
         </select>
         <br>
+        <label for="positions">Position:</label>
+        <select name="positions" id="positions">
+            <option value="rising">Rising</option>
+            <option value="zenith" selected>Zenith</option>
+            <option value="setting">Setting</option>
+        </select>
+        <br>
         <label for="selected_key">Selected key:</label>
         <select name="selected_key" id="selected_key">
             <!--API_KEYS-->
@@ -47,6 +54,7 @@
             <tr>
                 <th>Nr.</th>
                 <th>Target</th>
+                <th>Position</th>
                 <th>Key name</th>
                 <th>Key id</th>
                 <th>Status</th>

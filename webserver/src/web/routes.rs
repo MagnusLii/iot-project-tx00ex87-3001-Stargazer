@@ -61,8 +61,13 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
         .iter()
         .map(|command| {
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                command.id, command.target, command.name, command.associated_key, command.status
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                command.id,
+                command.target,
+                command.position,
+                command.name,
+                command.associated_key,
+                command.status
             )
         })
         .collect::<Vec<String>>()

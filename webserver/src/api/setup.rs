@@ -18,6 +18,7 @@ pub async fn create_command_table(db: &SqlitePool) {
         "CREATE TABLE IF NOT EXISTS commands (
             id INTEGER PRIMARY KEY,
             target TEXT NOT NULL,
+            position TEXT NOT NULL,
             associated_key INTEGER NOT NULL,
             status INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (associated_key) REFERENCES keys (id)
