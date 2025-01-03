@@ -11,11 +11,12 @@ use sqlx::{FromRow, SqlitePool};
 struct CommandSql {
     pub id: i64,
     pub target: String,
+    pub position: String,
 }
 
 async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
     let command = sqlx::query_as(
-        "SELECT commands.id AS id, commands.target AS target FROM commands 
+        "SELECT commands.id AS id, commands.target AS target, commands.position AS position FROM commands 
         JOIN keys ON commands.associated_key = keys.id
         WHERE keys.api_token = ? AND commands.status = 0",
     )
@@ -57,9 +58,31 @@ pub async fn fetch_command(
 
     match retrieve_command(&key.token, &state.db).await {
         Ok(command) => {
+            let position: i64;
+            match command.position.as_str() {
+                "rising" => {
+                    position = 1;
+                }
+                "zenith" => {
+                    position = 2;
+                }
+                "setting" => {
+                    position = 3;
+                }
+                _ => {
+                    position = 0;
+                    println!("Invalid position: {}", command.position);
+                    modify_command_status(&state.db, command.id, -9).await; // Mark as failed internally (status = -9)
+                }
+            }
+
+            if position == 0 {
+                return (StatusCode::INTERNAL_SERVER_ERROR, "{}".to_string());
+            }
+
             let json_response = format!(
-                r#"{{"target": "{}", "id": {}}}"#,
-                command.target, command.id
+                r#"{{"target": "{}", "position": {}, "id": {}}}"#,
+                command.target, position, command.id
             );
             modify_command_status(&state.db, command.id, 1).await; // Mark as fetched (status = 1)
             (StatusCode::OK, json_response)
