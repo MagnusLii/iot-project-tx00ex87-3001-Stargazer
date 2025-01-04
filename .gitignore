@@ -17,3 +17,4 @@ config.toml
 */testMacros.hpp
 esp32-cam/inc/testMacros.hpp
 *idf_component.yml
+esp32-cam/test
