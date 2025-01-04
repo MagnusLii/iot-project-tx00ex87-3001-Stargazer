@@ -75,22 +75,24 @@ struct orbital_elements {
 };
 
 
-class Sun {
-    public:
-        Sun(double J2000_day);
-        orbital_elements oe;
-        double mean_longitude(void);
-        ecliptic_coordinates get_ecliptic_coordinates(void);
-};
+// class Sun {
+//     public:
+//         Sun(double J2000_day);
+//         orbital_elements oe;
+//         double mean_longitude(void);
+//         ecliptic_coordinates get_ecliptic_coordinates(void);
+// };
 
 
 class Celestial {
     public:
         Celestial(Planets planet);
-        azimuthal_coordinates get_coordinates(datetime_t &date, Coordinates observer_coordinates);
+        azimuthal_coordinates get_coordinates(const datetime_t &date, const Coordinates observer_coordinates);
+        void fill_coordinate_table(const datetime_t &date, const Coordinates observer_coordinates);
+        void print_coordinate_table(void);
     private:
         Planets planet;
-        std::vector<Coordinates> coord_table; // Right ascension and Declination
+        std::vector<azimuthal_coordinates> coordinate_table;
 };
 
 
@@ -106,7 +108,7 @@ ecliptic_coordinates perturbation_uranus(double Mu, double Mj, double Ms);
 
 double normalize_degrees(double degrees);
 double normalize_radians(double radians);
-double datetime_to_j2000_day(datetime_t &date);
+double datetime_to_j2000_day(const datetime_t &date);
 double local_sidereal_time(double J2000_day, double longitude);
 double obliquity_of_eplectic(double J2000_day);
 rect_coordinates rotate_through_obliquity_of_eplectic(const rect_coordinates &rc, double obliquity);

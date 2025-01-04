@@ -99,29 +99,29 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-Sun::Sun(double J2000_day) : oe(J2000_day, SUN) {
-}
+// Sun::Sun(double J2000_day) : oe(J2000_day, SUN) {
+// }
 
-double Sun::mean_longitude(void) {
-    return normalize_radians(oe.M + oe.w);
-}
+// double Sun::mean_longitude(void) {
+//     return normalize_radians(oe.M + oe.w);
+// }
 
-ecliptic_coordinates Sun::get_ecliptic_coordinates(void) {
-    double E = eccentric_anomaly(oe.e, oe.M);
-    rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
-    double v = true_anomaly(xy);
-    double r = distance(xy);
-    ecliptic_coordinates result;
-    result.lon = v + oe.w;
-    result.distance = r;
-    result.lat = 0;
-    return result;
-}
+// ecliptic_coordinates Sun::get_ecliptic_coordinates(void) {
+//     double E = eccentric_anomaly(oe.e, oe.M);
+//     rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
+//     double v = true_anomaly(xy);
+//     double r = distance(xy);
+//     ecliptic_coordinates result;
+//     result.lon = v + oe.w;
+//     result.distance = r;
+//     result.lat = 0;
+//     return result;
+// }
 
 
 Celestial::Celestial(Planets planet) : planet(planet) {}
 
-azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates observer_coordinates) {
+azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const Coordinates observer_coordinates) {
     double J2000 = datetime_to_j2000_day(date);
     orbital_elements oe(J2000, planet);
     orbital_elements sun(J2000, SUN);
@@ -192,6 +192,26 @@ azimuthal_coordinates Celestial::get_coordinates(datetime_t &date, Coordinates o
     }
     ac.altitude = ac.altitude - parallax * cos(ac.altitude);
     return ac;
+}
+
+
+void Celestial::fill_coordinate_table(const datetime_t &date, const Coordinates observer_coordinates) {
+    coordinate_table.clear();
+    datetime_t iter_date(date);
+    iter_date.min = 0;
+    for (int i=0; i<24; i++) {
+        iter_date.hour = (i + 12) % 24;
+        azimuthal_coordinates coord = get_coordinates(iter_date, observer_coordinates);
+        coordinate_table.push_back(coord);
+    }
+}
+
+
+void Celestial::print_coordinate_table(void) {
+    for (auto coord : coordinate_table) {
+        std::cout << coord.altitude << ", " << coord.azimuth << std::endl;
+    }
+    std::cout << "end" << std::endl;
 }
 
 
@@ -302,7 +322,7 @@ double normalize_radians(double radians) {
 }
 
 
-double datetime_to_j2000_day(datetime_t &date) {
+double datetime_to_j2000_day(const datetime_t &date) {
     int d = 367*date.year - 7 * ( date.year + (date.month+9)/12 ) / 4 - 3 * ( ( date.year + (date.month-9)/7 ) / 100 + 1 ) / 4 + 275*date.month/9 + date.day - 730515;
     double ut = (double)date.hour + ((double)date.min / 60.0); // can add seconds too but there's no point
     return (double)d + ut / 24.0;
