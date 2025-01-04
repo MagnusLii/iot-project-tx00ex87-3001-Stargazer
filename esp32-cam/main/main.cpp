@@ -35,7 +35,7 @@ void app_main(void);
 void app_main(void) {
     DEBUG("Starting main");
 
-    xTaskCreate(init_task, "init-task", 4096,
+    xTaskCreate(init_task, "init-task", 8192,
                 NULL, TaskPriorities::HIGH, NULL);
 
     // // while (1){
