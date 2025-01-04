@@ -43,13 +43,13 @@ class Camera {
         JPEG = PIXFORMAT_JPEG
     };
 
-    Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN = CAM_PIN_PWDN, int RESET = CAM_PIN_RESET,
-           int XCLK = CAM_PIN_XCLK, int SIOD = CAM_PIN_SIOD, int SIOC = CAM_PIN_SIOC, int D7 = CAM_PIN_D7,
-           int D6 = CAM_PIN_D6, int D5 = CAM_PIN_D5, int D4 = CAM_PIN_D4, int D3 = CAM_PIN_D3, int D2 = CAM_PIN_D2,
-           int D1 = CAM_PIN_D1, int D0 = CAM_PIN_D0, int VSYNC = CAM_PIN_VSYNC, int HREF = CAM_PIN_HREF,
-           int PCLK = CAM_PIN_PCLK, int XCLK_FREQ = CAM_XCLK_FREQ, ledc_timer_t LEDC_TIMER = LEDC_TIMER_0,
-           ledc_channel_t LEDC_CHANNEL = LEDC_CHANNEL_0, pixformat_t PIXEL_FORMAT = PIXFORMAT_JPEG,
-           std::string mount_point = "/sdcard", framesize_t FRAME_SIZE = FRAMESIZE_UXGA, int jpeg_quality = 10,
+    Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN = CAM_PIN_PWDN,
+           int RESET = CAM_PIN_RESET, int XCLK = CAM_PIN_XCLK, int SIOD = CAM_PIN_SIOD, int SIOC = CAM_PIN_SIOC,
+           int D7 = CAM_PIN_D7, int D6 = CAM_PIN_D6, int D5 = CAM_PIN_D5, int D4 = CAM_PIN_D4, int D3 = CAM_PIN_D3,
+           int D2 = CAM_PIN_D2, int D1 = CAM_PIN_D1, int D0 = CAM_PIN_D0, int VSYNC = CAM_PIN_VSYNC,
+           int HREF = CAM_PIN_HREF, int PCLK = CAM_PIN_PCLK, int XCLK_FREQ = CAM_XCLK_FREQ,
+           ledc_timer_t LEDC_TIMER = LEDC_TIMER_0, ledc_channel_t LEDC_CHANNEL = LEDC_CHANNEL_0,
+           pixformat_t PIXEL_FORMAT = PIXFORMAT_JPEG, framesize_t FRAME_SIZE = FRAMESIZE_UXGA, int jpeg_quality = 10,
            int fb_count = 1);
     CameraReturnCode create_image_filename(std::string &filenamePtr);
 
@@ -59,7 +59,7 @@ class Camera {
 
   private:
     std::shared_ptr<SDcard> sdcard;
-    QueueHandle_t webSrvRequestQueueHandle; 
+    QueueHandle_t webSrvRequestQueueHandle;
     camera_config_t camera_config;
     Filetype image_filetype;
     std::string mount_point;

@@ -7,17 +7,10 @@
 Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
                int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC, int HREF,
                int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT,
-               std::string mount_point, framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
-
+               framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
     DEBUG("Camera constructor called\n");
-    DEBUG("PWDN: ", PWDN, "\nRESET: ", RESET, "\nXCLK: ", XCLK, "\nSIOD: ", SIOD, "\nSIOC: ", SIOC, "\nD7: ", D7,
-          "\nD6: ", D6, "\nD5: ", D5, "\nD4: ", D4, "\nD3: ", D3, "\nD2: ", D2, "\nD1: ", D1, "\nD0: ", D0,
-          "\nVSYNC: ", VSYNC, "\nHREF: ", HREF, "\nPCLK: ", PCLK, "\nXCLK_FREQ: ", XCLK_FREQ,
-          "\nLEDC_TIMER: ", LEDC_TIMER, "\nLEDC_CHANNEL: ", LEDC_CHANNEL, "\nPIXEL_FORMAT: ", PIXEL_FORMAT,
-          "\nFRAME_SIZE: ", FRAME_SIZE, "\nJPEG_QUALITY: ", jpeg_quality, "\nFB_COUNT: ", fb_count);
 
-    this->sdcard = sdcard;
-
+    this->sdcard = sdcardPtr;
     this->camera_config.pin_pwdn = PWDN;
     this->camera_config.pin_reset = RESET;
     this->camera_config.pin_xclk = XCLK;
@@ -47,7 +40,8 @@ Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQue
     this->camera_config.frame_size = FRAME_SIZE;
     this->camera_config.jpeg_quality = jpeg_quality;
     this->camera_config.fb_count = fb_count;
-    this->mount_point = mount_point;
+
+    this->mount_point = *sdcard->get_mount_point();
 
     esp_err_t err = esp_camera_init(&camera_config);
     if (err != ESP_OK) {
