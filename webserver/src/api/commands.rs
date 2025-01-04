@@ -27,15 +27,6 @@ async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Erro
     Ok(command)
 }
 
-async fn delete_command(db: &SqlitePool, id: i64) {
-    println!("Deleting command: {}", id);
-    sqlx::query("DELETE FROM commands WHERE id = ?")
-        .bind(id)
-        .execute(db)
-        .await
-        .unwrap();
-}
-
 pub async fn modify_command_status(db: &SqlitePool, id: i64, status: i64) {
     sqlx::query("UPDATE commands SET status = ? WHERE id = ?")
         .bind(status)

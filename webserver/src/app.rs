@@ -13,7 +13,7 @@ use crate::{
     },
     keys::{new_key, remove_key},
     web::{
-        commands::new_command,
+        commands::{new_command, remove_command},
         routes::{
             api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
             user_page,
@@ -75,6 +75,7 @@ impl App {
             .route("/control/keys", post(new_key))
             .route("/control/keys", delete(remove_key))
             .route("/control/command", post(new_command))
+            .route("/control/command", delete(remove_command))
             .route("/control/diagnostics", get(diagnostics))
             .route("/users", get(user_management))
             .route("/users", post(new_user))

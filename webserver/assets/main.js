@@ -27,23 +27,3 @@ function deleteKey(id) {
     }
 }
 
-function queuePicture() {
-    const data = JSON.stringify({
-        "target": document.getElementById("targets").value,
-        "position": document.getElementById("positions").value,
-        "associated_key_id": document.getElementById("selected_key").value
-    });
-    console.log(data);
-
-    fetch(`/control/command`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: data
-    }).then(() => {
-        location.reload();
-    }).catch(() => {
-        alert("Issue with queuing request");
-    });
-}

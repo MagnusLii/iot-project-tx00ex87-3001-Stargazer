@@ -1,6 +1,9 @@
-use crate::{api::ApiState, err::Error};
+use crate::{
+    api::{commands::modify_command_status, ApiState},
+    err::Error,
+};
 use axum::{
-    extract::{Json, State},
+    extract::{Json, Query, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -21,6 +24,15 @@ async fn create_command(
         .await
         .unwrap();
     Ok(())
+}
+
+async fn delete_command(db: &SqlitePool, id: i64) {
+    println!("Deleting command: {}", id);
+    sqlx::query("DELETE FROM commands WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await
+        .unwrap();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -70,4 +82,20 @@ pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Er
     .fetch_all(db)
     .await?;
     Ok(commands)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoveCommandQuery {
+    id: String,
+}
+
+pub async fn remove_command(
+    State(state): State<ApiState>,
+    Query(payload): Query<RemoveCommandQuery>,
+) -> impl IntoResponse {
+    println!("Marking command as deleted: {}", payload.id);
+    let int_key: i64 = payload.id.parse().unwrap();
+    modify_command_status(&state.db, int_key, -6).await; // Mark as deleted (status = -6)
+
+    (StatusCode::OK, "Success\n")
 }
