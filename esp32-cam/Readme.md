@@ -13,6 +13,7 @@
 - Enable PSRAM in `menuconfig` 
 - Set Flash and PSRAM frequiencies to 80MHz (Flash speed must be set before PSRAM speed can be changed)
 - Set Flash size to 4MB
+- Set `Long filename support` to `long filename buffer in heap` and lenght to 255.
 
 ### Code notes
 
