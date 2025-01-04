@@ -12,11 +12,3 @@ set(COMMON_DIR ../common)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(esp-stargazer C CXX ASM)
-
-
-
-
-
-
-
-
