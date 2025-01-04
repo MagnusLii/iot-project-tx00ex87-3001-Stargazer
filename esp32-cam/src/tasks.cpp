@@ -1,5 +1,6 @@
 #include "tasks.hpp"
 #include "TaskPriorities.hpp"
+#include "camera.hpp"
 #include "debug.hpp"
 #include "espPicoUartCommHandler.hpp"
 #include "esp_event.h"
@@ -24,7 +25,6 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
-#include "camera.hpp"
 
 #include "testMacros.hpp"
 
@@ -54,12 +54,16 @@ void get_request_timer_callback(TimerHandle_t timer) {
 
 void init_task(void *pvParameters) {
     WirelessHandler wifi;
-    SDcard sdcard("/sdcard");
-    // wifi.connect(WIFI_SSID, WIFI_PASSWORD);
-    // do {
-    //     vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
-    //     if (!wifi.isConnected()) { wifi.disconnect(); }
-    // } while (!wifi.isConnected());
+    std::string mount_point = "/sdcard";
+    SDcard sdcard(mount_point);
+    wifi.connect(WIFI_SSID, WIFI_PASSWORD);
+    do {
+        vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
+        if (!wifi.isConnected()) {
+            wifi.disconnect();
+            wifi.connect(WIFI_SSID, WIFI_PASSWORD);
+        }
+    } while (!wifi.isConnected());
     RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
                                   std::make_shared<SDcard>(sdcard));
 
@@ -67,7 +71,10 @@ void init_task(void *pvParameters) {
     // xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
 
     Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
-    take_picture_and_save_to_sdcard_in_loop_task(&cameraPtr);
+
+    xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
+                (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
+    vTaskDelete(NULL);
 }
 
 void send_request_task(void *pvParameters) {
