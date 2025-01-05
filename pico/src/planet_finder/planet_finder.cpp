@@ -200,7 +200,7 @@ void Celestial::fill_coordinate_table(const datetime_t &date, const Coordinates 
     datetime_t iter_date(date);
     iter_date.min = 0;
     for (int i=0; i<24; i++) {
-        iter_date.hour = (i + 12) % 24;
+        iter_date.hour = i;
         azimuthal_coordinates coord = get_coordinates(iter_date, observer_coordinates);
         coordinate_table.push_back(coord);
     }
