@@ -1,15 +1,14 @@
 # Requirements
-- Rust compiler (tested on 1.83)
+- Cargo (build)
 - sqlite3
 
-# Test upload images
-```
-curl -H "Content-Type: application/json" --request POST --data @img.json 127.0.0.1:7878/api/upload
-```
-where @img.json contains:
-```
-{
-    "toke":"<api_token>",
-    "data":"<base64_data>"
-}
-```
+# API
+The API currently has the following endpoints:
+
+- `/api/upload` (POST)
+- `/api/command` (GET, POST)
+- `/api/diagnostics` (POST)
+- `/api/time` (GET)
+
+More details can be found in API.md
+

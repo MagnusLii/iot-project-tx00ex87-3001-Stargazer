@@ -1,6 +1,9 @@
 use crate::{
     api::{
-        commands::fetch_command, diagnostics::send_diagnostics, time_srv, upload::upload_image,
+        commands::{fetch_command, respond_command},
+        diagnostics::send_diagnostics,
+        time_srv,
+        upload::upload_image,
         ApiState,
     },
     auth::{
@@ -10,7 +13,7 @@ use crate::{
     },
     keys::{new_key, remove_key},
     web::{
-        commands::new_command,
+        commands::{new_command, remove_command},
         routes::{
             api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
             user_page,
@@ -72,6 +75,7 @@ impl App {
             .route("/control/keys", post(new_key))
             .route("/control/keys", delete(remove_key))
             .route("/control/command", post(new_command))
+            .route("/control/command", delete(remove_command))
             .route("/control/diagnostics", get(diagnostics))
             .route("/users", get(user_management))
             .route("/users", post(new_user))
@@ -91,6 +95,7 @@ impl App {
                 post(upload_image).layer(DefaultBodyLimit::max(262_144_000)),
             )
             .route("/api/command", get(fetch_command))
+            .route("/api/command", post(respond_command))
             .route("/api/diagnostics", post(send_diagnostics))
             .route("/api/time", get(time_srv::time))
             .with_state(self.api_state)
