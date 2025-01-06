@@ -16,8 +16,8 @@ pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/uart/PicoUart.cpp
-    src/uart/RingBuffer.cpp
+    src/hardware/uart/PicoUart.cpp
+    src/hardware/uart/RingBuffer.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/hardware/clock.cpp
@@ -26,8 +26,8 @@ add_executable(${PROJECT_NAME}
 
 add_executable(${PROJECT_NAME}_test
     src/test_main.cpp
-    src/uart/PicoUart.cpp
-    src/uart/RingBuffer.cpp
+    src/hardware/uart/PicoUart.cpp
+    src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
     src/convert.cpp
     src/commbridge.cpp
@@ -43,18 +43,18 @@ pico_add_extra_outputs(${PROJECT_NAME}_test)
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
-    inc/uart
     inc/devices
     inc/hardware
+    inc/hardware/uart
     ${COMMON_DIR}/inc
 )
 
 target_include_directories(${PROJECT_NAME}_test PRIVATE
     src
     inc
-    inc/uart
     inc/devices
     inc/hardware
+    inc/hardware/uart
     ${COMMON_DIR}/inc
 )
 
