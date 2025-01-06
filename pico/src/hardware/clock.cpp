@@ -6,6 +6,13 @@ Clock::Clock() {
     rtc_init();
 }
 
+void Clock::update(std::string &str) {
+    size_t converted;
+    if (time_t timestamp = std::stoll(str, &converted); converted == str.size()) {
+        update(timestamp);
+    }
+}
+
 void Clock::update(time_t timestamp) {
     synced = false;
     last_timestamp = timestamp;
