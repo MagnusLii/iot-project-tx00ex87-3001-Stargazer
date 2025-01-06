@@ -168,16 +168,41 @@ pub async fn unknown_route() -> impl IntoResponse {
     )
 }
 
-pub async fn test(auth_session: AuthSession) -> impl IntoResponse {
-    let mut html = include_str!("../../html/index.html").to_string();
-    if auth_session.user.is_some() {
-        let msg = format!("User: {}", auth_session.user.unwrap().username);
-        html = html.replace("<!--USER-->", &msg);
-        (StatusCode::OK, Html(html))
-    } else {
-        (
-            StatusCode::UNAUTHORIZED,
-            Html("You are not logged in.".to_string()),
-        )
-    }
+#[derive(Debug, Deserialize)]
+pub struct GalleryQuery {
+    page: Option<u32>,
+    psize: Option<u32>,
+}
+
+pub async fn test(
+    State(state): State<ApiState>,
+    Query(query): Query<GalleryQuery>,
+) -> impl IntoResponse {
+    let mut html = include_str!("../../html/images.html").to_string();
+    println!("Query: {:?}", query);
+
+    images::check_images(&state.db).await.unwrap();
+
+    let html_images = images::get_image_info(
+        &state.db,
+        if query.page.is_none() {
+            1
+        } else {
+            query.page.unwrap()
+        },
+        if query.psize.is_none() {
+            10
+        } else {
+            query.psize.unwrap()
+        },
+    )
+    .await
+    .unwrap()
+    .iter()
+    .map(|image| format!("<img src=\"{}\"/>", image.path))
+    .collect::<Vec<String>>()
+    .join("\n");
+
+    html = html.replace("<!--IMAGES-->", &html_images);
+    (StatusCode::OK, Html(html))
 }

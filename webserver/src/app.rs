@@ -88,7 +88,7 @@ impl App {
             .route("/login", get(login_page))
             .route("/login", post(login))
             .route("/logout", get(logout))
-            //.route("/test", get(test))
+            .route("/test", get(crate::web::routes::test))
             .layer(auth_layer)
             .route(
                 "/api/upload",

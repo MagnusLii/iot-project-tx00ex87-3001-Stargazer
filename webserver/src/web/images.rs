@@ -16,6 +16,7 @@ impl ImageDirectory {
                 .extensions
                 .contains(&path.extension().unwrap().to_str().unwrap().to_string())
             {
+                println!("Found image: {}", path.display());
                 images.push(path);
             }
         }
@@ -54,7 +55,6 @@ pub fn generate_html(images: Vec<PathBuf>) -> String {
     html
 }
 
-// TODO: Maybe look in to using proper html templates
 pub async fn update_gallery() -> bool {
     let tmp = env::temp_dir();
     let directory = ImageDirectory::default();
@@ -77,4 +77,96 @@ pub async fn update_gallery() -> bool {
     };
 
     result
+}
+
+pub async fn create_image_table(db: &sqlx::SqlitePool) {
+    let sql = "CREATE TABLE IF NOT EXISTS images (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        command_id INTEGER NOT NULL,
+        FOREIGN KEY (command_id) REFERENCES commands (id)
+    )";
+    sqlx::query(sql).execute(db).await.unwrap();
+}
+
+pub async fn register_image(db: &sqlx::SqlitePool, name: &str, path: &str, command_id: i32) {
+    let sql = "INSERT INTO images (name, path, command_id) VALUES (?, ?, ?)";
+    sqlx::query(sql)
+        .bind(name)
+        .bind(path)
+        .bind(command_id)
+        .execute(db)
+        .await
+        .unwrap();
+}
+
+pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
+    let sql = "DELETE FROM images WHERE path = ?";
+    sqlx::query(sql).bind(path).execute(db).await.unwrap();
+}
+
+#[derive(sqlx::FromRow)]
+pub struct Image {
+    id: i64,
+    pub name: String,
+    pub path: String,
+    command_id: i64,
+}
+
+async fn get_image_list(db: &sqlx::SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
+    let sql = "SELECT * FROM images";
+    let images = sqlx::query_as(sql).fetch_all(db).await?;
+
+    Ok(images)
+}
+
+pub async fn check_images(db: &sqlx::SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = ImageDirectory::default();
+    let images = directory.find_images();
+
+    for image in &images {
+        println!("Image: {}", image.display());
+    }
+
+    // Verify that all images in the database are present in the directory
+    match get_image_list(&db).await {
+        Ok(db_images) => {
+            for db_image in db_images {
+                if !images.contains(&PathBuf::from(&db_image.path)) {
+                    eprintln!("Image {} not found in directory", db_image.path);
+                    //unregister_image(&db, &db_image.path).await;
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting image list from database: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn get_image_info(
+    db: &sqlx::SqlitePool,
+    mut page: u32,
+    page_size: u32,
+) -> Result<Vec<Image>, sqlx::Error> {
+    if page == 0 {
+        page = 1
+    }
+    let offset = (page - 1) * page_size;
+    let sql = "SELECT * FROM images LIMIT ? OFFSET ?";
+    let images = sqlx::query_as(sql)
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(db)
+        .await?;
+
+    if images.len() == 0 {
+        println!("No images found");
+        return Ok(vec![]);
+    }
+
+    Ok(images)
 }
