@@ -18,6 +18,14 @@ Format: Custom Format<br>
 example: `$<PREFIX>,<stuff>,<stuff2>,...<CRC>;`<br>
 "$" Starts the message, ";" ends the message, `<PREFIX>` is the identifier for data, `<stuffX>` is data value.<br>
 
+Celestial Object IDs:<br>
+TBD...<br>
+
+Image position:<br>
+1=Rising<br>
+2=Zenith<br>
+3=Setting<br>
+
 Prefix values:<br>
 `<0>` = unassigned/error<br>
 `<1>` = ACK<br>
@@ -30,6 +38,7 @@ Prefix values:<br>
 Stuff to send:
 
 -   Datetime (Pico requests, ESP responds)<br>
+    `$<2>,<1>,<CRC>;`<br
     `$<2>,<Timestamp(int)>,<CRC>;`<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
@@ -43,7 +52,7 @@ Stuff to send:
     Pico responds when the device is pointed at the celectial object and is ready to take a picture.<br>
     ESP takes picture and sends confirmation to Pico.<br>
 
-    `$<4>,<Celestial object ID (int)>,<Image/command ID (int)>,<CRC>;`<br>
+    `$<4>,<Celestial object ID (int)>,<Image/command ID (int)>,<position>,<CRC>;`<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
     `$<5>,<Celestial object ID (int)>,<Image/command ID (int),<CRC>;`<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
