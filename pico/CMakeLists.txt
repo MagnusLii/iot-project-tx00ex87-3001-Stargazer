@@ -24,9 +24,9 @@ add_executable(${PROJECT_NAME}
     src/planet_finder/planet_finder.cpp
 )
 
-add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp tests/unity/unity.c)
+add_executable(test_planet_finder tests/planet_finder/test_planet_finder.cpp src/planet_finder/planet_finder.cpp tests/unity/src/unity.c)
 target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
-target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity ${COMMON_DIR}/inc)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
