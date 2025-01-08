@@ -36,6 +36,15 @@ pub async fn modify_command_status(db: &SqlitePool, id: i64, status: i64) {
         .unwrap();
 }
 
+pub async fn update_command_est_time(db: &SqlitePool, id: i64, time: i64) {
+    sqlx::query("UPDATE commands SET time = ? WHERE id = ?")
+        .bind(time)
+        .bind(id)
+        .execute(db)
+        .await
+        .unwrap();
+}
+
 #[derive(Debug, Deserialize)]
 pub struct FetchCommandQuery {
     token: String,
@@ -124,7 +133,9 @@ async fn check_command_status(
 pub struct ResponseCommandJson {
     token: String,
     id: i64,
-    response: bool,
+    status: i64,       /* Command stage/status, 1 = Fetch, 2 = Calculate, (3 = Picture)
+                        * Negative numbers are errors */
+    time: Option<i64>, // Estimated picture time in 2
 }
 
 pub async fn respond_command(
@@ -132,31 +143,36 @@ pub async fn respond_command(
     Json(response): Json<ResponseCommandJson>,
 ) -> impl IntoResponse {
     println!(
-        "Response command id: {} with: {}",
-        response.id, response.response
+        "Received response: status {} for command id {}",
+        response.status, response.id
     );
+
+    // Don't continue if status is not valid
+    if response.status < -3 || response.status > 2 {
+        println!("Invalid response status: {}", response.status);
+        return (StatusCode::BAD_REQUEST, "{}".to_string());
+    }
 
     match check_command_status(&state.db, &response.token, response.id).await {
         Ok(command) => {
-            if command.status == 1 {
-                // We expect response at this stage on both success and failure
-                modify_command_status(
-                    &state.db,
-                    response.id,
-                    if response.response { 2 } else { -1 },
-                )
-                .await;
-                (StatusCode::OK, "{}".to_string())
-            } else if command.status == 2 {
-                // We only expect a response at this stage on failure
-                if !response.response {
-                    modify_command_status(&state.db, response.id, -2).await;
-                }
-                (StatusCode::OK, "{}".to_string())
-            } else {
-                println!("Not expecting response to command");
-                (StatusCode::BAD_REQUEST, "{}".to_string())
+            if command.status < 0 || command.status > 2 {
+                println!("Unexpected response to command: {}", response.id);
+                return (StatusCode::BAD_REQUEST, "{}".to_string());
             }
+            println!(
+                "Command id {} status: {} -> {}",
+                response.id, command.status, response.status
+            );
+
+            modify_command_status(&state.db, response.id, response.status).await;
+            if response.status == 2 {
+                match response.time {
+                    Some(n_time) => update_command_est_time(&state.db, response.id, n_time).await,
+                    None => println!("No time estimate provided"),
+                }
+            }
+
+            (StatusCode::OK, "{}".to_string())
         }
         Err(e) => match e {
             Error::Sqlx(e) => match e {
