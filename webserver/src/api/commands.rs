@@ -133,8 +133,8 @@ async fn check_command_status(
 pub struct ResponseCommandJson {
     token: String,
     id: i64,
-    status: i64,       /* Command stage/status, 1 = Fetch, 2 = Calculate, (3 = Picture)
-                        * Negative numbers are errors */
+    status: i64, /* Command stage/status, (-)1 = Fetch, (-)2 = Calculate, ((-)3 = Picture)
+                  * Negative numbers are errors */
     time: Option<i64>, // Estimated picture time in 2
 }
 

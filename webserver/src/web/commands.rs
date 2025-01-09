@@ -66,6 +66,7 @@ pub struct MultipleCommandSql {
     pub id: i64,
     pub name: String,
     pub status: i64,
+    pub time: i64,
 }
 
 pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Error> {
@@ -75,12 +76,14 @@ pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Er
         commands.position AS position,
         commands.associated_key AS associated_key, 
         commands.status AS status,
+        commands.time AS time,
         keys.name as name 
         FROM commands 
         JOIN keys ON commands.associated_key = keys.id",
     )
     .fetch_all(db)
     .await?;
+
     Ok(commands)
 }
 
