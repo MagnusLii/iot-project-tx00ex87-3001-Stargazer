@@ -40,16 +40,21 @@ pub async fn upload_image(
 
     let now = Utc::now().timestamp();
 
+    let name = "TEMPNAME";
+
     let path = format!(
-        "assets/images/{}-{}.{}",
-        payload.id,
+        "assets/images/{}-{}-{}.{}",
         now,
+        payload.id,
+        name,
         file_info.extension()
     );
 
-    fs::write(path, decoded).unwrap();
+    fs::write(&path, decoded).unwrap();
 
-    images::update_gallery().await;
+    //images::update_gallery().await;
+
+    images::register_image(&state.db, &name, &path, payload.id).await;
 
     commands::modify_command_status(&state.db, payload.id, 3).await; // Mark as uploaded (status = 3)
 

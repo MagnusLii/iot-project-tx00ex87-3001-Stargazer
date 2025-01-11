@@ -178,6 +178,8 @@ pub async fn test(
     State(state): State<ApiState>,
     Query(query): Query<GalleryQuery>,
 ) -> impl IntoResponse {
+    //images::update_image_database(&state.db).await;
+
     let mut html = include_str!("../../html/images.html").to_string();
     println!("Query: {:?}", query);
 

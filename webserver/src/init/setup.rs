@@ -85,6 +85,7 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<api::ApiState, sqlx
         api::setup::create_api_keys_table(&api_db).await;
         api::setup::create_command_table(&api_db).await;
         api::setup::create_diagnostics_table(&api_db).await;
+        api::setup::create_image_table(&api_db).await;
     }
 
     Ok(api::ApiState { db: api_db }) // Return the api_db in an ApiState struct

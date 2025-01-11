@@ -6,6 +6,10 @@ pub struct ImageDirectory {
 }
 
 impl ImageDirectory {
+    pub fn new(path: PathBuf, extensions: Vec<String>) -> Self {
+        Self { path, extensions }
+    }
+
     pub fn find_images(&self) -> Vec<PathBuf> {
         let mut images: Vec<PathBuf> = Vec::new();
 
@@ -16,7 +20,7 @@ impl ImageDirectory {
                 .extensions
                 .contains(&path.extension().unwrap().to_str().unwrap().to_string())
             {
-                println!("Found image: {}", path.display());
+                //println!("Found image: {}", path.display());
                 images.push(path);
             }
         }
@@ -79,18 +83,7 @@ pub async fn update_gallery() -> bool {
     result
 }
 
-pub async fn create_image_table(db: &sqlx::SqlitePool) {
-    let sql = "CREATE TABLE IF NOT EXISTS images (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        command_id INTEGER NOT NULL,
-        FOREIGN KEY (command_id) REFERENCES commands (id)
-    )";
-    sqlx::query(sql).execute(db).await.unwrap();
-}
-
-pub async fn register_image(db: &sqlx::SqlitePool, name: &str, path: &str, command_id: i32) {
+pub async fn register_image(db: &sqlx::SqlitePool, name: &str, path: &str, command_id: i64) {
     let sql = "INSERT INTO images (name, path, command_id) VALUES (?, ?, ?)";
     sqlx::query(sql)
         .bind(name)
@@ -104,6 +97,46 @@ pub async fn register_image(db: &sqlx::SqlitePool, name: &str, path: &str, comma
 pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
     let sql = "DELETE FROM images WHERE path = ?";
     sqlx::query(sql).bind(path).execute(db).await.unwrap();
+}
+
+pub async fn update_images(db: &sqlx::SqlitePool) {
+    let directory = ImageDirectory::default();
+    let images = directory.find_images();
+
+    let image_list = get_image_list(db).await.unwrap();
+
+    for image in &images {
+        let path = image.to_str().expect("Failed to get path");
+
+        // Check if image is already registered
+        if image_list.iter().any(|i| i.path == path) {
+            continue;
+        }
+
+        // Look for the correct format <date>-<id>-<name>.<ext>
+        let filename = image.file_name().unwrap().to_str().unwrap();
+
+        // Remove extension
+        let filename = filename.split(".").next().unwrap();
+
+        // Collect parts
+        let parts = filename.split("-").collect::<Vec<&str>>();
+        if parts.len() != 3 {
+            continue;
+        }
+
+        // Attempt to parse date and id
+        let date = parts[0].parse::<i64>().ok();
+        let id = parts[1].parse::<i64>().ok();
+
+        if date.is_none() || id.is_none() {
+            continue;
+        }
+
+        let name = parts[2];
+
+        register_image(db, name, path, id.unwrap()).await;
+    }
 }
 
 #[derive(sqlx::FromRow)]
