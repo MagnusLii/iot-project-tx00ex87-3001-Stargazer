@@ -1,7 +1,4 @@
-use crate::{
-    api::{commands::modify_command_status, ApiState},
-    err::Error,
-};
+use crate::{api::commands::modify_command_status, err::Error, SharedState};
 use axum::{
     extract::{Json, Query, State},
     http::StatusCode,
@@ -43,7 +40,7 @@ pub struct CommandJson {
 }
 
 pub async fn new_command(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(payload): Json<CommandJson>,
 ) -> impl IntoResponse {
     println!(
@@ -90,7 +87,7 @@ pub struct RemoveCommandQuery {
 }
 
 pub async fn remove_command(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(payload): Query<RemoveCommandQuery>,
 ) -> impl IntoResponse {
     println!("Marking command as deleted: {}", payload.id);

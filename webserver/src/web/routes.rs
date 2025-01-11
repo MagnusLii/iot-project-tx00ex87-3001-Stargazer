@@ -1,8 +1,8 @@
 use crate::{
-    api::ApiState,
     auth::login::AuthSession,
     keys,
     web::{commands::get_commands, diagnostics::get_diagnostics, images},
+    SharedState,
 };
 use axum::{
     extract::{Query, State},
@@ -44,7 +44,7 @@ pub async fn gallery() -> impl IntoResponse {
     (status, Html(html.into()))
 }
 
-pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
+pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/control.html").to_string();
     let html_keys = keys::get_keys(&state.db)
         .await
@@ -77,7 +77,7 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
+pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = include_str!("../../html/keys.html").to_string();
     let html_keys = keys::get_keys(&state.db)
         .await
@@ -102,7 +102,7 @@ pub struct DiagnosticQuery {
 }
 
 pub async fn diagnostics(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(name): Query<DiagnosticQuery>,
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
@@ -175,7 +175,7 @@ pub struct GalleryQuery {
 }
 
 pub async fn test(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(query): Query<GalleryQuery>,
 ) -> impl IntoResponse {
     //images::update_image_database(&state.db).await;
@@ -183,7 +183,9 @@ pub async fn test(
     let mut html = include_str!("../../html/images.html").to_string();
     println!("Query: {:?}", query);
 
-    images::check_images(&state.db).await.unwrap();
+    images::check_images(&state.db, &state.image_dir, false)
+        .await
+        .unwrap();
 
     let html_images = images::get_image_info(
         &state.db,

@@ -1,5 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
+#[derive(Clone)]
 pub struct ImageDirectory {
     pub path: PathBuf,
     pub extensions: Vec<String>,

@@ -1,8 +1,4 @@
-use crate::{
-    api::{commands, ApiState},
-    keys::verify_key,
-    web::images,
-};
+use crate::{api::commands, keys::verify_key, web::images, SharedState};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -23,7 +19,7 @@ pub struct UploadImage {
 
 // Parse the body of the POST request for base64 encoded image
 pub async fn upload_image(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(payload): Json<UploadImage>,
 ) -> impl IntoResponse {
     if !verify_key(&payload.token, &state.db).await {

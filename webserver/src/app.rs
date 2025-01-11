@@ -4,7 +4,6 @@ use crate::{
         diagnostics::send_diagnostics,
         time_srv,
         upload::upload_image,
-        ApiState,
     },
     auth::{
         backend::Backend,
@@ -14,11 +13,13 @@ use crate::{
     keys::{new_key, remove_key},
     web::{
         commands::{new_command, remove_command},
+        images::ImageDirectory,
         routes::{
             api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
             user_page,
         },
     },
+    SharedState,
 };
 use axum::{
     extract::DefaultBodyLimit,
@@ -36,7 +37,7 @@ use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
 pub struct App {
-    api_state: ApiState,
+    shared_state: SharedState,
     session_store: MemoryStore,
     key: Key,
     backend: Backend,
@@ -45,14 +46,19 @@ pub struct App {
 impl App {
     pub async fn new(
         user_db: SqlitePool,
-        api_state: ApiState,
+        api_db: SqlitePool,
+        image_dir: ImageDirectory,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let session_store = MemoryStore::default();
         let key = Key::generate();
         let backend = Backend::new(user_db);
+        let shared_state = SharedState {
+            db: api_db,
+            image_dir,
+        };
 
         Ok(Self {
-            api_state,
+            shared_state,
             session_store,
             key,
             backend,
@@ -98,7 +104,7 @@ impl App {
             .route("/api/command", post(respond_command))
             .route("/api/diagnostics", post(send_diagnostics))
             .route("/api/time", get(time_srv::time))
-            .with_state(self.api_state)
+            .with_state(self.shared_state)
             .nest_service("/assets", ServeDir::new("assets"))
             .fallback(unknown_route);
 
