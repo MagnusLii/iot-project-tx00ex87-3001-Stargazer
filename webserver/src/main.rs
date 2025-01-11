@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_db_path = format!("{}/api.db", settings.db_dir);
 
     if let Ok(dbs) = setup(&user_db_path, &api_db_path, &settings.assets_dir).await {
-        App::new(dbs.user_db, dbs.api_state)
+        App::new(dbs.user_db, dbs.api_state, settings.assets_dir)
             .await?
             .serve(&address)
             .await

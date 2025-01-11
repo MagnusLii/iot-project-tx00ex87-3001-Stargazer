@@ -99,17 +99,60 @@ pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
     sqlx::query(sql).bind(path).execute(db).await.unwrap();
 }
 
-pub async fn update_images(db: &sqlx::SqlitePool) {
-    let directory = ImageDirectory::default();
-    let images = directory.find_images();
+#[derive(sqlx::FromRow)]
+pub struct Image {
+    id: i64,
+    pub name: String,
+    pub path: String,
+    command_id: i64,
+}
 
-    let image_list = get_image_list(db).await.unwrap();
+async fn get_image_list(db: &sqlx::SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
+    let sql = "SELECT * FROM images";
+    let images = sqlx::query_as(sql).fetch_all(db).await?;
+
+    Ok(images)
+}
+
+pub async fn check_images(
+    db: &sqlx::SqlitePool,
+    dir: &ImageDirectory,
+    update: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let images = dir.find_images();
 
     for image in &images {
+        println!("Image: {}", image.display());
+    }
+
+    // Verify that all images in the database are present in the directory
+    match get_image_list(&db).await {
+        Ok(db_images) => {
+            for db_image in &db_images {
+                if !images.contains(&PathBuf::from(&db_image.path)) {
+                    eprintln!("Image {} not found in directory", db_image.path);
+                    //unregister_image(&db, &db_image.path).await;
+                }
+            }
+
+            if update {
+                update_images(&db, images, db_images).await;
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting image list from database: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec<Image>) {
+    for image in &dir_images {
         let path = image.to_str().expect("Failed to get path");
 
         // Check if image is already registered
-        if image_list.iter().any(|i| i.path == path) {
+        if db_images.iter().any(|i| i.path == path) {
             continue;
         }
 
@@ -137,47 +180,6 @@ pub async fn update_images(db: &sqlx::SqlitePool) {
 
         register_image(db, name, path, id.unwrap()).await;
     }
-}
-
-#[derive(sqlx::FromRow)]
-pub struct Image {
-    id: i64,
-    pub name: String,
-    pub path: String,
-    command_id: i64,
-}
-
-async fn get_image_list(db: &sqlx::SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
-    let sql = "SELECT * FROM images";
-    let images = sqlx::query_as(sql).fetch_all(db).await?;
-
-    Ok(images)
-}
-
-pub async fn check_images(db: &sqlx::SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
-    let directory = ImageDirectory::default();
-    let images = directory.find_images();
-
-    for image in &images {
-        println!("Image: {}", image.display());
-    }
-
-    // Verify that all images in the database are present in the directory
-    match get_image_list(&db).await {
-        Ok(db_images) => {
-            for db_image in db_images {
-                if !images.contains(&PathBuf::from(&db_image.path)) {
-                    eprintln!("Image {} not found in directory", db_image.path);
-                    //unregister_image(&db, &db_image.path).await;
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Error getting image list from database: {}", e);
-        }
-    }
-
-    Ok(())
 }
 
 pub async fn get_image_info(
