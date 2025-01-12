@@ -10,8 +10,6 @@ use axum::{
     response::{Html, IntoResponse},
 };
 use serde::Deserialize;
-use std::env;
-use tokio::fs;
 
 pub async fn root() -> impl IntoResponse {
     let html = std::include_str!("../../html/index.html").to_string();
@@ -19,29 +17,44 @@ pub async fn root() -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-pub async fn gallery() -> impl IntoResponse {
-    let tmp = env::temp_dir();
+#[derive(Debug, Deserialize)]
+pub struct GalleryQuery {
+    page: Option<u32>,
+    psize: Option<u32>,
+}
+pub async fn gallery(
+    State(state): State<SharedState>,
+    Query(query): Query<GalleryQuery>,
+) -> impl IntoResponse {
+    let mut html = include_str!("../../html/images.html").to_string();
+    println!("Query: {:?}", query);
 
-    if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")).await {
-        return (StatusCode::OK, Html(cached_html));
-    }
+    images::check_images(&state.db, &state.image_dir, false)
+        .await
+        .unwrap();
 
-    let updated = images::update_gallery().await;
+    let html_images = images::get_image_info(
+        &state.db,
+        if query.page.is_none() {
+            1
+        } else {
+            query.page.unwrap()
+        },
+        if query.psize.is_none() {
+            10
+        } else {
+            query.psize.unwrap()
+        },
+    )
+    .await
+    .unwrap()
+    .iter()
+    .map(|image| format!("<img src=\"{}\"/>", image.web_path))
+    .collect::<Vec<String>>()
+    .join("\n");
 
-    let status: StatusCode;
-    let html: Vec<u8>;
-
-    if !updated {
-        status = StatusCode::INTERNAL_SERVER_ERROR;
-        html = "Error updating images".as_bytes().to_vec();
-    } else {
-        status = StatusCode::OK;
-        html = fs::read(&tmp.join("sgwebserver/images.html"))
-            .await
-            .unwrap();
-    }
-
-    (status, Html(html.into()))
+    html = html.replace("<!--IMAGES-->", &html_images);
+    (StatusCode::OK, Html(html))
 }
 
 pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
@@ -168,45 +181,8 @@ pub async fn unknown_route() -> impl IntoResponse {
     )
 }
 
-#[derive(Debug, Deserialize)]
-pub struct GalleryQuery {
-    page: Option<u32>,
-    psize: Option<u32>,
-}
+pub async fn test() -> impl IntoResponse {
+    let html = include_str!("../../html/images.html").to_string();
 
-pub async fn test(
-    State(state): State<SharedState>,
-    Query(query): Query<GalleryQuery>,
-) -> impl IntoResponse {
-    //images::update_image_database(&state.db).await;
-
-    let mut html = include_str!("../../html/images.html").to_string();
-    println!("Query: {:?}", query);
-
-    images::check_images(&state.db, &state.image_dir, false)
-        .await
-        .unwrap();
-
-    let html_images = images::get_image_info(
-        &state.db,
-        if query.page.is_none() {
-            1
-        } else {
-            query.page.unwrap()
-        },
-        if query.psize.is_none() {
-            10
-        } else {
-            query.psize.unwrap()
-        },
-    )
-    .await
-    .unwrap()
-    .iter()
-    .map(|image| format!("<img src=\"{}\"/>", image.path))
-    .collect::<Vec<String>>()
-    .join("\n");
-
-    html = html.replace("<!--IMAGES-->", &html_images);
     (StatusCode::OK, Html(html))
 }

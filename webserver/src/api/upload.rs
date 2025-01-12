@@ -8,7 +8,7 @@ use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
 use infer;
 use serde::Deserialize;
-use std::fs;
+use tokio::fs;
 
 #[derive(Deserialize)]
 pub struct UploadImage {
@@ -38,19 +38,18 @@ pub async fn upload_image(
 
     let name = "TEMPNAME";
 
-    let path = format!(
-        "assets/images/{}-{}-{}.{}",
-        now,
-        payload.id,
-        name,
-        file_info.extension()
-    );
+    let filename = format!("{}-{}-{}.{}", now, payload.id, name, file_info.extension());
+    let web_path = format!("/assets/images/{}", filename);
+    let pathbuf = state.image_dir.path.join(filename);
+    let path = pathbuf.to_str().unwrap();
 
-    fs::write(&path, decoded).unwrap();
+    if let Err(e) = fs::write(&pathbuf, decoded).await {
+        eprintln!("Error writing image to disk: {}", e); // TODO: Do something
+    };
 
-    //images::update_gallery().await;
-
-    images::register_image(&state.db, &name, &path, payload.id).await;
+    if let Err(e) = images::register_image(&state.db, &name, &path, &web_path, payload.id).await {
+        eprintln!("Error registering image: {}", e); // TODO: Do something
+    };
 
     commands::modify_command_status(&state.db, payload.id, 3).await; // Mark as uploaded (status = 3)
 

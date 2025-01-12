@@ -84,15 +84,23 @@ pub async fn update_gallery() -> bool {
     result
 }
 
-pub async fn register_image(db: &sqlx::SqlitePool, name: &str, path: &str, command_id: i64) {
-    let sql = "INSERT INTO images (name, path, command_id) VALUES (?, ?, ?)";
+pub async fn register_image(
+    db: &sqlx::SqlitePool,
+    name: &str,
+    path: &str,
+    web_path: &str,
+    command_id: i64,
+) -> Result<(), sqlx::Error> {
+    let sql = "INSERT INTO images (name, path, web_path, command_id) VALUES (?, ?, ?, ?)";
     sqlx::query(sql)
         .bind(name)
         .bind(path)
+        .bind(web_path)
         .bind(command_id)
         .execute(db)
-        .await
-        .unwrap();
+        .await?;
+
+    Ok(())
 }
 
 pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
@@ -104,7 +112,8 @@ pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
 pub struct Image {
     id: i64,
     pub name: String,
-    pub path: String,
+    path: String,
+    pub web_path: String,
     command_id: i64,
 }
 
@@ -132,7 +141,7 @@ pub async fn check_images(
             for db_image in &db_images {
                 if !images.contains(&PathBuf::from(&db_image.path)) {
                     eprintln!("Image {} not found in directory", db_image.path);
-                    //unregister_image(&db, &db_image.path).await;
+                    unregister_image(&db, &db_image.path).await; // TODO: Might not want to do this
                 }
             }
 
@@ -157,8 +166,12 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
             continue;
         }
 
-        // Look for the correct format <date>-<id>-<name>.<ext>
+        // Correct naming scheme <date>-<id>-<name>.<ext>
+        // Get filename
         let filename = image.file_name().unwrap().to_str().unwrap();
+
+        // Form web path
+        let web_path = format!("/assets/images/{}", filename);
 
         // Remove extension
         let filename = filename.split(".").next().unwrap();
@@ -179,7 +192,9 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
 
         let name = parts[2];
 
-        register_image(db, name, path, id.unwrap()).await;
+        if let Err(e) = register_image(db, name, path, &web_path, id.unwrap()).await {
+            eprintln!("Error registering image: {}", e);
+        };
     }
 }
 
@@ -205,4 +220,12 @@ pub async fn get_image_info(
     }
 
     Ok(images)
+}
+
+async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> {
+    let count = sqlx::query_scalar("SELECT COUNT(*) FROM images")
+        .fetch_one(db)
+        .await?;
+
+    Ok(count)
 }

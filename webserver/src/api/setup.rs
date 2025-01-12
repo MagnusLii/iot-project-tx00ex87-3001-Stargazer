@@ -50,6 +50,7 @@ pub async fn create_image_table(db: &SqlitePool) {
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
             path TEXT NOT NULL UNIQUE,
+            web_path TEXT NOT NULL UNIQUE,
             command_id INTEGER NOT NULL,
             FOREIGN KEY (command_id) REFERENCES commands (id)
         )",
