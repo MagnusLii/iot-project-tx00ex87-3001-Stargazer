@@ -201,11 +201,15 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
 pub async fn get_image_info(
     db: &sqlx::SqlitePool,
     mut page: u32,
-    page_size: u32,
+    mut page_size: u32,
 ) -> Result<Vec<Image>, sqlx::Error> {
     if page == 0 {
         page = 1
     }
+    if page_size == 0 {
+        page_size = 10
+    }
+
     let offset = (page - 1) * page_size;
     let sql = "SELECT * FROM images LIMIT ? OFFSET ?";
     let images = sqlx::query_as(sql)
@@ -222,7 +226,7 @@ pub async fn get_image_info(
     Ok(images)
 }
 
-async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> {
+pub async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> {
     let count = sqlx::query_scalar("SELECT COUNT(*) FROM images")
         .fetch_one(db)
         .await?;

@@ -33,28 +33,44 @@ pub async fn gallery(
         .await
         .unwrap();
 
-    let html_images = images::get_image_info(
-        &state.db,
-        if query.page.is_none() {
-            1
-        } else {
-            query.page.unwrap()
-        },
-        if query.psize.is_none() {
-            10
-        } else {
-            query.psize.unwrap()
-        },
-    )
-    .await
-    .unwrap()
-    .iter()
-    .map(|image| format!("<img src=\"{}\"/>", image.web_path))
-    .collect::<Vec<String>>()
-    .join("\n");
+    let count = images::get_image_count(&state.db).await.unwrap();
+    html = html.replace("<!--COUNT-->", &count.to_string());
 
-    html = html.replace("<!--IMAGES-->", &html_images);
-    (StatusCode::OK, Html(html))
+    let mut page: u32 = 1;
+    let mut page_size: u32 = 10;
+
+    if let Some(p) = query.page {
+        if p > 0 {
+            page = p
+        }
+    }
+    if let Some(p) = query.psize {
+        if p > 0 || p <= 25 {
+            page_size = p
+        }
+    }
+
+    match images::get_image_info(&state.db, page, page_size).await {
+        Ok(images) => {
+            if images.len() > 0 {
+                let html_images = images
+                    .iter()
+                    .map(|image| format!("<img src=\"{}\"/>", image.web_path))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                html = html.replace("<!--IMAGES-->", &html_images);
+            } else {
+                html = html.replace("<!--IMAGES-->", "<p>No results</p>");
+            }
+            (StatusCode::OK, Html(html))
+        }
+        Err(e) => {
+            eprintln!("Error getting images: {}", e);
+            html = html.replace("<!--IMAGES-->", "<p>Error getting images</p>");
+            (StatusCode::INTERNAL_SERVER_ERROR, Html(html))
+        }
+    }
 }
 
 pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
