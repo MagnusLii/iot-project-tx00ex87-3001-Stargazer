@@ -68,7 +68,7 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
                 command.name,
                 command.associated_key,
                 command.status,
-                command.time
+                command.datetime
             )
         })
         .collect::<Vec<String>>()
