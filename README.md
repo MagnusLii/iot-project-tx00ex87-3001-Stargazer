@@ -38,7 +38,7 @@ Prefix values:<br>
 Stuff to send:
 
 -   Datetime (Pico requests, ESP responds)<br>
-    `$<2>,<1>,<CRC>;`<br
+    `$<2>,<1>,<CRC>;`<br>
     `$<2>,<Timestamp(int)>,<CRC>;`<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
