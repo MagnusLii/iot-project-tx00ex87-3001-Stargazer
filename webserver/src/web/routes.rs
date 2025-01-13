@@ -1,7 +1,11 @@
 use crate::{
     auth::login::AuthSession,
     keys,
-    web::{commands::get_commands, diagnostics::get_diagnostics, images},
+    web::{
+        commands::{get_commands, get_target_names, get_target_positions},
+        diagnostics::get_diagnostics,
+        images,
+    },
     SharedState,
 };
 use axum::{
@@ -75,6 +79,7 @@ pub async fn gallery(
 
 pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/control.html").to_string();
+
     let html_keys = keys::get_keys(&state.db)
         .await
         .unwrap()
@@ -83,6 +88,29 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--API_KEYS-->", &html_keys);
+
+    let html_targets = get_target_names(&state.db)
+        .await
+        .unwrap()
+        .iter()
+        .map(|target| format!("<option value=\"{}\">{}</option>", target.id, target.name))
+        .collect::<Vec<String>>()
+        .join("\n");
+    html = html.replace("<!--TARGETS-->", &html_targets);
+
+    let html_positions = get_target_positions(&state.db)
+        .await
+        .unwrap()
+        .iter()
+        .map(|position| {
+            format!(
+                "<option value=\"{}\">{}</option>",
+                position.id, position.position
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+    html = html.replace("<!--POSITIONS-->", &html_positions);
 
     let html_commands = get_commands(&state.db)
         .await

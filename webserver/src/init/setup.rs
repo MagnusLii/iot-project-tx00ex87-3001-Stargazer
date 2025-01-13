@@ -107,6 +107,8 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<SqlitePool, sqlx::E
         api::setup::create_command_table(&api_db).await;
         api::setup::create_diagnostics_table(&api_db).await;
         api::setup::create_image_table(&api_db).await;
+        api::setup::create_objects_table(&api_db).await;
+        api::setup::create_position_table(&api_db).await;
     }
 
     Ok(api_db)

@@ -18,11 +18,12 @@ pub async fn create_command_table(db: &SqlitePool) {
         "CREATE TABLE IF NOT EXISTS commands (
             id INTEGER PRIMARY KEY,
             target INTEGER NOT NULL,
-            position TEXT NOT NULL,
+            position INTEGER NOT NULL,
             associated_key INTEGER NOT NULL,
             status INTEGER NOT NULL DEFAULT 0,
             time INTEGER,
             FOREIGN KEY (target) REFERENCES objects (id),
+            FOREIGN KEY (position) REFERENCES object_positions (id),
             FOREIGN KEY (associated_key) REFERENCES keys (id)
         )",
     )
@@ -66,27 +67,28 @@ pub async fn create_objects_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS objects (
             id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL
         )",
     )
     .execute(db)
     .await
     .unwrap();
+
+    populate_objects_table(db).await;
 }
 
-pub async fn populate_objects_table(db: &SqlitePool) {
+async fn populate_objects_table(db: &SqlitePool) {
     sqlx::query(
         "INSERT INTO objects VALUES 
                 (1, 'Sun'),
                 (2, 'Moon'),
                 (3, 'Mercury'),
                 (4, 'Venus'),
-                (5, 'Earth'),
-                (6, 'Mars'),
-                (7, 'Jupiter'),
-                (8, 'Saturn'),
-                (9, 'Uranus'),
-                (10, 'Neptune')",
+                (5, 'Mars'),
+                (6, 'Jupiter'),
+                (7, 'Saturn'),
+                (8, 'Uranus'),
+                (9, 'Neptune')",
     )
     .execute(db)
     .await
@@ -97,15 +99,17 @@ pub async fn create_position_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS object_positions (
             id INTEGER PRIMARY KEY,
-            position TEXT NOT NULL,
+            position TEXT NOT NULL
         )",
     )
     .execute(db)
     .await
     .unwrap();
+
+    populate_position_table(db).await;
 }
 
-pub async fn populate_position_table(db: &SqlitePool) {
+async fn populate_position_table(db: &SqlitePool) {
     sqlx::query(
         "INSERT INTO object_positions VALUES 
         (1, 'Rising'),

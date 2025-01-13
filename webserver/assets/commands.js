@@ -2,9 +2,9 @@
 
 function queuePicture() {
     const data = JSON.stringify({
-        "target": document.getElementById("targets").value,
-        "position": document.getElementById("positions").value,
-        "associated_key_id": document.getElementById("selected_key").value
+        "target": Number(document.getElementById("targets").value),
+        "position": Number(document.getElementById("positions").value),
+        "associated_key_id": Number(document.getElementById("selected_key").value)
     });
     console.log(data);
 
