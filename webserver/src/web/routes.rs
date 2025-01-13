@@ -55,7 +55,7 @@ pub async fn gallery(
             if images.len() > 0 {
                 let html_images = images
                     .iter()
-                    .map(|image| format!("<img src=\"{}\"/>", image.web_path))
+                    .map(|image| format!("<img class=\"photo\" src=\"{}\"/>", image.web_path))
                     .collect::<Vec<String>>()
                     .join("\n");
 
