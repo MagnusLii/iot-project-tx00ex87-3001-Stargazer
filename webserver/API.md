@@ -36,9 +36,9 @@ curl "127.0.0.1:7878/api/command?token=<api_token>"
 ```
 
 Returns a JSON object with the following fields:
-- `target`: The target object (string) [NOTE: might change to an id (int)]
+- `target`: The target object (string) [NOTE: will be changed to an id (int)]
 - `id`: The ID of the command/picture (int)
-- `position`: The position to take the photo (int) {1,2,3} [NOTE: not implemented]
+- `position`: The position to take the photo (int) {1,2,3}
 
 Or an empty object if no command is available
 
@@ -49,7 +49,10 @@ The JSON should contain the following fields:
 
 - `token`: The API token (string)
 - `id`: The ID of the command (int)
-- `response`: The response (bool)
+- `status`: The command status (int)
+
+Optional fields:
+- `time`: The estimated time to take the photo (int) [NOTE: unix epoch time sent along with status 2]
 
 Example:
 ```
