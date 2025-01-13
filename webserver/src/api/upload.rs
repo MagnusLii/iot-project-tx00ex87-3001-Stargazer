@@ -1,8 +1,4 @@
-use crate::{
-    api::{commands, ApiState},
-    keys::verify_key,
-    web::images,
-};
+use crate::{api::commands, keys::verify_key, web::images, SharedState};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -12,7 +8,7 @@ use base64::{engine::general_purpose, Engine as _};
 use chrono::Utc;
 use infer;
 use serde::Deserialize;
-use std::fs;
+use tokio::fs;
 
 #[derive(Deserialize)]
 pub struct UploadImage {
@@ -23,7 +19,7 @@ pub struct UploadImage {
 
 // Parse the body of the POST request for base64 encoded image
 pub async fn upload_image(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(payload): Json<UploadImage>,
 ) -> impl IntoResponse {
     if !verify_key(&payload.token, &state.db).await {
@@ -40,16 +36,20 @@ pub async fn upload_image(
 
     let now = Utc::now().timestamp();
 
-    let path = format!(
-        "assets/images/{}-{}.{}",
-        payload.id,
-        now,
-        file_info.extension()
-    );
+    let name = "TEMPNAME";
 
-    fs::write(path, decoded).unwrap();
+    let filename = format!("{}-{}-{}.{}", now, payload.id, name, file_info.extension());
+    let web_path = format!("/assets/images/{}", filename);
+    let pathbuf = state.image_dir.path.join(filename);
+    let path = pathbuf.to_str().unwrap();
 
-    images::update_gallery().await;
+    if let Err(e) = fs::write(&pathbuf, decoded).await {
+        eprintln!("Error writing image to disk: {}", e); // TODO: Do something
+    };
+
+    if let Err(e) = images::register_image(&state.db, &name, &path, &web_path, payload.id).await {
+        eprintln!("Error registering image: {}", e); // TODO: Do something
+    };
 
     commands::modify_command_status(&state.db, payload.id, 3).await; // Mark as uploaded (status = 3)
 

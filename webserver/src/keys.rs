@@ -1,4 +1,4 @@
-use crate::{api::ApiState, err::Error};
+use crate::{err::Error, SharedState};
 use axum::{
     extract::{Json, Query, State},
     http::StatusCode,
@@ -45,7 +45,7 @@ pub struct NewKeyQuery {
 }
 
 pub async fn new_key(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(name): Json<NewKeyQuery>,
 ) -> impl IntoResponse {
     let key = create_key(&state.db, name.name).await;
@@ -60,7 +60,7 @@ pub struct DeleteKeyQuery {
 
 // NOTE: Currently only allows deletion of keys that are not in use
 pub async fn remove_key(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(key): Query<DeleteKeyQuery>,
 ) -> impl IntoResponse {
     println!("Deleting key: {}", key.id);

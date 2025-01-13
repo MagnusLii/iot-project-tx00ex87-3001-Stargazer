@@ -2,9 +2,11 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Images - Stargazer</title>
+        <title>Gallery - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
+        <link rel="stylesheet" href="/assets/gallery.css">
         <script src="/assets/display-user.js"></script>
+        <script src="/assets/images.js"></script>
     </head>
     <body>
         <div id="header">
@@ -20,9 +22,15 @@
                 <a id="logout" href="/logout">Logout</a>
             </div>
         </div>
-        <h1>Images</h1>
-        <div class="container">
+        <h1>Gallery</h1>
+        <p>There is currently <!--COUNT--> images in the gallery</p>
+        <br>
+        <div class="gallery-container">
         <!--IMAGES-->
+        </div>
+        <div id="image-modal" class="modal">
+            <span id="image-modal-close" class="close">&times;</span>
+            <img class="modal-content" id="image-modal-content">
         </div>
     </body>
 </html>

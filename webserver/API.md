@@ -12,7 +12,8 @@ Uploads an image wrapped in JSON to the webserver.
 The JSON should contain the following fields:
 
 - `token`: The API token (string)
-- `data`: The base64 encoded data of the image (string)
+- `id`: The ID of the command (int)
+- `data`: The base64 encoded image (string)
 
 Example:
 ```
@@ -22,6 +23,7 @@ where @img.json contains:
 ```
 {
     "token":"<api_token>",
+    "id":<id>,
     "data":"<base64_data>"
 }
 ```

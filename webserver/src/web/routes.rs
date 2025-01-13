@@ -1,8 +1,8 @@
 use crate::{
-    api::ApiState,
     auth::login::AuthSession,
     keys,
     web::{commands::get_commands, diagnostics::get_diagnostics, images},
+    SharedState,
 };
 use axum::{
     extract::{Query, State},
@@ -10,8 +10,6 @@ use axum::{
     response::{Html, IntoResponse},
 };
 use serde::Deserialize;
-use std::env;
-use tokio::fs;
 
 pub async fn root() -> impl IntoResponse {
     let html = std::include_str!("../../html/index.html").to_string();
@@ -19,32 +17,63 @@ pub async fn root() -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-pub async fn gallery() -> impl IntoResponse {
-    let tmp = env::temp_dir();
+#[derive(Debug, Deserialize)]
+pub struct GalleryQuery {
+    page: Option<u32>,
+    psize: Option<u32>,
+}
+pub async fn gallery(
+    State(state): State<SharedState>,
+    Query(query): Query<GalleryQuery>,
+) -> impl IntoResponse {
+    let mut html = include_str!("../../html/images.html").to_string();
+    println!("Query: {:?}", query);
 
-    if let Ok(cached_html) = fs::read(&tmp.join("sgwebserver/images.html")).await {
-        return (StatusCode::OK, Html(cached_html));
+    images::check_images(&state.db, &state.image_dir, false)
+        .await
+        .unwrap();
+
+    let count = images::get_image_count(&state.db).await.unwrap();
+    html = html.replace("<!--COUNT-->", &count.to_string());
+
+    let mut page: u32 = 1;
+    let mut page_size: u32 = 10;
+
+    if let Some(p) = query.page {
+        if p > 0 {
+            page = p
+        }
+    }
+    if let Some(p) = query.psize {
+        if p > 0 || p <= 25 {
+            page_size = p
+        }
     }
 
-    let updated = images::update_gallery().await;
+    match images::get_image_info(&state.db, page, page_size).await {
+        Ok(images) => {
+            if images.len() > 0 {
+                let html_images = images
+                    .iter()
+                    .map(|image| format!("<img class=\"photo\" src=\"{}\"/>", image.web_path))
+                    .collect::<Vec<String>>()
+                    .join("\n");
 
-    let status: StatusCode;
-    let html: Vec<u8>;
-
-    if !updated {
-        status = StatusCode::INTERNAL_SERVER_ERROR;
-        html = "Error updating images".as_bytes().to_vec();
-    } else {
-        status = StatusCode::OK;
-        html = fs::read(&tmp.join("sgwebserver/images.html"))
-            .await
-            .unwrap();
+                html = html.replace("<!--IMAGES-->", &html_images);
+            } else {
+                html = html.replace("<!--IMAGES-->", "<p>No results</p>");
+            }
+            (StatusCode::OK, Html(html))
+        }
+        Err(e) => {
+            eprintln!("Error getting images: {}", e);
+            html = html.replace("<!--IMAGES-->", "<p>Error getting images</p>");
+            (StatusCode::INTERNAL_SERVER_ERROR, Html(html))
+        }
     }
-
-    (status, Html(html.into()))
 }
 
-pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
+pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/control.html").to_string();
     let html_keys = keys::get_keys(&state.db)
         .await
@@ -78,7 +107,7 @@ pub async fn control(State(state): State<ApiState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
-pub async fn api_keys(State(state): State<ApiState>) -> impl IntoResponse {
+pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = include_str!("../../html/keys.html").to_string();
     let html_keys = keys::get_keys(&state.db)
         .await
@@ -103,7 +132,7 @@ pub struct DiagnosticQuery {
 }
 
 pub async fn diagnostics(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(name): Query<DiagnosticQuery>,
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
@@ -169,16 +198,8 @@ pub async fn unknown_route() -> impl IntoResponse {
     )
 }
 
-pub async fn test(auth_session: AuthSession) -> impl IntoResponse {
-    let mut html = include_str!("../../html/index.html").to_string();
-    if auth_session.user.is_some() {
-        let msg = format!("User: {}", auth_session.user.unwrap().username);
-        html = html.replace("<!--USER-->", &msg);
-        (StatusCode::OK, Html(html))
-    } else {
-        (
-            StatusCode::UNAUTHORIZED,
-            Html("You are not logged in.".to_string()),
-        )
-    }
+pub async fn test() -> impl IntoResponse {
+    let html = include_str!("../../html/images.html").to_string();
+
+    (StatusCode::OK, Html(html))
 }

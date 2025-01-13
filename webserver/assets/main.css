@@ -3,11 +3,13 @@
     color: white;
 }
 
+/*
 img {
     margin: 50px;
     max-width: 50%;
     height: auto;
 }
+*/
 
 .active {
     background-color: #4CAF50;

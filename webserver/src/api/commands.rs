@@ -1,4 +1,4 @@
-use crate::{api::ApiState, err::Error};
+use crate::{err::Error, SharedState};
 use axum::{
     extract::{Json, Query, State},
     http::StatusCode,
@@ -51,7 +51,7 @@ pub struct FetchCommandQuery {
 }
 
 pub async fn fetch_command(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Query(key): Query<FetchCommandQuery>,
 ) -> impl IntoResponse {
     println!("Fetching command with: {:?}", key.token);
@@ -139,7 +139,7 @@ pub struct ResponseCommandJson {
 }
 
 pub async fn respond_command(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(response): Json<ResponseCommandJson>,
 ) -> impl IntoResponse {
     println!(

@@ -1,4 +1,4 @@
-use crate::{api::ApiState, keys::verify_key};
+use crate::{keys::verify_key, SharedState};
 use axum::{
     extract::{Json, State},
     http::StatusCode,
@@ -16,7 +16,7 @@ pub struct DiagnosticsJson {
 }
 
 pub async fn send_diagnostics(
-    State(state): State<ApiState>,
+    State(state): State<SharedState>,
     Json(payload): Json<DiagnosticsJson>,
 ) -> impl IntoResponse {
     if !verify_key(&payload.token, &state.db).await {
