@@ -9,8 +9,8 @@ use sqlx::{FromRow, SqlitePool};
 
 async fn create_command(
     db: &SqlitePool,
-    command: &str,
-    position: &str,
+    command: i64,
+    position: i64,
     associated_key: i64,
 ) -> Result<(), Error> {
     sqlx::query("INSERT INTO commands (target, position, associated_key) VALUES (?, ?, ?)")
@@ -34,9 +34,9 @@ async fn delete_command(db: &SqlitePool, id: i64) {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CommandJson {
-    target: String,
-    position: String,
-    associated_key_id: String,
+    target: i64,
+    position: i64,
+    associated_key_id: i64,
 }
 
 pub async fn new_command(
@@ -47,11 +47,16 @@ pub async fn new_command(
         "Creating command: {} at position: {}, associated key: {}",
         payload.target, payload.position, payload.associated_key_id
     );
-    let int_key: i64 = payload.associated_key_id.parse().unwrap();
+    //let int_key: i64 = payload.associated_key_id.parse().unwrap();
 
-    create_command(&state.db, &payload.target, &payload.position, int_key)
-        .await
-        .unwrap();
+    create_command(
+        &state.db,
+        payload.target,
+        payload.position,
+        payload.associated_key_id,
+    )
+    .await
+    .unwrap();
     (StatusCode::OK, "Success\n")
 }
 
@@ -69,13 +74,15 @@ pub struct MultipleCommandSql {
 pub async fn get_commands(db: &SqlitePool) -> Result<Vec<MultipleCommandSql>, Error> {
     let commands = sqlx::query_as(
         "SELECT commands.id AS id, 
-        commands.target AS target, 
-        commands.position AS position,
+        objects.name AS target, 
+        object_positions.position AS position,
         commands.associated_key AS associated_key, 
         commands.status AS status,
         datetime(commands.time, 'unixepoch') AS datetime,
         keys.name as name 
         FROM commands 
+        JOIN objects ON commands.target = objects.id
+        JOIN object_positions ON commands.position = object_positions.id
         JOIN keys ON commands.associated_key = keys.id",
     )
     .fetch_all(db)
@@ -98,4 +105,32 @@ pub async fn remove_command(
     modify_command_status(&state.db, int_key, -6).await; // Mark as deleted (status = -6)
 
     (StatusCode::OK, "Success\n")
+}
+
+#[derive(Debug, Clone, Deserialize, FromRow)]
+pub struct TargetNameSql {
+    pub id: i64,
+    pub name: String,
+}
+
+pub async fn get_target_names(db: &SqlitePool) -> Result<Vec<TargetNameSql>, Error> {
+    let targets = sqlx::query_as("SELECT * FROM objects")
+        .fetch_all(db)
+        .await?;
+
+    Ok(targets)
+}
+
+#[derive(Debug, Clone, Deserialize, FromRow)]
+pub struct TargetPosSql {
+    pub id: i64,
+    pub position: String,
+}
+
+pub async fn get_target_positions(db: &SqlitePool) -> Result<Vec<TargetPosSql>, Error> {
+    let positions = sqlx::query_as("SELECT * FROM object_positions")
+        .fetch_all(db)
+        .await?;
+
+    Ok(positions)
 }
