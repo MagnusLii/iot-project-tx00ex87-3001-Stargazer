@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD 23)
 
 set(COMMON_DIR ../common)
 
+
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
 
@@ -22,6 +23,8 @@ add_executable(${PROJECT_NAME}
     src/devices/compass.cpp
     src/hardware/clock.cpp
     src/devices/stepper-motor.cpp
+    src/planet_finder/planet_finder.cpp
+    src/planet_finder/date_utils.cpp
 )
 
 add_executable(${PROJECT_NAME}_test
@@ -34,7 +37,14 @@ add_executable(${PROJECT_NAME}_test
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
 add_library(crc ${COMMON_DIR}/src/crc.cpp)
-add_library(convert ${COMMON_DIR}/src/convert.cpp)
+add_library(convert ${COMMON_DIR}/src/convert.cpp
+)
+
+add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c)
+target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
+target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
+target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -48,6 +58,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     inc/hardware
     inc/hardware/uart
     ${COMMON_DIR}/inc
+    inc/planet_finder
 )
 
 target_include_directories(${PROJECT_NAME}_test PRIVATE
@@ -56,6 +67,7 @@ target_include_directories(${PROJECT_NAME}_test PRIVATE
     inc/devices
     inc/hardware
     inc/hardware/uart
+    inc/planet_finder
     ${COMMON_DIR}/inc
 )
 
@@ -78,11 +90,13 @@ target_link_libraries(${PROJECT_NAME}_test
     message
     crc
     convert
+    hardware_rtc
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
     target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
+    target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
 # Enable usb output, disable uart output

@@ -4,6 +4,7 @@
 #include "gps.hpp"
 #include "compass.hpp"
 #include "stepper-motor.hpp"
+#include "compass.hpp"
 #include "pico/stdio.h"
 #include "pico/stdlib.h"
 #include <hardware/rtc.h>
