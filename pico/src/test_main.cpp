@@ -26,9 +26,9 @@ int main() {
     int count = 0;
     for (;;) {
         if (count % 2 == 0) {
-            uart->send("Sleepy time\r\n");
+            DEBUG("Sleepy time\r\n");
         } else {
-            uart->send("Received wakeup signal\r\n");
+            DEBUG("Received wakeup signal\r\n");
             bridge.read_and_parse(10000, true);
         }
 

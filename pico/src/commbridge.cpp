@@ -22,16 +22,8 @@ int CommBridge::read(std::string &str) {
 }
 
 void CommBridge::send(const Message &msg) {
-    std::string formatted_msg = "$" + std::to_string(msg.type);
-    for (auto it = msg.content.begin(); it != msg.content.end(); ++it) {
-        formatted_msg += ",";
-        formatted_msg += it->c_str();
-    }
-    uint16_t crc = crc16(formatted_msg);
-    std::string crc_str;
-    num_to_hex_str(crc, crc_str, 4, true, true);
-    formatted_msg += "," + crc_str + ";";
-
+    std::string formatted_msg = "";
+    convert_to_string(msg, formatted_msg);
     formatted_msg += "\r\n"; // TODO: Remove
 
     DEBUG("Sending: ", formatted_msg);
