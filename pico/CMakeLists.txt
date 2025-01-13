@@ -94,6 +94,7 @@ target_link_libraries(${PROJECT_NAME}_test
     crc
     convert
     hardware_rtc
+    hardware_pio
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
