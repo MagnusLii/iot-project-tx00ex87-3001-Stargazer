@@ -10,8 +10,8 @@ use sqlx::{FromRow, SqlitePool};
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 struct CommandSql {
     pub id: i64,
-    pub target: String,
-    pub position: String,
+    pub target: i64,
+    pub position: i64,
 }
 
 async fn retrieve_command(key: &str, db: &SqlitePool) -> Result<CommandSql, Error> {
@@ -58,31 +58,9 @@ pub async fn fetch_command(
 
     match retrieve_command(&key.token, &state.db).await {
         Ok(command) => {
-            let position: i64;
-            match command.position.as_str() {
-                "rising" => {
-                    position = 1;
-                }
-                "zenith" => {
-                    position = 2;
-                }
-                "setting" => {
-                    position = 3;
-                }
-                _ => {
-                    position = 0;
-                    println!("Invalid position: {}", command.position);
-                    modify_command_status(&state.db, command.id, -9).await; // Mark as failed internally (status = -9)
-                }
-            }
-
-            if position == 0 {
-                return (StatusCode::INTERNAL_SERVER_ERROR, "{}".to_string());
-            }
-
             let json_response = format!(
-                r#"{{"target": "{}", "position": {}, "id": {}}}"#,
-                command.target, position, command.id
+                r#"{{"target": {}, "position": {}, "id": {}}}"#,
+                command.target, command.position, command.id
             );
             modify_command_status(&state.db, command.id, 1).await; // Mark as fetched (status = 1)
             (StatusCode::OK, json_response)
