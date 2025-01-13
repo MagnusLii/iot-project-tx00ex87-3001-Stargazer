@@ -17,11 +17,25 @@ pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/uart/PicoUart.cpp
-    src/uart/RingBuffer.cpp
+    src/hardware/uart/PicoUart.cpp
+    src/hardware/uart/RingBuffer.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
-    src/planet_finder/planet_finder.cpp
+    src/hardware/clock.cpp
+    src/devices/stepper-motor.cpp
+)
+
+add_executable(${PROJECT_NAME}_test
+    src/test_main.cpp
+    src/hardware/uart/PicoUart.cpp
+    src/hardware/uart/RingBuffer.cpp
+    src/hardware/clock.cpp
+    src/commbridge.cpp
+)
+
+add_library(message ${COMMON_DIR}/src/message.cpp)
+add_library(crc ${COMMON_DIR}/src/crc.cpp)
+add_library(convert ${COMMON_DIR}/src/convert.cpp    src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
 )
 
@@ -33,16 +47,31 @@ target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
+pico_add_extra_outputs(${PROJECT_NAME}_test)
 
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
-    inc/uart
     inc/devices
+    inc/hardware
+    inc/hardware/uart
+    ${COMMON_DIR}/inc
+)
+
+target_include_directories(${PROJECT_NAME}_test PRIVATE
+    src
+    inc
+    inc/devices
+    inc/hardware
+    inc/hardware/uart
     inc/planet_finder
     ${COMMON_DIR}/inc
 )
+
+target_include_directories(message PRIVATE ${COMMON_DIR}/inc)
+target_include_directories(crc PRIVATE ${COMMON_DIR}/inc)
+target_include_directories(convert PRIVATE ${COMMON_DIR}/inc)
 
 target_link_libraries(${PROJECT_NAME} 
     pico_stdlib
@@ -51,8 +80,20 @@ target_link_libraries(${PROJECT_NAME}
     hardware_rtc
 )
 
+target_link_libraries(${PROJECT_NAME}_test 
+    pico_stdlib
+    hardware_i2c
+    hardware_gpio
+    hardware_rtc
+    message
+    crc
+    convert
+    hardware_rtc
+)
+
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
+    target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
     target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
@@ -60,3 +101,5 @@ ENDIF()
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
+pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 0)

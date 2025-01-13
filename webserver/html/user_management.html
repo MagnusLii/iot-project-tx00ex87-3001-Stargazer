@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>User Management - Stargazer</title>
+        <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/users.js"></script>
+        <script src="/assets/display-user.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <ul id="nav">
+                <li><a href="/">Home</a></li>
+                <li><a href="/control">Control</a></li>
+                <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">Users</a></li>
+            </ul>
+            <div id="user-login">
+                <a id="user" href="/user"></a>
+                <span> | </span>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
+        </div>
+        <h1>User Management</h1>
+        <form id="add-user">
+            <legend><b>Add user:</b></legend>
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password">
+            <input type="submit" value="Add User" onclick="addUser(); return false">
+        </form>
+        <div id="message"></div>
+        <br>
+        <ol id="users">
+            <!--USERS-->
+        </ol>
+    </body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Keys - Stargazer</title>
+        <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/main.js"></script>
+        <script src="/assets/display-user.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <ul id="nav">
+                <li><a href="/">Home</a></li>
+                <li><a href="/control">Control</a></li>
+                <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">Users</a></li>
+            </ul>
+            <div id="user-login">
+                <a id="user" href="/user"></a>
+                <span> | </span>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
+        </div>
+        <h1>Key management</h1>
+        <ul id="subnav">
+            <li><a href="/control">Commands</a></li>
+            <li><a href="/control/keys">Keys</a></li>
+            <li><a href="/control/diagnostics">Diagnostics</a></li>
+        </ul>
+        <p>Keys page</p>
+        <br>
+        <div id="gen-key">
+            <label for="name-key">Name:</label>
+            <input type="text" id="name-key">
+            <button value="Generate new key" onclick="generateKey()">Generate new key</button>
+            <input type="text" id="ro-key" value="" readonly>
+            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+        </div>
+        <br>
+        <ol id="keys">
+            <!--API_KEYS-->
+        </ol>
+    </body>
+</html>

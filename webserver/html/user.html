@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>User - Stargazer</title>
+        <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/main.js"></script>
+        <script src="/assets/users.js"></script>
+        <script src="/assets/display-user.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <ul id="nav">
+                <li><a href="/">Home</a></li>
+                <li><a href="/control">Control</a></li>
+                <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">Users</a></li>
+            </ul>
+            <div id="user-login">
+                <a id="user" href="/user"></a>
+                <span> | </span>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
+        </div>
+        <h1>User: <span id="user"></span></h1>
+        <form id="modify-user">
+            <legend><b>Change username or password:</b></legend>
+            <label for="new-username">New username:</label>
+            <input type="text" id="new-username" name="new-username" value="<!--NAME-->">
+            <label for="new-password">New password:</label>
+            <input type="password" id="new-password" name="new-password">
+            <input type="submit" value="Update" onclick="modifyUser(); return false">
+        </form>
+        <div id="message"></div>
+    </body>
+</html>

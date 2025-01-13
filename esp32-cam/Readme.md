@@ -13,7 +13,9 @@
 - Enable PSRAM in `menuconfig` 
 - Set Flash and PSRAM frequiencies to 80MHz (Flash speed must be set before PSRAM speed can be changed)
 - Set Flash size to 4MB
+- Set `Long filename support` to `long filename buffer in heap` and lenght to 255.
 
 ### Code notes
 
-`.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times. 
+`.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times.  
+^^ this needs to be tested again, I've done code improvements.

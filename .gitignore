@@ -1,5 +1,8 @@
 build
 cmake-build-*
+target
+images
+db
 .clangd
 .vscode
 .idea
@@ -8,8 +11,13 @@ cmake-build-*
 *.override.yml
 *esp-test
 *sdkconfig*
-Dependencies.lock
 managed_components
+*.lock
+config.toml
+*/testMacros.hpp
+esp32-cam/inc/testMacros.hpp
+*idf_component.yml
+esp32-cam/test
 db
 target
 cargo.lock

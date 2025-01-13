@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Control - Stargazer</title>
+        <link rel="stylesheet" href="/assets/main.css">
+        <script src="/assets/commands.js"></script>
+        <script src="/assets/display-user.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <ul id="nav">
+                <li><a href="/">Home</a></li>
+                <li><a href="/control">Control</a></li>
+                <li><a href="/gallery">Gallery</a></li>
+                <li><a href="/users">Users</a></li>
+            </ul>
+            <div id="user-login">
+                <a id="user" href="/user"></a>
+                <span> | </span>
+                <a id="logout" href="/logout">Logout</a>
+            </div>
+        </div>
+        <h1>Control</h1>
+        <ul id="subnav">
+            <li><a href="/control">Commands</a></li>
+            <li><a href="/control/keys">Keys</a></li>
+            <li><a href="/control/diagnostics">Diagnostics</a></li>
+        </ul>
+        <br>
+        <label for="targets">Take a picture of:</label>
+        <select name="targets" id="targets">
+            <option value="moon">Moon</option>
+            <option value="uranus">Uranus</option>
+        </select>
+        <br>
+        <label for="positions">Position:</label>
+        <select name="positions" id="positions">
+            <option value="rising">Rising</option>
+            <option value="zenith" selected>Zenith</option>
+            <option value="setting">Setting</option>
+        </select>
+        <br>
+        <label for="selected_key">Selected key:</label>
+        <select name="selected_key" id="selected_key">
+            <!--API_KEYS-->
+        </select>
+        <br>
+        <button value="Take picture" onclick="queuePicture();">Confirm</button>
+        <br>
+        <br>
+        <table id="commands">
+            <legend>Command list</legend>
+            <tr>
+                <th>Nr.</th>
+                <th>Target</th>
+                <th>Position</th>
+                <th>Key name</th>
+                <th>Key id</th>
+                <th>Status</th>
+            </tr>
+            <!--API_COMMANDS-->
+        </table>
+        <br>
+    </body>
+</html>
