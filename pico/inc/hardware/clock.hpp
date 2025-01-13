@@ -5,6 +5,7 @@
 #include "pico/util/datetime.h"
 #include "pico/time.h"
 #include <string>
+#include <ctime>
 
 class Clock {
   public:

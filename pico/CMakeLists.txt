@@ -23,6 +23,8 @@ add_executable(${PROJECT_NAME}
     src/devices/compass.cpp
     src/hardware/clock.cpp
     src/devices/stepper-motor.cpp
+    src/planet_finder/planet_finder.cpp
+    src/planet_finder/date_utils.cpp
 )
 
 add_executable(${PROJECT_NAME}_test
@@ -35,8 +37,7 @@ add_executable(${PROJECT_NAME}_test
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
 add_library(crc ${COMMON_DIR}/src/crc.cpp)
-add_library(convert ${COMMON_DIR}/src/convert.cpp    src/planet_finder/planet_finder.cpp
-    src/planet_finder/date_utils.cpp
+add_library(convert ${COMMON_DIR}/src/convert.cpp
 )
 
 add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c)
@@ -57,6 +58,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     inc/hardware
     inc/hardware/uart
     ${COMMON_DIR}/inc
+    inc/planet_finder
 )
 
 target_include_directories(${PROJECT_NAME}_test PRIVATE
