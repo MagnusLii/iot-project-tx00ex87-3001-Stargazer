@@ -195,14 +195,13 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const C
 }
 
 
-void Celestial::fill_coordinate_table(const datetime_t &date, const Coordinates observer_coordinates) {
+void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
     coordinate_table.clear();
-    datetime_t iter_date(date);
-    iter_date.min = 0;
+    date.min = 0;
     for (int i=0; i<24; i++) {
-        iter_date.hour = i;
-        azimuthal_coordinates coord = get_coordinates(iter_date, observer_coordinates);
+        azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
         coordinate_table.push_back(coord);
+        datetime_increment_hour(date);
     }
 }
 
@@ -212,6 +211,13 @@ void Celestial::print_coordinate_table(void) {
         std::cout << coord.altitude << ", " << coord.azimuth << std::endl;
     }
     std::cout << "end" << std::endl;
+}
+
+datetime_t Celestial::get_interest_point_time(void) {
+    // note: coordinate table needs to be filled with desired day
+    datetime_t date;
+
+    return date;
 }
 
 

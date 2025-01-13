@@ -4,7 +4,7 @@ import serial
 
 
 
-port = serial.Serial('COM7', 115200)
+port = serial.Serial('/dev/ttyACM0', 115200)
 done = False
 
 altitudes = []

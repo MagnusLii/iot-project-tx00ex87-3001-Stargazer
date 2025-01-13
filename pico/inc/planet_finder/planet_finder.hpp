@@ -7,6 +7,7 @@
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
 #include "debug.hpp"
+#include "date_utils.hpp"
 
 
 enum Planets {
@@ -88,8 +89,9 @@ class Celestial {
     public:
         Celestial(Planets planet);
         azimuthal_coordinates get_coordinates(const datetime_t &date, const Coordinates observer_coordinates);
-        void fill_coordinate_table(const datetime_t &date, const Coordinates observer_coordinates);
+        void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
         void print_coordinate_table(void);
+        datetime_t get_interest_point_time(void);
     private:
         Planets planet;
         std::vector<azimuthal_coordinates> coordinate_table;
