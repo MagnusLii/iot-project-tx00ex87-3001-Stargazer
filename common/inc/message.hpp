@@ -27,6 +27,7 @@ MessageType verify_message_type(std::string &str);
 int check_message_crc(std::string &str, std::string &crc_str);
 
 // Used when sending messages
+void convert_to_string(const Message &msg, std::string &str);
 Message response(bool ack);
 Message datetime_request();
 Message datetime_response(/* datetime */);

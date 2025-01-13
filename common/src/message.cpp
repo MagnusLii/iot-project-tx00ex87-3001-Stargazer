@@ -68,6 +68,19 @@ int check_message_crc(std::string &str, std::string &crc_str) {
     return 0;
 }
 
+void convert_to_string(const Message &msg, std::string &str) {
+    str = "$" + std::to_string(msg.type);
+    for (auto it = msg.content.begin(); it != msg.content.end(); ++it) {
+        str += ",";
+        str += it->c_str();
+    }
+
+    uint16_t crc = crc16(str);
+    std::string crc_str;
+    num_to_hex_str(crc, crc_str, 4, true, true);
+    str += "," + crc_str + ";";
+}
+
 Message response(bool ack) {
     if (ack) {
         return Message{.type = RESPONSE, .content = {"1"}};
