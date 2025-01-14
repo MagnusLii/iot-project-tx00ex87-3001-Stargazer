@@ -26,6 +26,7 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
+#include "message.hpp"
 
 #include "testMacros.hpp"
 
@@ -130,12 +131,18 @@ void uart_read_task(void *pvParameters) {
     UartReceivedData receivedData;
     int retries = 0;
 
+    Message msg = esp_init(true);
+    std::string string;
+    convert_to_string(msg, string);
+    std::string read_data;
+
     while (true) {
         if (xQueueReceive(uartCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
+
             switch (event.type) {
                 case UART_DATA:
                     receivedData.len = uart_read_bytes(uartCommHandler->get_uart_num(), (uint8_t *)receivedData.buffer,
-                                                       sizeof(receivedData.buffer), portMAX_DELAY);
+                                                       sizeof(receivedData.buffer), pdMS_TO_TICKS(10));
                     receivedData.buffer[receivedData.len] = '\0'; // Null-terminate the received string
                                                                   // TODO: Process the received data
 

@@ -39,7 +39,7 @@
 // Sends datetime response over UART0 every 10 seconds
 // #define UART_DEMO
 
-#define PRODUCTION_CODE
+// #define PRODUCTION_CODE
 
 extern "C" {
 void app_main(void);
@@ -60,6 +60,7 @@ void app_main(void) {
     Message msg = datetime_response();
     std::string string;
     convert_to_string(msg, string);
+
     #endif
 
     #ifdef PRODUCTION_CODE
@@ -68,8 +69,6 @@ void app_main(void) {
     #endif
 
     while (1) {
-        // DEBUG("app_main endless catch");
-
         #ifdef UART_DEMO
         uartCommHandler.send_data(string.c_str(), string.length());
         #endif
