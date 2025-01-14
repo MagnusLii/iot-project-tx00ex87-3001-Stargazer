@@ -20,10 +20,14 @@ void Compass::init() {
 
 // Read raw data from the compass
 void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
-    uint8_t buf[1] = {DATA_REG};
+    uint8_t buf[2] = {0x02, 0x01};
     uint8_t data[6];
 
+    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
+    sleep_ms(10);
+
     // Request data
+    buf[0] = 0x03;
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
     i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
 
@@ -43,9 +47,21 @@ float Compass::getHeading() {
     float y_uT = y * TO_UT;
 
     // Calculate heading
-    float heading = atan2(y_uT, x_uT) * (180.0 / M_PI);
-    if (heading < 0) {
-        heading += 360;
+    float heading = atan2(y_uT, x_uT);
+
+    //This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
+    float declinationAngle = 0.18;
+    heading += declinationAngle;
+
+    if (heading < 0)
+        heading += 2*M_PI;
+
+    if (heading > 2*M_PI) {
+        heading -= 2*M_PI;
     }
-    return heading;
+
+    //convert radians to degrees
+    float headingDegrees = heading * 180/M_PI;
+
+    return headingDegrees;
 }
