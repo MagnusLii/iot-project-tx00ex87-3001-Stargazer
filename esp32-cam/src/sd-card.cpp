@@ -5,6 +5,7 @@
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include <string>
+#include "crc.hpp"
 
 SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2, int D3) {
     for (int i = 0; i < 3; i++) {
@@ -49,3 +50,41 @@ esp_err_t SDcard::mount_sd_card(std::string mount_point_arg, int max_open_files,
 std::string *SDcard::get_mount_point() { return &this->mount_point; }
 const char *SDcard::get_mount_point_c_str() { return this->mount_point.c_str(); }
 esp_err_t SDcard::get_sd_card_status() { return this->sd_card_status; }
+
+//  filename is expected to contain file extension
+void SDcard::write_file(const char *filename, std::string data) {
+    std::string full_filename_str = this->mount_point + "/" + filename;
+
+    FILE *file = fopen(full_filename_str.c_str(), "w");
+
+    DEBUG("Writing picture to ", full_filename_str);
+    if (file) {
+        if (fwrite(data.c_str(), 1, data.length(), file) == data.length()) {
+            DEBUG("File write success");
+            fclose(file);
+        } else {
+            DEBUG("File write failed");
+        }
+    } else {
+        DEBUG("Failed to open file for writing");
+        perror("File open error");
+    }
+    fclose(file);
+}
+
+void SDcard::add_crc(std::string &data) {
+    uint16_t crc = crc16(data);
+    data += "," + std::to_string(crc);
+}
+
+bool SDcard::check_crc(std::string &data) {
+    size_t pos = data.find_last_of(',');
+    if (pos == std::string::npos) {
+        return false;
+    }
+    std::string crc_str = data.substr(pos + 1);
+    uint16_t crc = std::stoi(crc_str);
+    data = data.substr(0, pos);
+
+    return (crc == crc16(data));
+}
