@@ -15,6 +15,7 @@
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
+#include "message.hpp"
 #include "nvs_flash.h"
 #include "requestHandler.hpp"
 #include "sd-card.hpp"
@@ -54,8 +55,12 @@ void get_request_timer_callback(TimerHandle_t timer) {
 
 void init_task(void *pvParameters) {
     WirelessHandler wifi;
-    std::string mount_point = "/sdcard";
-    SDcard sdcard(mount_point);
+    SDcard sdcard("/sdcard");
+    while (sdcard.get_sd_card_status() != ESP_OK) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        sdcard.mount_sd_card("/sdcard");
+    }
+
     wifi.connect(WIFI_SSID, WIFI_PASSWORD);
     do {
         vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
@@ -64,16 +69,24 @@ void init_task(void *pvParameters) {
             wifi.connect(WIFI_SSID, WIFI_PASSWORD);
         }
     } while (!wifi.isConnected());
+
     RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
                                   std::make_shared<SDcard>(sdcard));
+
+    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
+
+    EspPicoCommHandler uartCommHandler(UART_NUM_0);
 
     // xTaskCreate(send_request_task, "send_request_task", 4096, &requestHandler, TaskPriorities::HIGH, nullptr);
     // xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
 
-    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
+    xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
+    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH,
+                nullptr);
 
-    xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
-                (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
+    // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
+    //             (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
+
     vTaskDelete(NULL);
 }
 
@@ -109,23 +122,114 @@ void send_request_task(void *pvParameters) {
     }
 }
 
+// Run on highest prio.
 void uart_read_task(void *pvParameters) {
-    EspPicoCommHandler *commHandler = (EspPicoCommHandler *)pvParameters;
+    EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
     uart_event_t event;
-    char buffer[BUFFER_SIZE];
-    int len;
+
+    UartReceivedData receivedData;
+    int retries = 0;
+
     while (true) {
-        if (xQueueReceive(commHandler->get_uart_event_queue(), (void *)&event, portMAX_DELAY)) {
+        if (xQueueReceive(uartCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
             switch (event.type) {
                 case UART_DATA:
-                    len =
-                        uart_read_bytes(commHandler->get_uart_num(), (uint8_t *)buffer, sizeof(buffer), portMAX_DELAY);
-                    buffer[len] = '\0'; // Null-terminate the received string
-                    // TODO: Process the received data
+                    receivedData.len = uart_read_bytes(uartCommHandler->get_uart_num(), (uint8_t *)receivedData.buffer,
+                                                       sizeof(receivedData.buffer), portMAX_DELAY);
+                    receivedData.buffer[receivedData.len] = '\0'; // Null-terminate the received string
+                                                                  // TODO: Process the received data
+
+                    while (xQueueSend(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, 0) !=
+                               pdTRUE &&
+                           retries < ENQUEUE_RETRIES) {
+                        DEBUG("Failed to enqueue received data, retrying...");
+                        retries++;
+                    }
+                    if (retries >= ENQUEUE_RETRIES) {
+                        DEBUG("Failed to enqueue received data after ", ENQUEUE_RETRIES, " attempts");
+                    }
+                    retries = 0;
                     break;
+
                 default:
                     DEBUG("Unknown event type received");
+                    uart_flush_input(uartCommHandler->get_uart_num());
+                    xQueueReset(uartCommHandler->get_uart_event_queue_handle());
                     break;
+            }
+        }
+    }
+}
+
+void handle_uart_data_task(void *pvParameters) {
+    EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
+    UartReceivedData receivedData;
+    int retries = 0;
+
+    std::string string;
+    Message msg;
+
+    while (true) {
+        if (xQueueReceive(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, portMAX_DELAY) ==
+            pdTRUE) {
+            string = receivedData.buffer;
+            if (convert_to_message(string, msg) == 0) {
+                switch (msg.type) {
+                    case MessageType::UNASSIGNED:
+                        DEBUG("Unassigned message type received");
+                        break;
+
+                    case MessageType::RESPONSE:
+                        if (msg.content[0] == "1") {
+                            uartCommHandler->disable_response_wait_timer();
+                        } else {
+                            DEBUG("Response returned false");
+                        }
+                        break;
+
+                    case MessageType::DATETIME:
+                        if (msg.content[0] == "1") {
+                            msg = datetime_response();
+                            convert_to_string(msg, string);
+                            uartCommHandler->send_data(string.c_str(), string.length());
+                            while (uartCommHandler->set_response_wait_timer(string) == false && retries < ENQUEUE_RETRIES) {
+                                vTaskDelay(1000 / portTICK_PERIOD_MS);
+                                retries++;
+                            }
+                            string.clear();
+                        } else {
+                            DEBUG("Datetime request first value is not 1");
+                        }
+                        break;
+
+                    case MessageType::ESP_INIT: // Should not be sent by Pico
+                        DEBUG("ESP_INIT message sent by Pico");
+                        break;
+
+                    case MessageType::INSTRUCTIONS: // Should not be sent by Pico
+                        DEBUG("INSTRUCTIONS message sent by Pico");
+                        break;
+
+                    case MessageType::PICTURE:
+                        // TODO: TAKE PICTURE
+
+                        msg = response(true);
+                        convert_to_string(msg, string);
+                        uartCommHandler->send_data(string.c_str(), string.length());
+                        break;
+
+                    case MessageType::DIAGNOSTICS:
+                        
+                        break;
+                    default:
+                        DEBUG("Unknown message type received");
+                        break;
+                }
+
+                retries = 0;
+            } else {
+                // TODO: Handle failed conversion or something idk...
+                DEBUG("Failed to convert received data to message");
             }
         }
     }
