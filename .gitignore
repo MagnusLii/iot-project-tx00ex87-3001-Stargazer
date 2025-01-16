@@ -10,3 +10,6 @@ cmake-build-*
 *sdkconfig*
 Dependencies.lock
 managed_components
+target
+Cargo.lock
+db
