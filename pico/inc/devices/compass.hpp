@@ -5,6 +5,8 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 
+#include "debug.hpp"
+
 // Compass I2C configuration
 #define COMPASS_ADDR  0x1E
 #define CONFIG_A      0x00
@@ -20,10 +22,27 @@
 #define I2C_SDA_PIN   20
 #define I2C_PORT      i2c0
 
+struct CalibrationMaxValue {
+    float X;
+    float Y;
+    float Z;
+};
+
+struct CalibrationMinValue {
+    float X;
+    float Y;
+    float Z;
+};
+
 class Compass {
   public:
     Compass();
     void init();
     void readRawData(int16_t &x, int16_t &y, int16_t &z);
+    void calibrate();
     float getHeading();
+  private:
+    float xRawValueOffset;
+    float yRawValueOffset;
+    float zRawValueOffset;
 };
