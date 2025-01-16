@@ -4,16 +4,18 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
+#include <vector>
 
 #define NPINS 4
 #define RPM_MAX 15.
 #define RPM_MIN 1.8
 
+
 class StepperMotor {
   public:
-    StepperMotor();
+    StepperMotor(const std::vector<uint> &stepper_pins, const std::vector<uint> &opto_fork_pins);
 
-    void init(PIO pio, const uint *stepperPins, uint optoForkPin, float rpm, bool clockwise);
+    void init(PIO pio, float rpm, bool clockwise);
 
     void turnSteps(uint16_t steps);
     void turnOneRevolution();
@@ -35,11 +37,13 @@ class StepperMotor {
     bool getDirection() const;
 
   private:
-    void pioInit(float div);
+    void pioInit(void);
     float calculateClkDiv(float rpm) const;
+    void morph_pio_pin_definitions(void);
+    void pins_init();
 
-    uint pins[NPINS];          // Stepper motor pins
-    uint optoForkPin;          // Pin for opto fork sensor, for now unused
+    std::vector<uint> pins;          // Stepper motor pins
+    std::vector<uint> optoForkPins;          // Pin for opto fork sensor, for now unused
     bool direction;            // Motor direction: true for clockwise, false for anticlockwise
     PIO pioInstance;           // PIO instance
     uint programOffset;        // Program offset in PIO memory

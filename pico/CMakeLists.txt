@@ -48,6 +48,9 @@ target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
 target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
+)
+
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -104,8 +107,8 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 ENDIF()
 
 # Enable usb output, disable uart output
-pico_enable_stdio_usb(${PROJECT_NAME} 1)
-pico_enable_stdio_uart(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 0)
+pico_enable_stdio_uart(${PROJECT_NAME} 1)
 
 pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
 pico_enable_stdio_uart(${PROJECT_NAME}_test 0)

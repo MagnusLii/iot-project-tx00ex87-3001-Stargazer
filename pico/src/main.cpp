@@ -10,6 +10,7 @@
 #include <hardware/rtc.h>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "debug.hpp"
 
@@ -18,10 +19,20 @@ int main() {
     sleep_ms(2000);
     DEBUG("Booted");
 
-    Motor motor_one(6, 7, 8, 9);
-    motor_one.initialize();
-    for (int i = 0; i < 100; ++i) {
-        motor_one.turnSteps(1024);
+    // uint stepperPins[] = {2, 3, 6, 13};
+    std::vector<uint> stepperPins{2, 3, 6, 13};
+    std::vector<uint> optoforks(0);
+
+    PIO pio = pio0;
+    StepperMotor motor(stepperPins, optoforks);
+    motor.init(pio, 1, true);
+
+    motor.turnSteps(1000);
+    while (true) {
+        for (auto pin : stepperPins) {
+            std::cout << gpio_get(pin) << ", ";
+        }
+        std::cout << std::endl;
     }
     /* Compass compass;
     compass.init();
