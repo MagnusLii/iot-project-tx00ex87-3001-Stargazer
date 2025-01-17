@@ -162,6 +162,74 @@ int SDcard::write_file(const char *filename, std::string data) {
 }
 
 /**
+ * @brief Writes data to a file on the SD card.
+ *
+ * This function prepends the mount point to the given filename, attempts to open the file for writing,
+ * and writes the provided data to the file. Utilizes mutex for thread safety and returns an error code on failure.
+ *
+ * @param filename The name of the file to write to, including the file extension.
+ * @param data The data to write to the file.
+ *
+ * @return int Returns 0 on success
+ *  - 1: Mutex acquisition failure.
+ *  - 2: File open failure.
+ *  - 3: File write failure.
+ *
+ * @note The function locks a mutex to ensure that file operations are thread-safe.
+ */
+int SDcard::write_file(const char *filename, const char *data) { return write_file(filename, std::string(data)); }
+
+/**
+ * @brief Writes binary data to a file on the SD card.
+ *
+ * This function prepends the mount point to the given filename, attempts to open the file for writing,
+ * and writes the provided data to the file. Utilizes mutex for thread safety and returns an error code on failure.
+ *
+ * @param filename The name of the file to write to, including the file extension.
+ * @param data Pointer to the binary data to be written.
+ * @param len The length of the data in bytes.
+ *
+ * @return int Returns:
+ *  - `0`: Success.
+ *  - `1`: Mutex acquisition failure.
+ *  - `2`: File open failure.
+ *  - `3`: File write failure.
+ *
+ * @note The function locks a mutex to ensure that file operations are thread-safe.
+ */
+int SDcard::write_file(const char *filename, const uint8_t *data, const size_t len) {
+    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
+        DEBUG("Failed to acquire mutex");
+        return 1; // Mutex acquisition failure
+    }
+
+    std::string full_filename_str = this->mount_point + "/" + filename;
+
+    DEBUG("Opening file ", full_filename_str.c_str());
+    FILE *file = fopen(full_filename_str.c_str(), "w");
+
+    if (!file) {
+        DEBUG("Failed to open file for writing");
+        perror("File open error");
+        xSemaphoreGive(file_mutex);
+        return 2; // File open failure
+    }
+
+    if (fwrite(data, 1, len, file) != len) {
+        DEBUG("File write failed");
+        fclose(file);
+        xSemaphoreGive(file_mutex);
+        return 3; // File write failure
+    }
+
+    DEBUG("File write success");
+    fclose(file);
+
+    xSemaphoreGive(file_mutex);
+    return 0; // Success
+}
+
+/**
  * @brief Adds a CRC value to the given data string.
  *
  * This function computes the CRC16 checksum of the provided data and appends it to the data string,
