@@ -39,6 +39,9 @@
 // Sends datetime response over UART0 every 10 seconds
 // #define UART_DEMO
 
+// Settings file write and read test.
+// #define WRITE_READ_SETTINGS_TEST
+
 // #define PRODUCTION_CODE
 
 extern "C" {
@@ -47,6 +50,24 @@ void app_main(void);
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    #ifdef WRITE_READ_SETTINGS_TEST
+    int retries = 0;
+    std::vector<std::string> settings = {"WIFI_SSID", "WIFI_PASSWORD", "WEB_PATH", "WEB_PORT"};
+    SDcard sdcard("/sdcard");
+    while(sdcard.save_all_settings(settings) != 0 && retries < 3) {
+        DEBUG("Retrying save settings");
+        retries++;
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    retries = 0;
+
+    while(sdcard.read_all_settings(settings) != 0 && retries < 3) {
+        DEBUG("Retrying read settings");
+        retries++;
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    #endif
 
     #ifdef RESERVE_UART0_FOR_PICO_COMM 
     esp_log_level_set("*", ESP_LOG_NONE);
