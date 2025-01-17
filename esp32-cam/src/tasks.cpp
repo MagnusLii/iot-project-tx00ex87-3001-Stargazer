@@ -26,7 +26,6 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
-#include "message.hpp"
 
 #include "testMacros.hpp"
 
@@ -82,8 +81,7 @@ void init_task(void *pvParameters) {
     // xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
 
     xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
-    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH,
-                nullptr);
+    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH, nullptr);
 
     // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
     //             (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
@@ -199,7 +197,8 @@ void handle_uart_data_task(void *pvParameters) {
                             msg = datetime_response();
                             convert_to_string(msg, string);
                             uartCommHandler->send_data(string.c_str(), string.length());
-                            while (uartCommHandler->set_response_wait_timer(string) == false && retries < ENQUEUE_RETRIES) {
+                            while (uartCommHandler->set_response_wait_timer(string) == false &&
+                                   retries < ENQUEUE_RETRIES) {
                                 vTaskDelay(1000 / portTICK_PERIOD_MS);
                                 retries++;
                             }
@@ -226,7 +225,7 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case MessageType::DIAGNOSTICS:
-                        
+
                         break;
                     default:
                         DEBUG("Unknown message type received");
@@ -239,5 +238,18 @@ void handle_uart_data_task(void *pvParameters) {
                 DEBUG("Failed to convert received data to message");
             }
         }
+    }
+}
+
+// Test task
+void take_picture_and_save_to_sdcard_in_loop_task(void *pvParameters) {
+    Camera *cameraPtr = (Camera *)pvParameters;
+    std::string filepath;
+
+    while (true) {
+        cameraPtr->create_image_filename(filepath);
+        cameraPtr->take_picture_and_save_to_sdcard(filepath.c_str());
+
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
