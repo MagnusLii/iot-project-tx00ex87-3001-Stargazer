@@ -24,7 +24,7 @@ impl Backend {
 
     pub async fn add_user(&self, user: Credentials) -> Result<(), Error> {
         #[cfg(feature = "pw_hash")]
-        let pw = password::generate_phc_string(&user.password);
+        let pw = password::generate_phc_string(&user.password)?;
 
         #[cfg(not(feature = "pw_hash"))]
         let pw = user.password;
