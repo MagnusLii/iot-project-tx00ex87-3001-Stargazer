@@ -19,7 +19,7 @@ pub async fn create_user_table(db: &SqlitePool) {
 
 pub async fn create_admin(db: &SqlitePool) {
     #[cfg(feature = "pw_hash")]
-    let pw = password::generate_phc_string("admin");
+    let pw = password::generate_phc_string("admin").unwrap();
 
     #[cfg(not(feature = "pw_hash"))]
     let pw = "admin";
