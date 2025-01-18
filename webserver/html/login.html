@@ -16,7 +16,7 @@
     </head> 
     <body> 
         <h1>Stargazer</h1> 
-        <form method="post"> 
+        <form id="login" method="POST"> 
             <legend><b>Login</b></legend>
                 <label for="username">Username:</label> 
                 <input type="text" id="username" name="username" required> 
@@ -24,7 +24,11 @@
                 <label for="password">Password:</label> 
                 <input type="password" id="password" name="password" required> 
                 <br>
+                <input type="hidden" id="next" name="next" value="<!--NEXT-->"></input>
+                <br>
                 <input type="submit" value="login"> 
+                <br>
+                <section id="error"><!--ERROR--></section>
         </form> 
     </body> 
 </html>
