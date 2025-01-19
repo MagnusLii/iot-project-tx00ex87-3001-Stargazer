@@ -1,5 +1,7 @@
 #include "message.hpp"
 
+namespace msg {
+
 int convert_to_message(std::string &str, Message &msg) {
     if (size_t pos = str.find_last_of(','); pos == std::string::npos) {
         return 1;
@@ -126,3 +128,5 @@ Message picture(int object_id, int image_id) { // NOTE: Do we actually need to s
 Message diagnostics(/* diagnostics */) {
     return Message{.type = DIAGNOSTICS, .content = {/* diagnostics example */ "TBD"}};
 }
+
+} // namespace msg

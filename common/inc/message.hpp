@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+namespace msg {
+
 enum MessageType {
     UNASSIGNED = 0,   // don't use
     RESPONSE = 1,     // Response message (ACK/NACK)
@@ -35,3 +37,5 @@ Message esp_init(bool success);
 Message instructions(/* instructions */);
 Message picture(int object_id, int image_id);
 Message diagnostics(/* diagnostics */);
+
+} // namespace msg
