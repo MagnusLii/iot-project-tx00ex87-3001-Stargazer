@@ -29,6 +29,9 @@ add_executable(${PROJECT_NAME}_test
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
+    src/devices/gps.cpp
+    src/devices/compass.cpp
+    src/devices/stepper-motor.cpp
     src/commbridge.cpp
 )
 

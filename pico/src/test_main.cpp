@@ -1,5 +1,6 @@
 #include "commbridge.hpp"
 #include "convert.hpp"
+#include "devices/gps.hpp"
 #include "hardware/clock.hpp"
 #include "message.hpp"
 #include "pico/stdlib.h"
@@ -16,46 +17,59 @@
 int main() {
     stdio_init_all();
     sleep_ms(5000);
-    auto queue = std::make_shared<std::queue<Message>>();
-    auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto queue = std::make_shared<std::queue<msg::Message>>();
+    auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
 
     auto clock = std::make_shared<Clock>();
+    auto gps = std::make_unique<GPS>(uart_1, true, true);
 
-    CommBridge bridge(uart, queue);
+    CommBridge bridge(uart_0, queue);
 
-    int count = 0;
+    sleep_ms(50);
+    gps->set_mode(GPS::Mode::FULL_ON);
+
+    bool fix = false;
     for (;;) {
-        if (count % 2 == 0) {
-            DEBUG("Sleepy time\r\n");
-        } else {
-            DEBUG("Received wakeup signal\r\n");
-            bridge.read_and_parse(10000, true);
+        Coordinates coords = gps->get_coordinates();
+        if (coords.status) {
+            DEBUG("Latitude: ", coords.latitude);
+            DEBUG("Longitude: ", coords.longitude);
+            if (!fix) {
+                fix = true;
+                gps->set_mode(GPS::Mode::STANDBY);
+            }
+        } else if (!fix) {
+            gps->locate_position(15);
         }
 
+        DEBUG("Received wakeup signal\r\n");
+        bridge.read_and_parse(10000, true);
+
         while (queue->size() > 0) {
-            Message msg = queue->front();
-            Message datetime_msg; 
+            msg::Message msg = queue->front();
 
             switch (msg.type) {
-                case RESPONSE: // Received response ACK/NACK from ESP
+                case msg::RESPONSE: // Received response ACK/NACK from ESP
+                    DEBUG("Received response");
                     break;
-                case DATETIME:
+                case msg::DATETIME:
+                    DEBUG("Received datetime");
                     clock->update(msg.content[0]);
-                    datetime_msg = msg;
-                    bridge.send(datetime_msg); // TEST
                     break;
-                case ESP_INIT: // Send ACK response back to ESP
-                    bridge.send(response(true));
+                case msg::ESP_INIT: // Send ACK response back to ESP
+                    DEBUG("Received ESP init");
+                    bridge.send(msg::response(true));
                     break;
-                case INSTRUCTIONS:
-                    // TODO: Handle received instructions
+                case msg::INSTRUCTIONS:
+                    DEBUG("Received instructions");
                     break;
-                case PICTURE:
-                    // TODO: Handle taking picture
+                case msg::PICTURE: // Pico should not receive these
+                    DEBUG("Received picture msg for some reason");
                     break;
-                case DIAGNOSTICS: // Pico should not receive these
-                    DEBUG("Received diagnostics for some reason");
-                break;
+                case msg::DIAGNOSTICS: // Pico should not receive these
+                    DEBUG("Received diagnostics msg for some reason");
+                    break;
                 default:
                     DEBUG("Unknown message type: ", msg.type);
                     break;
@@ -64,12 +78,12 @@ int main() {
             queue->pop();
         }
 
-        count++;
-        sleep_ms(2000);
+        sleep_ms(5000);
 
         if (clock->is_synced()) {
             datetime_t now = clock->get_datetime();
-            DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":", unsigned(now.min), ":", unsigned(now.sec));
+            DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour),
+                  ":", unsigned(now.min), ":", unsigned(now.sec));
         }
     }
 
