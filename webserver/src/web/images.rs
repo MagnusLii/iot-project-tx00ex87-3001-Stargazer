@@ -233,3 +233,11 @@ pub async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> 
 
     Ok(count)
 }
+
+pub async fn get_last_image(db: &sqlx::SqlitePool) -> Result<Image, sqlx::Error> {
+    let image = sqlx::query_as("SELECT * FROM images ORDER BY id DESC")
+        .fetch_one(db)
+        .await?;
+
+    Ok(image)
+}
