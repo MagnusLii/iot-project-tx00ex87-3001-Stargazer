@@ -21,17 +21,18 @@ class GPS {
         ALWAYSLOCATE // Full-on/Standby
     };
 
-    enum class SentenceState {
-        EMPTY,
-        INCOMPLETE,
-        COMPLETE
-    };
-
   public:
     GPS(std::shared_ptr<PicoUart> uart, bool gpgga_on = true, bool gpgll_on = true);
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
     void set_mode(Mode mode);
+
+  private:
+    enum class SentenceState {
+        EMPTY,
+        INCOMPLETE,
+        COMPLETE
+    };
 
   private:
     int parse_output(std::string output);

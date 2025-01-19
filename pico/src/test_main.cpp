@@ -22,7 +22,7 @@ int main() {
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
 
     auto clock = std::make_shared<Clock>();
-    auto gps = std::make_unique<GPS>(uart_1, true, true);
+    auto gps = std::make_unique<GPS>(uart_1, false, true);
 
     CommBridge bridge(uart_0, queue);
 
