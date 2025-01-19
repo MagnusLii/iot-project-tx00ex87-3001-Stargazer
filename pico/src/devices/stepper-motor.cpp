@@ -66,56 +66,35 @@ void StepperMotor::pins_init() {
 
 // this needs to be ran everytime the program changes!! (changing directions etc)
 // changes the statemachines bytecode to match the pin layout
-// TODO: make this work on anticlockwise direction
 void StepperMotor::morph_pio_pin_definitions(void) {
     // TODO: make a cool equation to reduce code duplication
-    uint pin_value;
-    uint instr;
     uint pin1 = 1;
     uint pin2 = 1 << (pins[1] - pins[0]);
     uint pin3 = 1 << (pins[2] - pins[0]);
-    /*
-    .define pins1   0b00001 set 0
-    .define pins12  0b00011 set 0
-    .define pins2   0b00010 set 0
-    .define pins23  0b10010 set 0
-    .define pins3   0b10000 set 0
-    .define pins3   0b10000 set 1
-    .define pins0   0b00000 set 1
-    .define pins1   0b00001 set 1
-    */
-   // 0
-    pin_value = pin1;
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 0*3] = instr;
-    // 1
-    pin_value = pin1 | pin2;
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 1*3] = instr;
-    // 2
-    pin_value = pin2;
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 2*3] = instr;
-    // 3
-    pin_value = pin2 | pin3;
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 3*3] = instr;
-    // 4
-    pin_value = pin3;
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 4*3] = instr;
-    // 5
-    pin_value = pin3; // and pin4 (sideset)
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 5*3] = instr;
-    // 6
-    pin_value = 0; // no first 3 pins active pin4 active (sideset)
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 6*3] = instr;
-    // 7
-    pin_value = pin1; // and pin4 (sideset)
-    instr = pio_encode_set(pio_pins, pin_value) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11);
-    pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + 7*3] = instr;
+    std::vector<uint> instructions;
+    instructions.reserve(8);
+    // pin1
+    instructions.emplace_back(pio_encode_set(pio_pins, pin1) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    // pin1 and 2
+    instructions.emplace_back(pio_encode_set(pio_pins, pin1 | pin2) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    // pin2
+    instructions.emplace_back(pio_encode_set(pio_pins, pin2) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    // pin2 and pin 3
+    instructions.emplace_back(pio_encode_set(pio_pins, pin2 | pin3) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    // pin3
+    instructions.emplace_back(pio_encode_set(pio_pins, pin3) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    // pin3 and pin4 (sideset)
+    instructions.emplace_back(pio_encode_set(pio_pins, pin3) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11));
+    // no first 3 pins active pin4 active (sideset)
+    instructions.emplace_back(pio_encode_set(pio_pins, 0) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11));
+    // pin1 and pin4 (sideset)
+    instructions.emplace_back(pio_encode_set(pio_pins, pin1) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11));
+    if (!direction) {
+        std::reverse(instructions.begin(), instructions.end());
+    }
+    for (int i=0; i<8; i++) {
+        pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + i*3] = instructions[i];
+    }
 }
 
 void StepperMotor::turnSteps(uint16_t steps) {
@@ -158,20 +137,19 @@ void StepperMotor::stop() {
 }
 
 void StepperMotor::setDirection(bool clockwise) {
-    if (clockwise != direction) {
-        stop();
-        pio_sm_set_enabled(pioInstance, stateMachine, false);
-        direction = clockwise;
-        pio_clear_instruction_memory(pioInstance);
-
-        if (clockwise) {
-            programOffset = pio_add_program(pioInstance, &stepper_clockwise_program);
-        } else {
-            programOffset = pio_add_program(pioInstance, &stepper_anticlockwise_program);
-        }
-
-        pio_sm_set_enabled(pioInstance, stateMachine, true);
+    if (clockwise == direction) return; // no need to do anything
+    
+    stop();
+    pio_sm_set_enabled(pioInstance, stateMachine, false);
+    direction = clockwise;
+    pio_clear_instruction_memory(pioInstance);
+    if (clockwise) {
+        programOffset = pio_add_program(pioInstance, &stepper_clockwise_program);
+    } else {
+        programOffset = pio_add_program(pioInstance, &stepper_anticlockwise_program);
     }
+    morph_pio_pin_definitions();
+    pio_sm_set_enabled(pioInstance, stateMachine, true);
 }
 
 uint8_t StepperMotor::getCurrentStep() const {

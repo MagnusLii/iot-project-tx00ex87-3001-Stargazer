@@ -5,6 +5,7 @@
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include <vector>
+#include <algorithm>
 
 #define NPINS 4
 #define RPM_MAX 15.

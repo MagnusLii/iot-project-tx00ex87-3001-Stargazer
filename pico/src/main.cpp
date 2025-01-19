@@ -21,7 +21,7 @@ int main() {
 
     PIO pio = pio0;
     StepperMotor motor(stepperPins, optoforks);
-    motor.init(pio, 1, true);
+    motor.init(pio, 1, false);
 
     motor.turnSteps(1000);
     while (true) {
