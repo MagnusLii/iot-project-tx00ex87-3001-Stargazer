@@ -16,7 +16,7 @@ use axum::{
 use serde::Deserialize;
 
 pub async fn root() -> impl IntoResponse {
-    let html = std::include_str!("../../html/index.html").to_string();
+    let html = std::include_str!("../../html/home.html").to_string();
 
     (StatusCode::OK, Html(html))
 }
