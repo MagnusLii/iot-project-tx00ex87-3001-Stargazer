@@ -2,7 +2,7 @@ use crate::{
     auth::login::AuthSession,
     keys,
     web::{
-        commands::{get_commands, get_target_names, get_target_positions},
+        commands::{get_commands, get_next_pic_estimate, get_target_names, get_target_positions},
         diagnostics::get_diagnostics,
         images,
     },
@@ -15,8 +15,22 @@ use axum::{
 };
 use serde::Deserialize;
 
-pub async fn root() -> impl IntoResponse {
-    let html = std::include_str!("../../html/home.html").to_string();
+pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
+    let mut html = std::include_str!("../../html/home.html").to_string();
+
+    if let Ok(next_pic) = get_next_pic_estimate(&state.db).await {
+        let html_next_pic = format!("{} at {}", next_pic.target, next_pic.datetime);
+        html = html.replace("<!--NEXT_PIC-->", &html_next_pic);
+    } else {
+        html = html.replace("<!--NEXT_PIC-->", "No estimates currently available");
+    }
+
+    if let Ok(last_pic) = images::get_last_image(&state.db).await {
+        let html_last_pic = format!("src=\"{}\" alt=\"{}\"", last_pic.web_path, last_pic.name);
+        html = html.replace("<!--LAST_PIC-->", &html_last_pic);
+    } else {
+        html = html.replace("<!--LAST_PIC-->", "No images currently available");
+    }
 
     (StatusCode::OK, Html(html))
 }

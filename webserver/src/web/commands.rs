@@ -134,3 +134,23 @@ pub async fn get_target_positions(db: &SqlitePool) -> Result<Vec<TargetPosSql>, 
 
     Ok(positions)
 }
+
+#[derive(Debug, Clone, Deserialize, FromRow)]
+pub struct NextPicEstimateSql {
+    pub target: String,
+    pub datetime: String,
+}
+
+pub async fn get_next_pic_estimate(db: &SqlitePool) -> Result<NextPicEstimateSql, Error> {
+    let estimate = sqlx::query_as(
+        "SELECT objects.name AS target, datetime(commands.time, 'unixepoch') AS datetime
+        FROM commands 
+        JOIN objects ON commands.target = objects.id
+        WHERE commands.status = 2 AND commands.time IS NOT NULL
+        ORDER BY commands.time",
+    )
+    .fetch_one(db)
+    .await?;
+
+    Ok(estimate)
+}
