@@ -2,24 +2,25 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Gallery - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
         <link rel="stylesheet" href="/assets/gallery.css">
-        <script src="/assets/display-user.js"></script>
-        <script src="/assets/images.js"></script>
+        <script src="/assets/js/images.js"></script>
+        <script src="/assets/js/sitewide.js"></script>
     </head>
     <body>
         <div id="header">
-            <ul id="nav">
-                <li><a href="/">Home</a></li>
-                <li><a href="/control">Control</a></li>
-                <li><a href="/gallery">Gallery</a></li>
-                <li><a href="/users">Users</a></li>
-            </ul>
-            <div id="user-login">
-                <a id="user" href="/user"></a>
-                <span> | </span>
-                <a id="logout" href="/logout">Logout</a>
+            <div id="nav" class="topnav">
+                <a href="/" >Home</a>
+                <a href="/control">Control</a>
+                <a href="/gallery" class="active">Gallery</a>
+                <a href="/users">Users</a>
+                <div id="user-login" class="topnav-right">
+                    <a id="user" href="/user"></a>
+                    <a id="logout" href="/logout">Logout</a>
+                </div>
+                <a href="javascript:void(0);" class="icon" onclick="navResponsive()">&#9776;</a>
             </div>
         </div>
         <h1>Gallery</h1>
