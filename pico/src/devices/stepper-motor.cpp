@@ -1,6 +1,10 @@
 #include "stepper-motor.hpp"
 #include "stepper.pio.h"
 
+static inline int modulo(int x, int y) {
+    return (x % y) + (x < 0) ? y : 0;
+}
+
 StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, const std::vector<uint> &opto_fork_pins)
     : pins(stepper_pins), optoForkPins(opto_fork_pins), direction(true), pioInstance(nullptr), programOffset(0),
       stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(6000),
@@ -98,12 +102,12 @@ void StepperMotor::morph_pio_pin_definitions(void) {
 }
 
 void StepperMotor::turnSteps(uint16_t steps) {
-    uint32_t word = ((programOffset + stepper_clockwise_offset_loop) << 16) | steps;
+    uint32_t word = ((programOffset + stepper_clockwise_offset_loop + 3 * sequenceCounter) << 16) | (steps);
     pio_sm_put_blocking(pioInstance, stateMachine, word);
 
-    sequenceCounter = (sequenceCounter + steps) % 8;
+    sequenceCounter = modulo(sequenceCounter + steps, 8);
     int16_t stepsToAdd = direction ? steps : -steps;
-    stepCounter = (stepCounter + stepsToAdd) % stepMax;
+    stepCounter = modulo(stepCounter + stepsToAdd, stepMax);
     stepMemory = (stepMemory << 16) | stepsToAdd;
 }
 
@@ -121,19 +125,50 @@ void StepperMotor::setSpeed(float rpm) {
 
 void StepperMotor::stop() {
     pio_sm_set_enabled(pioInstance, stateMachine, false);
-    uint fifoLevel = pio_sm_get_tx_fifo_level(pioInstance, stateMachine);
 
-    int32_t stepsLeft = 0; // Placeholder for logic from stepper_read_steps_left
-    stepCounter = (stepCounter - stepsLeft) % stepMax;
+    sequenceCounter = modulo(getCurrentStep() + 1, 8);
+    if (direction == ANTICLOCKWISE) {
+        sequenceCounter = modulo(7 - (sequenceCounter - 1) + 1, 8);
+    }
+    uint fifoLevel = pio_sm_get_tx_fifo_level(pioInstance, stateMachine);
+    int32_t stepsLeft = read_steps_left();
+    stepCounter = modulo(stepCounter - stepsLeft, stepMax);
 
     for (int i = 0; i < fifoLevel; i++) {
-        stepCounter = (stepCounter - (int16_t)(stepMemory & 0xffff)) % stepMax;
+        stepCounter = modulo(stepCounter - (int16_t)(stepMemory & 0xffff), stepMax);
         stepMemory >>= 16;
     }
 
     pio_sm_clear_fifos(pioInstance, stateMachine);
     pio_sm_exec(pioInstance, stateMachine, pio_encode_jmp(0));
     pio_sm_set_enabled(pioInstance, stateMachine, true);
+}
+
+int StepperMotor::read_steps_left(void) {
+    uint8_t pc = pio_sm_get_pc(pioInstance, stateMachine); // Get the current program counter
+    uint8_t loop_offset = programOffset + stepper_clockwise_offset_loop;
+    uint32_t steps_left = 0;
+    if (pc == 0 || pc == 1) {
+        // If the program counter is 0 or 1, the program hasn't pulled from the RX FIFO, so no steps executed
+        return 0;
+    } else if (pc == 2) {
+        // If the program counter is 2, steps to take haven't been pushed to the X register yet
+        pio_sm_exec(pioInstance, stateMachine, pio_encode_out(pio_x, 16)); // Push steps to take to the X register
+    } else if ((pc >= loop_offset)) {
+        // If the program counter is in the loop region
+        if (((pc - loop_offset) % 3) == 0) {
+            // Depending on the program counter position, it might require adding one more step
+            if (((pc - loop_offset) / 3) == modulo(sequenceCounter + (direction ? 1 : -1), 8)) {
+                steps_left++; // If the PC is on the SET instruction but hasn't decremented X yet
+            }
+        }
+    }
+    // Move the X register contents to the ISR, then push ISR contents to the RX FIFO
+    pio_sm_exec(pioInstance, stateMachine, pio_encode_in(pio_x, 32));
+    pio_sm_exec(pioInstance, stateMachine, pio_encode_push(false, false));
+    // Read the RX FIFO to determine the number of executed steps
+    steps_left += pio_sm_get(pioInstance, stateMachine);
+    return direction ? steps_left : -steps_left;
 }
 
 void StepperMotor::setDirection(bool clockwise) {
