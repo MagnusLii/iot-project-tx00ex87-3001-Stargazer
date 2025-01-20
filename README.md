@@ -51,7 +51,7 @@ Stuff to send:
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   ESP init ready state message (ESP sends to pico when it's done initializing)<br>
-    `$<3>,<bool>,<CRC>;` True = ready, False = ESP is fucked.<br>
+    `$<3>,<Bool>,<CRC>;` True = ready, False = ESP is fucked.<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   Image taking<br>
