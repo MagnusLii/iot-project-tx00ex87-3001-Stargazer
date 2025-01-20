@@ -35,7 +35,7 @@ function deleteCommand(id) {
 
 // Traverse through the table and add delete buttons to rows with status 0
 function deleteButtons() {
-    const table = document.getElementById("commands");
+    const table = document.getElementById("command-table");
     const rows = table.getElementsByTagName("tr");
     for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
