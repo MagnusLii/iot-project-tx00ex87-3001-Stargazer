@@ -28,11 +28,6 @@
 
 #define IMAGE_NAME_MAX_LENGTH 64
 
-enum class CameraReturnCode {
-    SUCCESS,
-    GENERIC_ERROR
-};
-
 class Camera {
   public:
     enum class Filetype {
@@ -51,21 +46,19 @@ class Camera {
            ledc_timer_t LEDC_TIMER = LEDC_TIMER_0, ledc_channel_t LEDC_CHANNEL = LEDC_CHANNEL_0,
            pixformat_t PIXEL_FORMAT = PIXFORMAT_JPEG, framesize_t FRAME_SIZE = FRAMESIZE_UXGA, int jpeg_quality = 10,
            int fb_count = 1);
-    CameraReturnCode create_image_filename(std::string &filenamePtr);
+    ~Camera();
+    int create_image_filename(std::string &filenamePtr);
 
-    CameraReturnCode reinit_cam();
-    CameraReturnCode take_picture_and_save_to_sdcard(const char *full_filename_str);
-    CameraReturnCode notify_request_handler_of_image(const char *filename);
+    int reinit_cam();
+    int take_picture_and_save_to_sdcard(const char *full_filename_str);
+    int notify_request_handler_of_image(const char *filename);
 
   private:
     std::shared_ptr<SDcard> sdcard;
     QueueHandle_t webSrvRequestQueueHandle;
     camera_config_t camera_config;
     Filetype image_filetype;
-    std::string mount_point;
     const char *image_format_strings[5] = {".rgb", ".yuv", "INVALID-FILETYPE", ".gray", ".jpg"};
 };
-
-void take_picture_and_save_to_sdcard_in_loop_task(void *pvParameters);
 
 #endif
