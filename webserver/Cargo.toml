@@ -3,7 +3,12 @@ name = "webserver"
 version = "0.4.0"
 edition = "2021"
 
+[features]
+default = ["pw_hash"]
+pw_hash = ["argon2", "password-hash"]
+
 [dependencies]
+argon2 = { version = "0.5.3", optional = true }
 async-trait = "0.1.83"
 axum = { version = "0.7.9", features = ["macros"] }
 axum-login = "0.16.0"
@@ -13,6 +18,7 @@ chrono = "0.4.38"
 clap = { version = "4.5.23", features = ["derive"] }
 config = { version = "0.14.1", default-features = false, features = ["async", "async-trait", "convert-case", "convert_case", "toml"] }
 infer = "0.16.0"
+password-hash = { version = "0.5.0", features = ["alloc", "std"], optional = true }
 serde = "1.0.215"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite", "time"] }
 thiserror = "2.0.3"

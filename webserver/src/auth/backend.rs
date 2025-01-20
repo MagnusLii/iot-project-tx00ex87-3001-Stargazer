@@ -1,4 +1,4 @@
-use crate::{auth::user::User, err::Error};
+use crate::{auth::password, auth::user::User, err::Error};
 use async_trait::async_trait;
 use axum_login::{AuthnBackend, UserId};
 use serde::Deserialize;
@@ -23,9 +23,15 @@ impl Backend {
     }
 
     pub async fn add_user(&self, user: Credentials) -> Result<(), Error> {
+        #[cfg(feature = "pw_hash")]
+        let pw = password::generate_phc_string(&user.password)?;
+
+        #[cfg(not(feature = "pw_hash"))]
+        let pw = user.password;
+
         sqlx::query("INSERT INTO users (username, password) VALUES (?, ?)")
             .bind(&user.username)
-            .bind(&user.password)
+            .bind(&pw)
             .execute(&self.db)
             .await?;
 
@@ -85,7 +91,10 @@ impl AuthnBackend for Backend {
             .fetch_optional(&self.db)
             .await?;
 
-        task::spawn_blocking(move || Ok(user.filter(|u| creds.password == u.password))).await?
+        task::spawn_blocking(move || {
+            Ok(user.filter(|u| password::verify_password(&creds.password, &u.password).is_ok()))
+        })
+        .await?
     }
 
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
