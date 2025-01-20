@@ -133,22 +133,6 @@ body {
         display: block;
     }
 }
-/*
-.active {
-    background-color: #4CAF50;
-}
-*/
-
-#subnav ul {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-}
-
-#subnav li {
-    display: inline;
-    margin-right: 5rem;
-}
 
 /* LOGIN */
 
@@ -280,6 +264,64 @@ body {
 }
 
 /* CONTROL */
+
+#control-subnav {
+    display: flex;
+    margin: 0 50px;
+    justify-content: space-between;
+    background-color: var(--color-3);
+}
+
+#control-subnav a {
+    width: 33.33%;
+    width: calc(100% / 3);
+    text-align: center;
+    padding: 10px 0;
+    text-decoration: none;
+}
+
+#control-subnav a.active {
+    background-color: var(--color-4);
+}
+
+#control-subnav a:hover {
+    opacity: 0.7;
+    background-color: var(--color-4);
+}
+
+#commands-title {
+    padding: 10px 50px;
+    margin: 0;
+}
+
+#commands-content {
+    background-color: var(--color-2);
+    margin: 0 50px 50px 50px;
+}
+
+@media only screen and (max-width: 768px) {
+    #commands-content {
+        margin: 0px;
+    }
+}
+
+#commands-column {
+    height: 100%;
+    padding: 30px;
+}
+
+#command-form-option {
+    display: block;
+    margin-bottom: 6px;
+}
+
+#command-form button {
+    margin-top: 10px;
+}
+
+#command-table tr:nth-child(even) {
+  background-color: var(--color-3);
+}
 
 /* KEY MANAGEMENT */
 
