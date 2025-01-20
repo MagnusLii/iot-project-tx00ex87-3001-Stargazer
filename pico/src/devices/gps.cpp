@@ -64,10 +64,10 @@ int GPS::parse_output(std::string output) {
                     break;
                 }
             case SentenceState::COMPLETE:
-                if (gps_sentence.find("$GPGGA") != std::string::npos) {
+                if (gpgga && gps_sentence.find("$GPGGA") != std::string::npos) {
                     DEBUG(gps_sentence);
                     if (parse_gpgga() == 0) { status = true; }
-                } else if (gps_sentence.find("$GPGLL") != std::string::npos) {
+                } else if (gpgll && gps_sentence.find("$GPGLL") != std::string::npos) {
                     DEBUG(gps_sentence);
                     if (parse_gpgll() == 0) { status = true; }
                 } else if (gps_sentence.find("$PMTK") != std::string::npos) {
