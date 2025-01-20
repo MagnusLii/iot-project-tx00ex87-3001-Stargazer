@@ -37,11 +37,15 @@ Image position:<br>
 Prefix values:<br>
 `<0>` = unassigned/error<br>
 `<1>` = ACK<br>
-`<2>` = datetime<br>
+`<2>` = Datetime<br>
 `<3>` = ESP init message<br>
 `<4>` = ESP informs Pico of image to take.<br>
-`<5>` = Pico instructs ESP to take image<br>
-`<6>` = Diagnostics data from pico.<br>
+`<5>` = Command/Picture status from Pico to ESP<br>
+`<6>` = Pico instructs ESP to take image<br>
+`<7>` = Diagnostics data from pico.<br>
+`<8>` = WiFi information from Pico to ESP<br>
+`<9>` = Send server ip/domain + (port) to ESP<br>
+`<10>` = Api token from Pico to ESP<br>
 
 Stuff to send:
 
