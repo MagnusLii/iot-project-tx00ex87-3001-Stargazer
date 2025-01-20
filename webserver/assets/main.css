@@ -154,9 +154,9 @@ body {
 
 #login-title {
     text-align: center;
-    font-size: 64px;
+    font-size: 48px;
     color: var(--color-5);
-    margin-top: 50px;
+    margin-top: 30px;
 }
 
 #form-login-parent {
@@ -168,7 +168,8 @@ body {
     padding: 20px;
     border-radius: 15px;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-    width: 300px;
+    width: 90%;
+    max-width: 400px;
 }
 
 #form-login {
@@ -186,7 +187,7 @@ body {
     box-sizing: border-box;
 }
 
-#form-login input[type=text], input[type=password] {
+#form-login input[type=text], #form-login input[type=password] {
     background-color: var(--color-3);
     color: var(--color-5);
 }
@@ -207,6 +208,45 @@ body {
     color: #f21010;
     font-weight: bold;
     min-height: 40px;
+}
+
+@media screen and (max-width: 768px) {
+    #login-title {
+        font-size: 36px;
+        margin-top: 20px;
+    }
+
+    #form-login-parent {
+        padding: 15px;
+        width: 80%;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    #login-title {
+        font-size: 28px;
+    }
+
+    #form-login-parent {
+        padding: 10px;
+        width: 95%;
+    }
+
+    #form-login input {
+        padding: 10px;
+        margin: 6px 0;
+    }
+}
+
+@media screen and (max-height: 360px) {
+    #login-title {
+        font-size: 28px;
+    }
+
+    #form-login-parent {
+        padding: 10px;
+        width: 95%;
+    }
 }
 
 /* HOME */
