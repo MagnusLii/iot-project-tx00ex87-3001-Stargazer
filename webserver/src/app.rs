@@ -31,6 +31,7 @@ use axum_login::{
     tower_sessions::{cookie::Key, Expiry, MemoryStore, SessionManagerLayer},
     AuthManagerLayerBuilder,
 };
+use axum_messages::MessagesManagerLayer;
 use sqlx::SqlitePool;
 use time::Duration;
 use tokio::net::TcpListener;
@@ -95,6 +96,7 @@ impl App {
             .route("/login", post(login))
             .route("/logout", get(logout))
             .route("/test", get(crate::web::routes::test))
+            .layer(MessagesManagerLayer)
             .layer(auth_layer)
             .route(
                 "/api/upload",

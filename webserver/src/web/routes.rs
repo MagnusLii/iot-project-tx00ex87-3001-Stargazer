@@ -226,8 +226,10 @@ pub async fn unknown_route() -> impl IntoResponse {
     )
 }
 
-pub async fn test() -> impl IntoResponse {
+pub async fn test(messages: axum_messages::Messages) -> impl IntoResponse {
     let html = include_str!("../../html/images.html").to_string();
+
+    messages.error("Test error");
 
     (StatusCode::OK, Html(html))
 }
