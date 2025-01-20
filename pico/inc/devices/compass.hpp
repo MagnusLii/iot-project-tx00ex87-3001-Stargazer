@@ -18,8 +18,8 @@
 #define TO_UT         (100.0 / 1090.0)
 
 // I2C Pins and Instance
-#define I2C_SCL_PIN   21
-#define I2C_SDA_PIN   20
+#define I2C_SCL_PIN   17
+#define I2C_SDA_PIN   16
 #define I2C_PORT      i2c0
 
 struct CalibrationMaxValue {
