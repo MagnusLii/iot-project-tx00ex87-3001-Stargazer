@@ -12,58 +12,28 @@
 
 int main() {
     stdio_init_all();
-    sleep_ms(1000);
-    DEBUG("Booted");
+    DEBUG("Booted\n");
 
     // uint stepperPins[] = {2, 3, 6, 13};
-    std::vector<uint> stepperPins{2, 3, 6, 13};
-    std::vector<uint> optoforks(0);
+    std::vector<uint> stepperPins{6, 7, 8, 9};
+    // std::vector<uint> stepperPins2{18, 19, 20, 21};
+    // std::vector<uint> optoforks(0);
 
-    PIO pio = pio0;
-    StepperMotor motor(stepperPins, optoforks);
-    motor.init(pio, 1, false);
+    // PIO pio = pio0;
+    // StepperMotor motor(stepperPins, optoforks);
+    // StepperMotor motor2(stepperPins2, optoforks);
+    
+    // motor.init(pio, 1, false);
+    // motor.init(pio1, 1, true);
 
-    motor.turnSteps(1000);
+    // motor.turnSteps(1000);
+    // motor2.turnSteps(1000);
     while (true) {
         for (auto pin : stepperPins) {
             std::cout << gpio_get(pin) << ", ";
         }
         std::cout << std::endl;
     }
-    /* Compass compass;
-    compass.init();
-
-    float heading;
-
-    auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
-    auto gps = std::make_unique<GPS>(uart);
-    sleep_ms(2000);
-    //gps->locate_position(15);
-    //sleep_ms(2000);
-    //gps->set_mode(GPS::Mode::ALWAYSLOCATE);
-
-    heading = compass.getHeading();
-    printf("we are pointing at %.2f degrees", heading);
-
-    gps->locate_position(600);
-    for (;;) {
-        sleep_ms(1000);
-        Coordinates coords = gps->get_coordinates();
-        if (coords.status) {
-            gps->set_mode(GPS::Mode::STANDBY);
-            for (;;) {
-                std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
-                sleep_ms(10000);
-            }
-        } else {
-            gps->set_mode(GPS::Mode::STANDBY);
-            std::cout << "No fix, trying again in 5s" << std::endl;
-            sleep_ms(5000);
-            gps->set_mode(GPS::Mode::FULL_ON);
-            gps->locate_position(300);
-        }
-    }
-*/
 
     return 0;
 }
