@@ -31,6 +31,8 @@ class SDcard {
     int write_file(const char* filename, std::string data);
     int write_file(const char* filename, const char* data);
     int write_file(const char* filename, const uint8_t* data, const size_t len);
+    int read_file(const char* filename, std::string& data);
+    int read_file(const char* filename, std::vector<uint8_t>& data);
     void add_crc(std::string &data);
     bool check_crc(const std::string &data);
     int save_all_settings(const std::vector<std::string> settings);
