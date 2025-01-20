@@ -6,7 +6,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect},
     Form,
 };
-use axum_messages::{Level, Message, Messages};
+use axum_messages::{Level, Messages};
 use serde::Deserialize;
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
