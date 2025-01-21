@@ -4,18 +4,17 @@
 #include "debug.hpp"
 
 // Compass I2C configuration
-#define COMPASS_ADDR  0x1E
-#define CONFIG_A      0x00
-#define CONFIG_B      0x01
-#define MODE_REG      0x02
-#define DATA_REG      0x03
+#define COMPASS_ADDR 0x1E
+#define CONFIG_A     0x00
+#define CONFIG_B     0x01
+#define MODE_REG     0x02
+#define DATA_REG     0x03
 
 // Conversion from raw value to microteslas (uT)
-#define TO_UT         (100.0 / 1090.0)
+#define TO_UT (100.0 / 1090.0)
 
-Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t* I2C_PORT_VAL)
-    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {
-}
+Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t *I2C_PORT_VAL)
+    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {}
 
 // Initialize the compass
 void Compass::init() {
@@ -69,10 +68,9 @@ void Compass::calibrate() {
 
     DEBUG("Calibrate the compass\r\n");
 
-    while(xCount < 3 || yCount < 3 || zCount < 3) {
+    while (xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);
-        if ((std::fabs(x) > 600) || (std::fabs(y) > 600) || (std::fabs(z) > 600))
-            continue;
+        if ((std::fabs(x) > 600) || (std::fabs(y) > 600) || (std::fabs(z) > 600)) continue;
 
         if (minValue.X > x) {
             minValue.X = x;
@@ -82,8 +80,7 @@ void Compass::calibrate() {
 
         if (minValue.Y > y) {
             minValue.Y = y;
-        } else if (maxValue.Y < y)
-        {
+        } else if (maxValue.Y < y) {
             maxValue.Y = y;
         }
 
@@ -99,9 +96,7 @@ void Compass::calibrate() {
                 xCount++;
             }
         } else {
-            if (std::fabs(x) < 40) {
-                xRotationFlag = true;
-            }
+            if (std::fabs(x) < 40) { xRotationFlag = true; }
         }
 
         if (yRotationFlag) {
@@ -110,9 +105,7 @@ void Compass::calibrate() {
                 yCount++;
             }
         } else {
-            if (std::fabs(y) < 40) {
-                yRotationFlag = true;
-            }
+            if (std::fabs(y) < 40) { yRotationFlag = true; }
         }
 
         if (zRotationFlag) {
@@ -121,10 +114,7 @@ void Compass::calibrate() {
                 zCount++;
             }
         } else {
-            if (std::fabs(z) < 40)
-            {
-                zRotationFlag = true;
-            }
+            if (std::fabs(z) < 40) { zRotationFlag = true; }
         }
 
         sleep_ms(30);
@@ -149,24 +139,21 @@ float Compass::getHeading() {
     // Convert raw values to microtesla
     float x_uT = x * TO_UT;
     float y_uT = y * TO_UT;
-    float z_uT = z * TO_UT;
+    //float z_uT = z * TO_UT;
 
     // Calculate heading
     float heading = atan2(y_uT, x_uT);
 
-    //This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
+    // This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
     float declinationAngle = 0.18;
     heading += declinationAngle;
 
-    if (heading < 0)
-        heading += 2*M_PI;
+    if (heading < 0) heading += 2 * M_PI;
 
-    if (heading > 2*M_PI) {
-        heading -= 2*M_PI;
-    }
+    if (heading > 2 * M_PI) { heading -= 2 * M_PI; }
 
-    //convert radians to degrees
-    float headingDegrees = heading * 180/M_PI;
+    // convert radians to degrees
+    float headingDegrees = heading * 180 / M_PI;
 
     return headingDegrees;
 }
