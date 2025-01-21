@@ -1,6 +1,8 @@
 #include "compass.hpp"
 #include "pico/stdlib.h"
 
+#include "debug.hpp"
+
 // Compass I2C configuration
 #define COMPASS_ADDR  0x1E
 #define CONFIG_A      0x00
@@ -64,56 +66,64 @@ void Compass::calibrate() {
 
     int16_t x, y, z;
 
+    DEBUG("Calibrate the compass\r\n");
+
     while(xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);
-        if ((fabs(x) > 654) || (fabs(x) > 654) || (fabs(x) > 654))
+        if ((fabs(x) > 600) || (fabs(y) > 600) || (fabs(z) > 600))
             continue;
 
         if (minValue.X > x) {
             minValue.X = x;
-        } else if (maxValue.X < x)
+        } else if (maxValue.X < x) {
             maxValue.X = x;
+        }
 
         if (minValue.Y > y) {
             minValue.Y = y;
         } else if (maxValue.Y < y)
+        {
             maxValue.Y = y;
+        }
 
         if (minValue.Z > z) {
             minValue.Z = z;
-        } else if (maxValue.Z < z)
+        } else if (maxValue.Z < z) {
             maxValue.Z = z;
-
-
+        }
 
         if (xRotationFlag) {
-            if (fabs(x) > 55) {
+            if (fabs(x) > 50) {
                 xRotationFlag = false;
                 xCount++;
             }
         } else {
-            if (fabs(x) < 44)
+            if (fabs(x) < 40) {
                 xRotationFlag = true;
+            }
         }
 
         if (yRotationFlag) {
-            if (fabs(y) > 55) {
+            if (fabs(y) > 50) {
                 yRotationFlag = false;
                 yCount++;
             }
         } else {
-            if (fabs(y) < 44)
+            if (fabs(y) < 40) {
                 yRotationFlag = true;
+            }
         }
 
         if (zRotationFlag) {
-            if (fabs(z) > 55) {
+            if (fabs(z) > 50) {
                 zRotationFlag = false;
                 zCount++;
             }
         } else {
-            if (fabs(z) < 44)
+            if (fabs(z) < 40)
+            {
                 zRotationFlag = true;
+            }
         }
 
         sleep_ms(30);
