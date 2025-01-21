@@ -294,13 +294,13 @@ body {
     margin: 0;
 }
 
-#commands-content {
+#control-content {
     background-color: var(--color-2);
     margin: 0 50px 50px 50px;
 }
 
 @media only screen and (max-width: 768px) {
-    #commands-content {
+    #control-content {
         margin: 0px;
     }
 }

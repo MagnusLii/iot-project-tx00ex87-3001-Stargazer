@@ -22,20 +22,28 @@
             </div>
         </div>
         <h1>Diagnostics</h1>
-        <ul id="subnav">
-            <li><a href="/control">Commands</a></li>
-            <li><a href="/control/keys">Keys</a></li>
-            <li><a href="/control/diagnostics">Diagnostics</a></li>
-        </ul>
-        <p>Diagnostics page - TBD what will actually be here</p>
-        <br>
-        <table id="diagnostics">
-            <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Message</th>
-            </tr>
-            <!--DIAGNOSTICS-->
-        </table>
+        <div id="control-subnav">
+            <a href="/control" class="active">Commands</a>
+            <a href="/control/keys">Keys</a>
+            <a href="/control/diagnostics">Diagnostics</a>
+        </div>
+        <div id="control-content">
+            <div class="row">
+                <div id="diagnostics-column" class="col-12">
+                    <p>Diagnostics page - TBD what will actually be here</p>
+                </div>
+            </div>
+            <div class="row">
+                <div id="diagnostics-column" class="col-12">
+                    <table id="diagnostics">
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Message</th>
+                        </tr>
+                        <!--DIAGNOSTICS-->
+                    </table>
+                </div>
+            </div>
     </body>
 </html>
