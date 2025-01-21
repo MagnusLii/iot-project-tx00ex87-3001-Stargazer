@@ -15,16 +15,17 @@
 
 Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t* I2C_PORT_VAL)
     : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {
+}
+
+// Initialize the compass
+void Compass::init() {
     // Initialize I2C communication
     i2c_init(I2C_PORT, 400000); // 400 kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
-}
 
-// Initialize the compass
-void Compass::init() {
     uint8_t config_a[2] = {CONFIG_A, 0x70}; // Configuration for CONFIG_A
     uint8_t config_b[2] = {CONFIG_B, 0xa0}; // Configuration for CONFIG_B
 
