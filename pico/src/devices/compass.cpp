@@ -1,17 +1,30 @@
 #include "compass.hpp"
 #include "pico/stdlib.h"
 
-Compass::Compass() {
-    // Initialize I2C communication
-    i2c_init(I2C_PORT, 400000); // 400 kHz
-    gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA_PIN);
-    gpio_pull_up(I2C_SCL_PIN);
-}
+#include "debug.hpp"
+
+// Compass I2C configuration
+#define COMPASS_ADDR 0x1E
+#define CONFIG_A     0x00
+#define CONFIG_B     0x01
+#define MODE_REG     0x02
+#define DATA_REG     0x03
+
+// Conversion from raw value to microteslas (uT)
+#define TO_UT (100.0 / 1090.0)
+
+Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t *I2C_PORT_VAL)
+    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {}
 
 // Initialize the compass
 void Compass::init() {
+    // Initialize I2C communication
+    i2c_init(I2C_PORT, 400000); // 400 kHz
+    gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
+
     uint8_t config_a[2] = {CONFIG_A, 0x70}; // Configuration for CONFIG_A
     uint8_t config_b[2] = {CONFIG_B, 0xa0}; // Configuration for CONFIG_B
 
@@ -23,14 +36,14 @@ void Compass::init() {
 
 // Read raw data from the compass
 void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
-    uint8_t buf[2] = {0x02, 0x01};
+    uint8_t buf[2] = {MODE_REG, CONFIG_B};
     uint8_t data[6];
 
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
     sleep_ms(10);
 
     // Request data
-    buf[0] = 0x03;
+    buf[0] = DATA_REG;
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
     i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
 
@@ -53,56 +66,55 @@ void Compass::calibrate() {
 
     int16_t x, y, z;
 
-    while(xCount < 3 || yCount < 3 || zCount < 3) {
+    DEBUG("Calibrate the compass\r\n");
+
+    while (xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);
-        if ((fabs(x) > 654) || (fabs(x) > 654) || (fabs(x) > 654))
-            continue;
+        if ((std::fabs(x) > 600) || (std::fabs(y) > 600) || (std::fabs(z) > 600)) continue;
 
         if (minValue.X > x) {
             minValue.X = x;
-        } else if (maxValue.X < x)
+        } else if (maxValue.X < x) {
             maxValue.X = x;
+        }
 
         if (minValue.Y > y) {
             minValue.Y = y;
-        } else if (maxValue.Y < y)
+        } else if (maxValue.Y < y) {
             maxValue.Y = y;
+        }
 
         if (minValue.Z > z) {
             minValue.Z = z;
-        } else if (maxValue.Z < z)
+        } else if (maxValue.Z < z) {
             maxValue.Z = z;
-
-
+        }
 
         if (xRotationFlag) {
-            if (fabs(x) > 55) {
+            if (std::fabs(x) > 50) {
                 xRotationFlag = false;
                 xCount++;
             }
         } else {
-            if (fabs(x) < 44)
-                xRotationFlag = true;
+            if (std::fabs(x) < 40) { xRotationFlag = true; }
         }
 
         if (yRotationFlag) {
-            if (fabs(y) > 55) {
+            if (std::fabs(y) > 50) {
                 yRotationFlag = false;
                 yCount++;
             }
         } else {
-            if (fabs(y) < 44)
-                yRotationFlag = true;
+            if (std::fabs(y) < 40) { yRotationFlag = true; }
         }
 
         if (zRotationFlag) {
-            if (fabs(z) > 55) {
+            if (std::fabs(z) > 50) {
                 zRotationFlag = false;
                 zCount++;
             }
         } else {
-            if (fabs(z) < 44)
-                zRotationFlag = true;
+            if (std::fabs(z) < 40) { zRotationFlag = true; }
         }
 
         sleep_ms(30);
@@ -127,27 +139,21 @@ float Compass::getHeading() {
     // Convert raw values to microtesla
     float x_uT = x * TO_UT;
     float y_uT = y * TO_UT;
-    float z_uT = z * TO_UT;
+    //float z_uT = z * TO_UT;
 
     // Calculate heading
     float heading = atan2(y_uT, x_uT);
 
-    //This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
+    // This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
     float declinationAngle = 0.18;
     heading += declinationAngle;
 
-    if (heading < 0)
-        heading += 2*M_PI;
+    if (heading < 0) heading += 2 * M_PI;
 
-    if (heading > 2*M_PI) {
-        heading -= 2*M_PI;
-    }
+    if (heading > 2 * M_PI) { heading -= 2 * M_PI; }
 
-    //TODO replace *heading* with this on the *headingDegrees* for vertical angle stuff
-    float test = atan2(z, sqrt(x * x + y * y));
-
-    //convert radians to degrees
-    float headingDegrees = heading * 180/M_PI;
+    // convert radians to degrees
+    float headingDegrees = heading * 180 / M_PI;
 
     return headingDegrees;
 }
