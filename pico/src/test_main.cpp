@@ -25,7 +25,7 @@ int main() {
 
     auto clock = std::make_shared<Clock>();
     auto gps = std::make_unique<GPS>(uart_1, false, true);
-    Compass compass(21, 20, i2c0);
+    Compass compass(17, 16, i2c0);
     compass.init();
 
     CommBridge bridge(uart_0, queue);
