@@ -1,13 +1,24 @@
 #include "compass.hpp"
 #include "pico/stdlib.h"
 
-Compass::Compass() {
+// Compass I2C configuration
+#define COMPASS_ADDR  0x1E
+#define CONFIG_A      0x00
+#define CONFIG_B      0x01
+#define MODE_REG      0x02
+#define DATA_REG      0x03
+
+// Conversion from raw value to microteslas (uT)
+#define TO_UT         (100.0 / 1090.0)
+
+Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t* I2C_PORT_VAL)
+    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {
     // Initialize I2C communication
     i2c_init(I2C_PORT, 400000); // 400 kHz
-    gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA_PIN);
-    gpio_pull_up(I2C_SCL_PIN);
+    gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
 }
 
 // Initialize the compass
@@ -23,14 +34,14 @@ void Compass::init() {
 
 // Read raw data from the compass
 void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
-    uint8_t buf[2] = {0x02, 0x01};
+    uint8_t buf[2] = {MODE_REG, CONFIG_B};
     uint8_t data[6];
 
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
     sleep_ms(10);
 
     // Request data
-    buf[0] = 0x03;
+    buf[0] = DATA_REG;
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
     i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
 
@@ -142,9 +153,6 @@ float Compass::getHeading() {
     if (heading > 2*M_PI) {
         heading -= 2*M_PI;
     }
-
-    //TODO replace *heading* with this on the *headingDegrees* for vertical angle stuff
-    float test = atan2(z, sqrt(x * x + y * y));
 
     //convert radians to degrees
     float headingDegrees = heading * 180/M_PI;
