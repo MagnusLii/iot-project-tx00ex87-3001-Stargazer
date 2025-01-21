@@ -1,9 +1,15 @@
 #include "stepper-motor.hpp"
 #include "stepper.pio.h"
 
-static inline int modulo(int x, int y) {
-    return (x % y) + (x < 0) ? y : 0;
-}
+// static inline int modulo(int x, int y) {
+//     return (x % y) + ((x % y) < 0) ? y : 0;
+// }
+
+#define _arg(x) (x)
+#define _remainder(x, y) (_arg(x) % _arg(y))
+#define _lessthan(x) (_arg(x) < 0)
+#define _ternary(x, y) (_lessthan(_remainder(x, y)) ? _arg(y) : 0)
+#define modulo(x, y) (_remainder(x, y) + _ternary(x, y))
 
 StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, const std::vector<uint> &opto_fork_pins)
     : pins(stepper_pins), optoForkPins(opto_fork_pins), direction(true), pioInstance(nullptr), programOffset(0),
