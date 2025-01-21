@@ -71,7 +71,7 @@ void Compass::calibrate() {
 
     while(xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);
-        if ((fabs(x) > 600) || (fabs(y) > 600) || (fabs(z) > 600))
+        if ((std::fabs(x) > 600) || (std::fabs(y) > 600) || (std::fabs(z) > 600))
             continue;
 
         if (minValue.X > x) {
@@ -94,34 +94,34 @@ void Compass::calibrate() {
         }
 
         if (xRotationFlag) {
-            if (fabs(x) > 50) {
+            if (std::fabs(x) > 50) {
                 xRotationFlag = false;
                 xCount++;
             }
         } else {
-            if (fabs(x) < 40) {
+            if (std::fabs(x) < 40) {
                 xRotationFlag = true;
             }
         }
 
         if (yRotationFlag) {
-            if (fabs(y) > 50) {
+            if (std::fabs(y) > 50) {
                 yRotationFlag = false;
                 yCount++;
             }
         } else {
-            if (fabs(y) < 40) {
+            if (std::fabs(y) < 40) {
                 yRotationFlag = true;
             }
         }
 
         if (zRotationFlag) {
-            if (fabs(z) > 50) {
+            if (std::fabs(z) > 50) {
                 zRotationFlag = false;
                 zCount++;
             }
         } else {
-            if (fabs(z) < 40)
+            if (std::fabs(z) < 40)
             {
                 zRotationFlag = true;
             }
