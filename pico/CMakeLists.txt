@@ -113,3 +113,6 @@ ENDIF()
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
+
+pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 0)
