@@ -23,23 +23,29 @@
             </div>
         </div>
         <h1>Key management</h1>
-        <ul id="subnav">
-            <li><a href="/control">Commands</a></li>
-            <li><a href="/control/keys">Keys</a></li>
-            <li><a href="/control/diagnostics">Diagnostics</a></li>
-        </ul>
-        <p>Keys page</p>
-        <br>
-        <div id="gen-key">
-            <label for="name-key">Name:</label>
-            <input type="text" id="name-key">
-            <button value="Generate new key" onclick="generateKey()">Generate new key</button>
-            <input type="text" id="ro-key" value="" readonly>
-            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+        <div id="control-subnav">
+            <a href="/control" class="active">Commands</a>
+            <a href="/control/keys">Keys</a>
+            <a href="/control/diagnostics">Diagnostics</a>
         </div>
-        <br>
-        <ol id="keys">
-            <!--API_KEYS-->
-        </ol>
+        <div id="control-content">
+            <div class="row">
+                <div id="keys-column" class="col-12">
+                    <p>Keys page</p>
+                    <br>
+                    <div id="gen-key">
+                        <label for="name-key">Name:</label>
+                        <input type="text" id="name-key">
+                        <button value="Generate new key" onclick="generateKey()">Generate new key</button>
+                        <input type="text" id="ro-key" value="" readonly>
+                        <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+                    </div>
+                    <br>
+                    <ol id="keys">
+                        <!--API_KEYS-->
+                    </ol>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
