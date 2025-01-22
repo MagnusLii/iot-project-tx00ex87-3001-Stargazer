@@ -69,37 +69,64 @@ void init_task(void *pvParameters) {
             wifi.connect(WIFI_SSID, WIFI_PASSWORD);
         }
     } while (!wifi.isConnected());
+    DEBUG("Connected to wifi");
 
     RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
                                   std::make_shared<SDcard>(sdcard));
+    DEBUG("RequestHandler created");
 
-    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
+    // Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
 
-    EspPicoCommHandler uartCommHandler(UART_NUM_0);
+    // EspPicoCommHandler uartCommHandler(UART_NUM_0);
+    // DEBUG("UartCommHandler created");
+    // uartCommHandler.set_request_handler(std::make_shared<RequestHandler>(requestHandler)); // TODO: rework to not
+    // require direct access to requestHandler
 
-    // xTaskCreate(send_request_task, "send_request_task", 4096, &requestHandler, TaskPriorities::HIGH, nullptr);
-    // xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
+    // DEBUG("Uart created");
 
-    xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
-    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH, nullptr);
+    // TODO: make sure timer gets created.
+    xTaskCreate(send_request_task, "send_request_task", 8192, &requestHandler, TaskPriorities::HIGH, nullptr);
+    TimerHandle_t asd =
+        xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback);
+
+    if (asd == NULL) {
+        DEBUG("Failed to create timer");
+    } else {
+        xTimerStart(asd, 0);
+    }
+
+    // xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
+    // xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH,
+    // nullptr);
 
     // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
     //             (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
 
+    while (1) {
+        vTaskDelay(1000000 / portTICK_PERIOD_MS);
+    }
+
     vTaskDelete(NULL);
 }
 
+// Sends requests to the web server
 void send_request_task(void *pvParameters) {
+    DEBUG("Send request task started");
     RequestHandler *requestHandler = (RequestHandler *)pvParameters;
-    QueueMessage *request = nullptr;
+    QueueMessage request;
+    char buffer[BUFFER_SIZE];
 
     while (true) {
         // Wait for a request to be available
+        // TODO: add mutex
         if (xQueueReceive(requestHandler->getWebSrvRequestQueue(), &request, portMAX_DELAY) == pdTRUE) {
-            switch (request->requestType) {
+            switch (request.requestType) {
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
-                    requestHandler->sendRequest(*request);
+                    requestHandler->sendRequest(request, buffer);
+
+                    // TODO: forward response to pico.
+
                     break;
                 case RequestType::POST_IMAGE:
                     DEBUG("POST_IMAGE request received");
@@ -218,11 +245,12 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case MessageType::PICTURE:
                         // TODO: TAKE PICTURE
+                        // TODO: enqueue post req
 
-                        msg = response(true);
-                        convert_to_string(msg, string);
-                        uartCommHandler->send_data(string.c_str(), string.length());
-                        break;
+                        // msg = response(true);
+                        // convert_to_string(msg, string);
+                        // uartCommHandler->send_data(string.c_str(), string.length());
+                        // break;
 
                     case MessageType::DIAGNOSTICS:
 
@@ -237,6 +265,19 @@ void handle_uart_data_task(void *pvParameters) {
                 // TODO: Handle failed conversion or something idk...
                 DEBUG("Failed to convert received data to message");
             }
+        }
+    }
+}
+
+void uart_send_task(void *pvParameters) {
+    EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
+
+    QueueMessage message;
+
+    while (true) {
+        if (xQueueReceive(uartCommHandler, &message, portMAX_DELAY) == pdTRUE) {
+            // TODO: parse message and send it to the uart
+            
         }
     }
 }
