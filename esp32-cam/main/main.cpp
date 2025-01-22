@@ -42,7 +42,7 @@
 // Settings file write and read test.
 // #define WRITE_READ_SETTINGS_TEST
 
-// #define PRODUCTION_CODE
+#define PRODUCTION_CODE
 
 extern "C" {
 void app_main(void);
@@ -90,6 +90,7 @@ void app_main(void) {
     #endif
 
     while (1) {
+        DEBUG("Main loop");
         #ifdef UART_DEMO
         uartCommHandler.send_data(string.c_str(), string.length());
         #endif
