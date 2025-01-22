@@ -4,6 +4,8 @@
 #include "driver/uart.h"
 #include <stdint.h>
 #include <string>
+#include "requestHandler.hpp"
+#include <memory>
 
 #define UART_RING_BUFFER_SIZE  1024
 #define EVENT_QUEUE_SIZE       5
@@ -41,6 +43,8 @@ class EspPicoCommHandler {
     bool set_response_wait_timer(std::string command);
     void disable_response_wait_timer();
 
+    void set_request_handler(std::shared_ptr<RequestHandler> requestHandler);
+
   private:
     uart_port_t uart_num;
     uart_config_t uart_config;
@@ -50,6 +54,8 @@ class EspPicoCommHandler {
     std::string previousCommand;
     bool waitingForResponse = false;
     TimerHandle_t responseWaitTimer;
+
+    std::shared_ptr<RequestHandler> requestHandler; // TODO: remove dependency on direct access to requestHandler
 };
 
 #endif

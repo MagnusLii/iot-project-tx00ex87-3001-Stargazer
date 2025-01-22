@@ -68,3 +68,7 @@ void EspPicoCommHandler::disable_response_wait_timer() {
 
     xTimerDelete(this->responseWaitTimer, 0);
 }
+
+void EspPicoCommHandler::set_request_handler(std::shared_ptr<RequestHandler> requestHandler) {
+    this->requestHandler = requestHandler;
+}
