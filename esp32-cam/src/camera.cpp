@@ -65,7 +65,9 @@ Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQue
     this->camera_config.jpeg_quality = jpeg_quality;
     this->camera_config.fb_count = fb_count;
 
+    DEBUG("Initializing camera\n");
     esp_err_t err = esp_camera_init(&camera_config);
+    DEBUG("Camera initialized\n");
     if (err != ESP_OK) {
         DEBUG("Camera init failed with error: ", err);
         // TODO: Handle error
