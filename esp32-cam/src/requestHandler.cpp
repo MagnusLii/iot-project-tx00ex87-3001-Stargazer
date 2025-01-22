@@ -29,8 +29,8 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->webServerToken = webServerToken;
     this->wirelessHandler = wirelessHandler;
     this->sdcard = sdcard;
-    this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage *));
-    this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage *));
+    this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
+    this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
 
     std::string getRequest;
     this->createUserInstructionsGETRequest(&getRequest);
@@ -38,6 +38,9 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
             sizeof(this->getUserInsturctionsRequest.str_buffer) - 1);
     this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
     this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
+
+    DEBUG("getUserInsturctionsRequest.str_buffer: ", this->getUserInsturctionsRequest.str_buffer);
+    DEBUG("getUserInsturctionsRequest.requestType: ", (int)this->getUserInsturctionsRequest.requestType);
 }
 
 RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::string *requestPtr) {
@@ -61,7 +64,7 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
  */
 RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
-                  "/api/command" +
+                  "/api/command?token=" +
                   this->webServerToken +
                   " HTTP/1.0\r\n"
                   "Host: " +
@@ -242,8 +245,29 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request) {
     // Send the response to a message queue
     strncpy(response.str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
     response.str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
-    response.requestType = RequestType::WEB_SERVER_RESPONSE;   // Set response type
-    while (xQueueSend(this->getWebSrvResponseQueue(), &request, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
+
+    // Set the request type for the response
+    switch (request.requestType) {
+        case RequestType::GET_COMMANDS:
+            response.requestType = API_COMMAND;
+            break;
+        
+        case RequestType::POST_IMAGE:
+            response.requestType = API_UPLOAD;
+            break;
+        
+        case RequestType::POST_DIAGNOSTICS:
+            response.requestType = API_DIAGNOSTICS;
+            break;
+
+        case default:
+            DEBUG("Unknown request type received");
+            break;
+    }
+
+    parseResponse(response.str_buffer); // Parse the response into json
+
+    while (xQueueSend(this->getWebSrvResponseQueue(), &response, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
         retry_count++;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -353,11 +377,59 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request) {
     // Send the response to a message queue
     strncpy(response.str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
     response.str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
-    response.requestType = RequestType::WEB_SERVER_RESPONSE;   // Set response type
-    while (xQueueSend(this->getWebSrvResponseQueue(), &request, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
+
+    // Set the request type for the response
+    switch (request.requestType) {
+        case RequestType::GET_COMMANDS:
+            response.requestType = API_COMMAND;
+            break;
+        
+        case RequestType::POST_IMAGE:
+            response.requestType = API_UPLOAD;
+            break;
+        
+        case RequestType::POST_DIAGNOSTICS:
+            response.requestType = API_DIAGNOSTICS;
+            break;
+
+        case default:
+            DEBUG("Unknown request type received");
+            break;
+    }
+
+    parseResponse(response.str_buffer); // Parse the response into json
+
+    // TODO: send parsed json instead of response.
+    while (xQueueSend(this->getWebSrvResponseQueue(), &response, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
         retry_count++;
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
     }
 
     return RequestHandlerReturnCode::SUCCESS; // Indicate success
+}
+
+int RequestHandler::parseResponse(char* buffer) {
+    std::string response(buffer);
+
+    size_t pos = response.find("{");
+    if (pos == std::string::npos) {
+        DEBUG("'{' not found in response.");
+        return 1;
+    }
+
+    size_t end = response.find("}");
+    if(end == std::string::npos) {
+        DEBUG("'}' not found in response.");
+        return 1;
+    }
+
+    std::string json = response.substr(pos, end - pos + 1);
+    DEBUG("JSON: ", json);
+
+    strncpy(buffer, json.c_str(), json.length());
+    buffer[json.length()] = '\0';
+
+    DEBUG("Buffer: ", buffer);
+
+    return 0;
 }
