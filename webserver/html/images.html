@@ -23,11 +23,16 @@
                 <a href="javascript:void(0);" class="icon" onclick="navResponsive()">&#9776;</a>
             </div>
         </div>
-        <h1>Gallery</h1>
-        <p>There is currently <!--COUNT--> images in the gallery</p>
-        <br>
-        <div class="gallery-container">
-        <!--IMAGES-->
+        <h1 id="gallery-title" class="main-title">Gallery</h1>
+        <div id="gallery-content" class="main-content">
+            <div class="row">
+                <div id="gallery-column" class="col-12">
+                    <p>There is currently <!--COUNT--> images in the gallery</p>
+                    <div class="gallery-container">
+                        <!--IMAGES-->
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="image-modal" class="modal">
             <span id="image-modal-close" class="close">&times;</span>
