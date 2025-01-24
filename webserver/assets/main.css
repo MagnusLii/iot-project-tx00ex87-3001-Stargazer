@@ -26,6 +26,27 @@ body {
     margin: 0;
 }
 
+.main-title {
+    padding: 10px 50px;
+    margin: 0;
+}
+
+.main-content {
+    background-color: var(--color-2);
+    margin: 0 50px 50px 50px;
+}
+
+@media only screen and (max-width: 768px) {
+    .main-content {
+        margin: 0px;
+    }
+}
+
+.main-column {
+    height: 100%;
+    padding: 30px;
+}
+
 /* https://www.w3schools.com/css/css_rwd_grid.asp */
 .col-1 {width: 8.33%;}
 .col-2 {width: 16.66%;}
@@ -235,21 +256,7 @@ body {
 
 /* HOME */
 
-#home-title {
-    padding: 10px 50px;
-    margin: 0;
-}
 
-#home-content {
-    background-color: var(--color-2);
-    margin: 50px;
-}
-
-@media only screen and (max-width: 768px) {
-    #home-content {
-        margin: 0px;
-    }
-}
 
 #home-column {
     height: 100%;
@@ -289,21 +296,6 @@ body {
     background-color: var(--color-4);
 }
 
-#commands-title {
-    padding: 10px 50px;
-    margin: 0;
-}
-
-#control-content {
-    background-color: var(--color-2);
-    margin: 0 50px 50px 50px;
-}
-
-@media only screen and (max-width: 768px) {
-    #control-content {
-        margin: 0px;
-    }
-}
 
 #commands-column {
     height: 100%;

@@ -22,19 +22,29 @@
                 <a href="javascript:void(0);" class="icon" onclick="navResponsive()">&#9776;</a>
             </div>
         </div>
-        <h1>User Management</h1>
-        <form id="add-user">
-            <legend><b>Add user:</b></legend>
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password">
-            <input type="submit" value="Add User" onclick="addUser(); return false">
-        </form>
-        <div id="message"></div>
-        <br>
-        <ol id="users">
-            <!--USERS-->
-        </ol>
+        <h1 id="users-title" class="main-title">User Management</h1>
+        <div id="user-management-content" class="main-content">
+            <div class="row">
+                <div id="user-management-column" class="col-12">
+                    <form id="add-user">
+                        <legend><b>Add user:</b></legend>
+                        <label for="name">Name:</label>
+                        <input type="text" id="name" name="name">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password">
+                        <input type="submit" value="Add User" onclick="addUser(); return false">
+                    </form>
+                </div>
+            </div>
+            <div class="row">
+                <div id="user-management-column" class="col-12">
+                    <div id="message"></div>
+                    <br>
+                    <ol id="users">
+                        <!--USERS-->
+                    </ol>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
