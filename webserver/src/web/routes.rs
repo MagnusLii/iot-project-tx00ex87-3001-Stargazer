@@ -125,27 +125,27 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--POSITIONS-->", &html_positions);
-
-    let html_commands = get_commands(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|command| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                command.id,
-                command.target,
-                command.position,
-                command.name,
-                command.associated_key,
-                command.status,
-                command.datetime
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--API_COMMANDS-->", &html_commands);
-
+    /*
+        let html_commands = get_commands(&state.db)
+            .await
+            .unwrap()
+            .iter()
+            .map(|command| {
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    command.id,
+                    command.target,
+                    command.position,
+                    command.name,
+                    command.associated_key,
+                    command.status,
+                    command.datetime
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--API_COMMANDS-->", &html_commands);
+    */
     (StatusCode::OK, Html(html))
 }
 

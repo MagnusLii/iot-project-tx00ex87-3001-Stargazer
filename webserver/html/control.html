@@ -76,8 +76,16 @@
             </div>
             <div class="row">
                 <div id="commands-column" class="col-12">
+                    <select id="command-filter" onchange="firstPage();">
+                        <option value="0">All</option>
+                        <option value="1">Completed</option>
+                        <option value="2">In Progress</option>
+                        <option value="3">Failed</option>
+                        <option value="4">Cancelled/Deleted</option>
+                    </select>
                     <table id="command-table">
                         <legend>Command list</legend>
+                        <thead>
                         <tr>
                             <th>ID</th>
                             <th>Target</th>
@@ -87,8 +95,17 @@
                             <th>Status</th>
                             <th>Est. time (UTC)</th>
                         </tr>
-                        <!--API_COMMANDS-->
+                        </thead>
+                        <tbody id="command-list">
+                        </tbody>
                     </table>
+                    <div id="pagination">
+                        <button id="first-page" onclick="firstPage();">First</button>
+                        <button id="prev-page" onclick="prevPage();" disabled>Previous</button>
+                        <button id="current-page" value="0">1 / 1</button>
+                        <button id="next-page" onclick="nextPage();">Next</button>
+                        <button id="last-page" onclick="lastPage();">Last</button>
+                    </div>
                 </div>
             </div>
         </div>
