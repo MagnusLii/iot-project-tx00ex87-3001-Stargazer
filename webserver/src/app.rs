@@ -12,7 +12,7 @@ use crate::{
     },
     keys::{new_key, remove_key},
     web::{
-        commands::{new_command, remove_command},
+        commands::{self, new_command, remove_command},
         images::ImageDirectory,
         routes::{
             api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
@@ -78,6 +78,7 @@ impl App {
             .route("/", get(root))
             .route("/gallery", get(gallery))
             .route("/control", get(control))
+            .route("/control", post(commands::request_commands_info))
             .route("/control/keys", get(api_keys))
             .route("/control/keys", post(new_key))
             .route("/control/keys", delete(remove_key))
@@ -96,6 +97,7 @@ impl App {
             .route("/login", post(login))
             .route("/logout", get(logout))
             .route("/test", get(crate::web::routes::test))
+            .route("/test", post(commands::request_commands_info))
             .layer(MessagesManagerLayer)
             .layer(auth_layer)
             .route(
