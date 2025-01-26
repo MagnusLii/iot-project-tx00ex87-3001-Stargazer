@@ -49,7 +49,7 @@ void app_main(void);
 }
 void app_main(void) {
     DEBUG("Starting main");
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     #ifdef WRITE_READ_SETTINGS_TEST
     int retries = 0;
@@ -58,14 +58,14 @@ void app_main(void) {
     while(sdcard.save_all_settings(settings) != 0 && retries < 3) {
         DEBUG("Retrying save settings");
         retries++;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
     retries = 0;
 
     while(sdcard.read_all_settings(settings) != 0 && retries < 3) {
         DEBUG("Retrying read settings");
         retries++;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
     #endif
 
@@ -90,11 +90,10 @@ void app_main(void) {
     #endif
 
     while (1) {
-        DEBUG("Main loop");
         #ifdef UART_DEMO
         uartCommHandler.send_data(string.c_str(), string.length());
         #endif
 
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 }
