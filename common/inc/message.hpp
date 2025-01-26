@@ -33,5 +33,7 @@ Message datetime_request();
 Message datetime_response(/* datetime */);
 Message esp_init(bool success);
 Message instructions(/* instructions */);
+Message instructions(const int celestial_obj_id, const int instruction_identifier_id, const int image_position_id);
+Message instructions(const std::string celestial_obj_id, const std::string instruction_identifier_id, const std::string image_position_id);
 Message picture(int object_id, int image_id);
 Message diagnostics(/* diagnostics */);
