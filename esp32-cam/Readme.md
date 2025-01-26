@@ -15,6 +15,7 @@
 - Set Flash size to 4MB
 - Set `Long filename support` to `long filename buffer in heap` and lenght to 255.
 - Set `configTimer_TASK_STACK_DEPTH` from `2048` -> `4096`
+- Set `Partition Table` to `Custom partition table CSV` and use `partitions.csv` as the table.
 
 ### Code notes
 
