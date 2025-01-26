@@ -125,6 +125,13 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
         .collect::<Vec<String>>()
         .join("\n");
     html = html.replace("<!--POSITIONS-->", &html_positions);
+
+    let statistics = crate::web::commands::fetch_command_statistics(&state.db).await;
+
+    html = html.replace("<!--COMPLETED-->", &statistics.completed.to_string());
+    html = html.replace("<!--FAILED-->", &statistics.failed.to_string());
+    html = html.replace("<!--IN_PROGRESS-->", &statistics.in_progress.to_string());
+
     /*
         let html_commands = get_commands(&state.db)
             .await

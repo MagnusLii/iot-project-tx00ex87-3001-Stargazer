@@ -60,15 +60,15 @@
                         <table id="statistics-table">
                             <tr>
                                 <th>Completed</th>
-                                <td id="completed"> #TODO</td>
+                                <td id="completed"><!--COMPLETED--></td>
                             </tr>
                             <tr>
                                 <th>Failed</th>
-                                <td id="failed"> #TODO</td>
+                                <td id="failed"><!--FAILED--></td>
                             </tr>
                             <tr>
                                 <th>In progress</th>
-                                <td id="in_progress"> #TODO</td>
+                                <td id="in_progress"><!--IN_PROGRESS--></td>
                             </tr>
                         </table>
                     </div>
@@ -76,35 +76,39 @@
             </div>
             <div class="row">
                 <div id="commands-column" class="col-12">
-                    <select id="command-filter" onchange="firstPage();">
-                        <option value="0">All</option>
-                        <option value="1">Completed</option>
-                        <option value="2">In Progress</option>
-                        <option value="3">Failed</option>
-                        <option value="4">Cancelled/Deleted</option>
-                    </select>
-                    <table id="command-table">
-                        <legend>Command list</legend>
-                        <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Target</th>
-                            <th>Position</th>
-                            <th>Key Name</th>
-                            <th>Key ID</th>
-                            <th>Status</th>
-                            <th>Est. time (UTC)</th>
-                        </tr>
-                        </thead>
-                        <tbody id="command-list">
-                        </tbody>
-                    </table>
-                    <div id="pagination">
-                        <button id="first-page" onclick="firstPage();">First</button>
-                        <button id="prev-page" onclick="prevPage();" disabled>Previous</button>
-                        <button id="current-page" value="0">1 / 1</button>
-                        <button id="next-page" onclick="nextPage();">Next</button>
-                        <button id="last-page" onclick="lastPage();">Last</button>
+                    <div id="command-list-container">
+                        <select id="command-filter" onchange="firstPage();">
+                            <option value="0">All</option>
+                            <option value="1">Completed</option>
+                            <option value="2">In Progress</option>
+                            <option value="3">Failed</option>
+                            <option value="4">Cancelled/Deleted</option>
+                        </select>
+                        <table id="command-table" cellspacing="0">
+                            <h3>Command list</h3>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Target</th>
+                                <th>Position</th>
+                                <th>Key Name</th>
+                                <th>Key ID</th>
+                                <th>Status</th>
+                                <th>Est. time (UTC)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="command-list">
+                            </tbody>
+                        </table>
+                        <div id="pagination">
+                            <a id="first-page" onclick="firstPage();">First</a>
+                            <a id="prev-page" onclick="prevPage();">Previous</a>
+                            <a id="current-page" class="not-link" value="0">1</>
+                            <a id="separator" class="not-link"> / </a>
+                            <a id="total-pages" class="not-link" value="1">1</a>
+                            <a id="next-page" onclick="nextPage();">Next</a>
+                            <a id="last-page" onclick="lastPage();">Last</a>
+                        </div>
                     </div>
                 </div>
             </div>

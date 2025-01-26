@@ -296,7 +296,6 @@ body {
     background-color: var(--color-4);
 }
 
-
 #commands-column {
     height: 100%;
     padding: 30px;
@@ -311,8 +310,54 @@ body {
     margin-top: 10px;
 }
 
+#command-list-container {
+    overflow-x: auto;
+}
+
+#command-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+#command-table tr {
+}
+
+#command-table th {
+    background-color: var(--color-3);
+    height: 40px;
+}
+
+#command-table th, td {
+    text-align: left;
+    width: 14.28%;
+    width: calc(100% / 7);
+    padding: 8px;
+}
+
 #command-table tr:nth-child(even) {
-  background-color: var(--color-3);
+    background-color: var(--color-3);
+}
+
+#pagination {
+    display: flex;
+    justify-content: center;
+}
+
+#pagination a {
+    cursor: pointer;
+    padding: 8px 16px;
+    text-decoration: none;
+    transition: background-color .3s;
+}
+
+#pagination a.disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+#pagination a.not-link {
+    cursor: default;
 }
 
 /* KEY MANAGEMENT */

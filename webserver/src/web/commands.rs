@@ -562,3 +562,22 @@ pub async fn request_commands_info(
 
     (StatusCode::OK, json_response)
 }
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CommandStatistics {
+    pub completed: i64,
+    pub failed: i64,
+    pub in_progress: i64,
+}
+
+pub async fn fetch_command_statistics(db: &SqlitePool) -> CommandStatistics {
+    let completed = get_completed_commands_count(db).await.unwrap().count;
+    let failed = get_failed_commands_count(db).await.unwrap().count;
+    let in_progress = get_in_progress_commands_count(db).await.unwrap().count;
+
+    CommandStatistics {
+        completed,
+        failed,
+        in_progress,
+    }
+}

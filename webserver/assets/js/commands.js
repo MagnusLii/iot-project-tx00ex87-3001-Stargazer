@@ -30,15 +30,20 @@ function prevPage() {
 }
 
 function firstPage() {
-    fillCommandList(-document.getElementById("current-page").value);
+    fillCommandList(1, true);
 }
 
 function lastPage() {
-    fillCommandList(document.getElementById("last-page").value);
+    fillCommandList(document.getElementById("last-page").value, true);
 }
 
-function fillCommandList(page_offset = 0) {
-    let page = Number(document.getElementById("current-page").value) + page_offset;
+function fillCommandList(page_n = 0, exact = false) {
+    let page;
+    if (exact) {
+        page = page_n - 1;
+    } else {
+        page = Number(document.getElementById("current-page").value) + page_n;
+    }
     let filter = Number(document.getElementById("command-filter").value);
     if (page < 0) {
         page = 0;
@@ -50,11 +55,11 @@ function fillCommandList(page_offset = 0) {
     const prev = document.getElementById("prev-page");
     if (page == 0) {
         prev.disabled = true;
-        prev.hidden = true;
+        //prev.hidden = true;
     }
     else {
         prev.disabled = false;
-        prev.hidden = false;
+        //prev.hidden = false;
     }
 
     fetch(`/control`, {
@@ -67,28 +72,29 @@ function fillCommandList(page_offset = 0) {
     }).then(response => response.text()).then(data => {
         const json = JSON.parse(data);
         console.log(json);
-        document.getElementById("current-page").textContent = `${json.page + 1} / ${json.pages}`;
+        document.getElementById("current-page").textContent = `${json.page + 1}`;
         document.getElementById("current-page").value = json.page;
-        document.getElementById("last-page").value = json.pages - 1;
+        document.getElementById("total-pages").textContent = `${json.pages}`;
+        document.getElementById("last-page").value = json.pages;
 
         const next = document.getElementById("next-page");
         if (json.page == json.pages - 1) {
             next.disabled = true;
-            next.hidden = true;
+            //next.hidden = true;
         }
         else {
             next.disabled = false;
-            next.hidden = false;
+            //next.hidden = false;
         }
 
         const last = document.getElementById("last-page");
         if (json.page == json.pages - 1) {
             last.disabled = true;
-            last.hidden = true;
+            //last.hidden = true;
         }
         else {
             last.disabled = false;
-            last.hidden = false;
+            //last.hidden = false;
         }
 
         const commands = json.commands;
@@ -133,7 +139,7 @@ function fillCommandList(page_offset = 0) {
         const cell = document.createElement("td");
         cell.textContent = "Error loading commands";
         row.appendChild(cell);
-        document.getElementById("command-table").appendChild(row);
+        table.appendChild(row);
     })
 }
 
@@ -169,6 +175,6 @@ function deleteButtons() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    fillCommandList(0, 0);
+    fillCommandList(0);
 });
 
