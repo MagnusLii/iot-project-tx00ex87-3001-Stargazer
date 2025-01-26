@@ -301,7 +301,7 @@ pub struct CommandCount {
     pub status: i64,
 }
 
-pub async fn get_all_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
+async fn get_all_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
     let count = sqlx::query_as("SELECT COUNT(*) AS count, status FROM commands")
         .fetch_one(db)
         .await?;
@@ -309,7 +309,7 @@ pub async fn get_all_commands_count(db: &SqlitePool) -> Result<CommandCount, Err
     Ok(count)
 }
 
-pub async fn get_completed_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
+async fn get_completed_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
     let count = sqlx::query_as("SELECT COUNT(*) AS count, status FROM commands WHERE status = 3")
         .fetch_one(db)
         .await?;
@@ -317,7 +317,7 @@ pub async fn get_completed_commands_count(db: &SqlitePool) -> Result<CommandCoun
     Ok(count)
 }
 
-pub async fn get_failed_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
+async fn get_failed_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
     let count = sqlx::query_as(
         "SELECT COUNT(*) AS count, status FROM commands WHERE status BETWEEN -5 AND -1",
     )
@@ -327,7 +327,7 @@ pub async fn get_failed_commands_count(db: &SqlitePool) -> Result<CommandCount, 
     Ok(count)
 }
 
-pub async fn get_in_progress_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
+async fn get_in_progress_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
     let count = sqlx::query_as(
         "SELECT COUNT(*) AS count, status FROM commands WHERE status BETWEEN 0 AND 2",
     )
@@ -337,7 +337,7 @@ pub async fn get_in_progress_commands_count(db: &SqlitePool) -> Result<CommandCo
     Ok(count)
 }
 
-pub async fn get_deleted_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
+async fn get_deleted_commands_count(db: &SqlitePool) -> Result<CommandCount, Error> {
     let count = sqlx::query_as("SELECT COUNT(*) AS count, status FROM commands WHERE status = -6")
         .fetch_one(db)
         .await?;
@@ -345,10 +345,7 @@ pub async fn get_deleted_commands_count(db: &SqlitePool) -> Result<CommandCount,
     Ok(count)
 }
 
-pub async fn get_commands_count_by_status(
-    db: &SqlitePool,
-    status: i64,
-) -> Result<CommandCount, Error> {
+async fn get_commands_count_by_status(db: &SqlitePool, status: i64) -> Result<CommandCount, Error> {
     let count = sqlx::query_as("SELECT COUNT(*) AS count, status FROM commands WHERE status = ?")
         .bind(status)
         .fetch_one(db)
@@ -357,7 +354,7 @@ pub async fn get_commands_count_by_status(
     Ok(count)
 }
 
-pub async fn get_commands_count_by_key(db: &SqlitePool, key: i64) -> Result<CommandCount, Error> {
+async fn get_commands_count_by_key(db: &SqlitePool, key: i64) -> Result<CommandCount, Error> {
     let count =
         sqlx::query_as("SELECT COUNT(*) AS count, status FROM commands WHERE associated_key = ?")
             .bind(key)

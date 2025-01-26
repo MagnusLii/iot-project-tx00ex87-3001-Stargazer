@@ -2,7 +2,7 @@ use crate::{
     auth::login::AuthSession,
     keys,
     web::{
-        commands::{get_commands, get_next_pic_estimate, get_target_names, get_target_positions},
+        commands::{get_next_pic_estimate, get_target_names, get_target_positions},
         diagnostics::get_diagnostics,
         images,
     },
