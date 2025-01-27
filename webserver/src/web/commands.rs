@@ -567,14 +567,14 @@ pub struct CommandStatistics {
     pub in_progress: i64,
 }
 
-pub async fn fetch_command_statistics(db: &SqlitePool) -> CommandStatistics {
+pub async fn fetch_command_statistics(db: &SqlitePool) -> Result<CommandStatistics, Error> {
     let completed = get_completed_commands_count(db).await.unwrap().count;
     let failed = get_failed_commands_count(db).await.unwrap().count;
     let in_progress = get_in_progress_commands_count(db).await.unwrap().count;
 
-    CommandStatistics {
+    Ok(CommandStatistics {
         completed,
         failed,
         in_progress,
-    }
+    })
 }
