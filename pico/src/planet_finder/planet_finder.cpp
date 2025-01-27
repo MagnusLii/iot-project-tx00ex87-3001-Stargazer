@@ -196,27 +196,33 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const C
 
 
 void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
-    coordinate_table.clear();
-    date.min = 0;
-    for (int i=0; i<24; i++) {
+    table_start_date = date;
+    for (int i=0; i<TABLE_LEN; i++) {
         azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
-        coordinate_table.push_back(coord);
+        coordinate_table[i] = coord;
         datetime_increment_hour(date);
     }
+    table_stop_date = date;
 }
 
 
 void Celestial::print_coordinate_table(void) {
-    for (auto coord : coordinate_table) {
-        std::cout << coord.altitude << ", " << coord.azimuth << std::endl;
+    for (int i=0; i<TABLE_LEN; i++) {
+        std::cout << coordinate_table[i].altitude << ", " << coordinate_table[i].azimuth << std::endl;
     }
     std::cout << "end" << std::endl;
 }
 
-datetime_t Celestial::get_interest_point_time(void) {
+datetime_t Celestial::get_interest_point_time(Interest_point point) {
     // note: coordinate table needs to be filled with desired day
-    datetime_t date;
-
+    datetime_t date = table_start_date;
+    bool top_found = false;
+    bool bottom_found = false;
+    int top_hour = 0;
+    int bottom_hour = 0;
+    for (int i=0; i<TABLE_LEN; i++) {
+        if ((coordinate_table[i] > coordinate_table[i+1]) && !bottom_found) bottom_hour = i;
+    }
     return date;
 }
 

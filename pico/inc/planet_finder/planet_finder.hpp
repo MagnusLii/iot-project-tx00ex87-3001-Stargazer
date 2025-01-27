@@ -9,6 +9,8 @@
 #include "debug.hpp"
 #include "date_utils.hpp"
 
+#define TABLE_LEN 24
+
 
 enum Planets {
     SUN,
@@ -20,6 +22,12 @@ enum Planets {
     SATURN,
     URANUS,
     NEPTUNE
+};
+
+enum Interest_point {
+    ASCENDING,
+    ZENITH,
+    DESCENDING
 };
 
 struct Coordinates {
@@ -65,6 +73,7 @@ struct azimuthal_coordinates {
     double altitude;
 };
 
+
 struct orbital_elements {
     orbital_elements(double J2000_day, Planets planet);
     double N; // longitude of the ascending node
@@ -76,30 +85,21 @@ struct orbital_elements {
 };
 
 
-// class Sun {
-//     public:
-//         Sun(double J2000_day);
-//         orbital_elements oe;
-//         double mean_longitude(void);
-//         ecliptic_coordinates get_ecliptic_coordinates(void);
-// };
-
-
 class Celestial {
     public:
         Celestial(Planets planet);
         azimuthal_coordinates get_coordinates(const datetime_t &date, const Coordinates observer_coordinates);
         void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
         void print_coordinate_table(void);
-        datetime_t get_interest_point_time(void);
+        datetime_t get_interest_point_time(Interest_point point);
     private:
         Planets planet;
-        std::vector<azimuthal_coordinates> coordinate_table;
+        azimuthal_coordinates coordinate_table[TABLE_LEN];
+        datetime_t table_start_date;
+        datetime_t table_stop_date;
 };
 
 
-
-double sun_true_longitude(double sun_v, double sun_w);
 double eccentric_anomaly(double e, double M);
 double true_anomaly(rect_coordinates coords);
 double distance(rect_coordinates coords);

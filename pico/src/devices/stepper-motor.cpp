@@ -11,8 +11,8 @@
 #define _ternary(x, y) (_lessthan(_remainder(x, y)) ? _arg(y) : 0)
 #define modulo(x, y) (_remainder(x, y) + _ternary(x, y))
 
-StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, const std::vector<uint> &opto_fork_pins)
-    : pins(stepper_pins), optoForkPins(opto_fork_pins), direction(true), pioInstance(nullptr), programOffset(0),
+StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, uint optoforkpin)
+    : pins(stepper_pins), optoForkPin(optoforkpin), direction(true), pioInstance(nullptr), programOffset(0),
       stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(6000),
       edgeSteps(0), stepMemory(0), stepperCalibrated(false), stepperCalibrating(false) {
         // need 4 pins
@@ -53,12 +53,10 @@ float StepperMotor::calculateClkDiv(float rpm) const {
 // The pins have to be ascending in order
 void StepperMotor::pins_init() {
     // TODO: maybe make an optofork class that handles optofork related things
-    if (optoForkPins.size() > 0) {
-        for (uint optoForkPin : optoForkPins) {
-            gpio_set_dir(optoForkPin, GPIO_IN);
-            gpio_set_function(optoForkPin, GPIO_FUNC_SIO);
-            gpio_pull_up(optoForkPin);
-        }
+    if (optoForkPin) {
+        gpio_set_dir(optoForkPin, GPIO_IN);
+        gpio_set_function(optoForkPin, GPIO_FUNC_SIO);
+        gpio_pull_up(optoForkPin);
     }
     // mask is needed to set pin directions in the state machine
     uint32_t pin_mask = 0x0;
