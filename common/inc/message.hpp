@@ -14,8 +14,12 @@ enum MessageType {
     DATETIME = 2,     // Datetime request/response (Pico requests/ESP responds)
     ESP_INIT = 3,     // ESP sends message to Pico when it is initialized
     INSTRUCTIONS = 4, // Receive instructions from ESP
-    PICTURE = 5,      // Take picture command to ESP
-    DIAGNOSTICS = 6,  // Send diagnostics
+    CMD_STATUS = 5,   // Command status
+    PICTURE = 6,      // Take picture command to ESP
+    DIAGNOSTICS = 7,  // Send diagnostics
+    WIFI = 8,         // Send wifi info
+    SERVER = 9,       // Send server info
+    API = 10,         // Send api token
 };
 
 struct Message {
@@ -32,10 +36,14 @@ int check_message_crc(std::string &str, std::string &crc_str);
 void convert_to_string(const Message &msg, std::string &str);
 Message response(bool ack);
 Message datetime_request();
-Message datetime_response(/* datetime */);
+Message datetime_response(int datetime);
 Message esp_init(bool success);
-Message instructions(/* instructions */);
+Message instructions(int object_id, int image_id, int position_id);
+Message cmd_status(int image_id, int status, int datetime);
 Message picture(int object_id, int image_id);
 Message diagnostics(/* diagnostics */);
+Message wifi(std::string ssid, std::string password);
+Message server(std::string server_addr);
+Message api(std::string api_token);
 
 } // namespace msg

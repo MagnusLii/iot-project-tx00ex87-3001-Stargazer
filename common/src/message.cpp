@@ -1,4 +1,5 @@
 #include "message.hpp"
+#include <cstdint>
 
 namespace msg {
 
@@ -91,16 +92,10 @@ Message response(bool ack) {
     }
 }
 
-/*
-Message ack() { return Message{.type = RESPONSE, .content = {"1"}}; }
-
-Message nack() { return Message{.type = RESPONSE, .content = {"0"}}; }
-*/
-
 Message datetime_request() { return Message{.type = DATETIME, .content = {"1"}}; }
 
-Message datetime_response(/* datetime */) {
-    return Message{.type = DATETIME, .content = {/* datetime example */ "1735485940"}};
+Message datetime_response(int datetime) {
+    return Message{.type = DATETIME, .content = {std::to_string(datetime)}};
 }
 
 Message esp_init(bool success) {
@@ -111,14 +106,12 @@ Message esp_init(bool success) {
     }
 }
 
-/*
-Message esp_init_success() { return Message{.type = ESP_INIT, .content = {"1"}}; }
+Message instructions(int object_id, int image_id, int position_id) {
+    return Message{.type = INSTRUCTIONS, .content = {std::to_string(object_id), std::to_string(image_id), std::to_string(position_id)}};
+}
 
-Message esp_init_failure() { return Message{.type = ESP_INIT, .content = {"0"}}; }
-*/
-
-Message instructions(/* instructions */) {
-    return Message{.type = INSTRUCTIONS, .content = {/* instructions example */ "3", "2", "17"}};
+Message cmd_status(int image_id, int status, int datetime) {
+    return Message{.type = CMD_STATUS, .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
 Message picture(int object_id, int image_id) { // NOTE: Do we actually need to send the object id back to the ESP?
@@ -127,6 +120,18 @@ Message picture(int object_id, int image_id) { // NOTE: Do we actually need to s
 
 Message diagnostics(/* diagnostics */) {
     return Message{.type = DIAGNOSTICS, .content = {/* diagnostics example */ "TBD"}};
+}
+
+Message wifi(std::string ssid, std::string password) {
+    return Message{.type = WIFI, .content = {ssid, password}};
+}
+
+Message server(std::string server_addr) {
+    return Message{.type = SERVER, .content = {server_addr}};
+}
+
+Message api(std::string api_token) {
+    return Message{.type = API, .content = {api_token}};
 }
 
 } // namespace msg
