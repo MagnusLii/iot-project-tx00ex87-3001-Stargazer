@@ -77,6 +77,7 @@
             <div class="row">
                 <div id="commands-column" class="col-12">
                     <div id="command-list-container">
+                        <h3>Command list</h3>
                         <select id="command-filter" onchange="firstPage();">
                             <option value="0">All</option>
                             <option value="1">Completed</option>
@@ -85,7 +86,6 @@
                             <option value="4">Cancelled/Deleted</option>
                         </select>
                         <table id="command-table" cellspacing="0">
-                            <h3>Command list</h3>
                             <thead>
                             <tr>
                                 <th>ID</th>
@@ -101,13 +101,13 @@
                             </tbody>
                         </table>
                         <div id="pagination">
-                            <a id="first-page" onclick="firstPage();">First</a>
-                            <a id="prev-page" onclick="prevPage();">Previous</a>
-                            <a id="current-page" class="not-link" value="0">1</>
+                            <button id="first-page" onclick="firstPage();" disabled>First</button>
+                            <button id="prev-page" onclick="prevPage();" disabled>Previous</button>
+                            <a id="current-page" class="not-link" data-cpage="0">1</>
                             <a id="separator" class="not-link"> / </a>
-                            <a id="total-pages" class="not-link" value="1">1</a>
-                            <a id="next-page" onclick="nextPage();">Next</a>
-                            <a id="last-page" onclick="lastPage();">Last</a>
+                            <a id="total-pages" class="not-link" data-tpage="1">1</a>
+                            <button id="next-page" onclick="nextPage();">Next</button>
+                            <button id="last-page" onclick="lastPage();">Last</button>
                         </div>
                     </div>
                 </div>

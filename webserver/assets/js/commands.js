@@ -34,7 +34,8 @@ function firstPage() {
 }
 
 function lastPage() {
-    fillCommandList(document.getElementById("last-page").value, true);
+    console.log(Number(document.getElementById("total-pages").dataset.tpage));
+    fillCommandList(Number(document.getElementById("total-pages").dataset.tpage), true);
 }
 
 function fillCommandList(page_n = 0, exact = false) {
@@ -42,7 +43,7 @@ function fillCommandList(page_n = 0, exact = false) {
     if (exact) {
         page = page_n - 1;
     } else {
-        page = Number(document.getElementById("current-page").value) + page_n;
+        page = Number(document.getElementById("current-page").dataset.cpage) + page_n;
     }
     let filter = Number(document.getElementById("command-filter").value);
     if (page < 0) {
@@ -52,15 +53,7 @@ function fillCommandList(page_n = 0, exact = false) {
         filter = 0;
     }
 
-    const prev = document.getElementById("prev-page");
-    if (page == 0) {
-        prev.disabled = true;
-        //prev.hidden = true;
-    }
-    else {
-        prev.disabled = false;
-        //prev.hidden = false;
-    }
+
 
     fetch(`/control`, {
         method: "POST",
@@ -71,39 +64,41 @@ function fillCommandList(page_n = 0, exact = false) {
         })
     }).then(response => response.text()).then(data => {
         const json = JSON.parse(data);
-        console.log(json);
         document.getElementById("current-page").textContent = `${json.page + 1}`;
-        document.getElementById("current-page").value = json.page;
+        document.getElementById("current-page").dataset.cpage = json.page;
         document.getElementById("total-pages").textContent = `${json.pages}`;
-        document.getElementById("last-page").value = json.pages;
+        document.getElementById("total-pages").dataset.tpage = json.pages;
+
+        const first = document.getElementById("first-page");
+        const prev = document.getElementById("prev-page");
+        console.log(page);
+        if (page == 0) {
+            console.log("disabled");
+            prev.disabled = true;
+            first.disabled = true;
+        }
+        else {
+            console.log("enabled");
+            prev.disabled = false;
+            first.disabled = false;
+        }
 
         const next = document.getElementById("next-page");
+        const last = document.getElementById("last-page");
         if (json.page == json.pages - 1) {
             next.disabled = true;
-            //next.hidden = true;
+            last.disabled = true;
         }
         else {
             next.disabled = false;
-            //next.hidden = false;
-        }
-
-        const last = document.getElementById("last-page");
-        if (json.page == json.pages - 1) {
-            last.disabled = true;
-            //last.hidden = true;
-        }
-        else {
             last.disabled = false;
-            //last.hidden = false;
         }
 
         const commands = json.commands;
-        console.log(commands);
         const table = document.getElementById("command-list");
         table.innerHTML = "";
 
         commands.forEach(command => {
-            console.log(command);
             const row = document.createElement("tr");
             const id = document.createElement("td");
             const target = document.createElement("td");
@@ -112,7 +107,6 @@ function fillCommandList(page_n = 0, exact = false) {
             const key_id = document.createElement("td");
             const status = document.createElement("td");
             const time = document.createElement("td");
-            console.log("Elements created");
             target.textContent = command.target;
             position.textContent = command.position;
             id.textContent = command.id;
@@ -120,7 +114,6 @@ function fillCommandList(page_n = 0, exact = false) {
             key_id.textContent = command.key_id;
             status.textContent = command.status;
             time.textContent = command.datetime;
-            console.log("Elements set");
             row.appendChild(id);
             row.appendChild(target);
             row.appendChild(position);
@@ -128,9 +121,7 @@ function fillCommandList(page_n = 0, exact = false) {
             row.appendChild(key_id);
             row.appendChild(status);
             row.appendChild(time);
-            console.log("Row created");
             table.appendChild(row);
-            console.log("Row appended");
         });
 
         deleteButtons();

@@ -5,7 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Gallery - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
-        <link rel="stylesheet" href="/assets/gallery.css">
         <script src="/assets/js/images.js"></script>
         <script src="/assets/js/sitewide.js"></script>
     </head>
@@ -27,9 +26,34 @@
         <div id="gallery-content" class="main-content">
             <div class="row">
                 <div id="gallery-column" class="col-12">
-                    <p>There is currently <!--COUNT--> images in the gallery</p>
+                    <section id="gallery-count">There is currently <!--COUNT--> images in the gallery</section>
+                </div>
+            </div>
+            <div class="row">
+                <div id="gallery-column" class="col-12">
+                    <label for="gallery-page-size-select">Page size:</label>
+                    <select id="gallery-page-size-select" onchange="changePageSize();">
+                        <!--PSIZE-->
+                        <option value="4">4</option>
+                        <option value="8">8</option>
+                        <option value="16">16</option>
+                        <option value="24">24</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div id="gallery-column" class="col-12">
                     <div class="gallery-container">
                         <!--IMAGES-->
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div id="gallery-column" class="col-12">
+                    <div id="gallery-pagination">
+                        <button id="gallery-previous" onclick="prevPage();">Previous</button>
+                        <a id="gallery-current" class="not-link" data-page=<!--PAGE_TEXT--></a>
+                        <button id="gallery-next" onclick="nextPage();">Next</button>
                     </div>
                 </div>
             </div>
