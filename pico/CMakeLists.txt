@@ -36,6 +36,8 @@ add_executable(${PROJECT_NAME}_test
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
     src/commbridge.cpp
+    src/planet_finder/planet_finder.cpp
+    src/planet_finder/date_utils.cpp
 )
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
@@ -48,6 +50,10 @@ target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
 target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
+
+
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
+pico_generate_pio_header(${PROJECT_NAME}_test ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 
 # Create map/bin/hex/uf2 files
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -83,6 +89,7 @@ target_link_libraries(${PROJECT_NAME}
     hardware_i2c
     hardware_gpio
     hardware_rtc
+    hardware_pio
 )
 
 target_link_libraries(${PROJECT_NAME}_test 
@@ -94,6 +101,7 @@ target_link_libraries(${PROJECT_NAME}_test
     crc
     convert
     hardware_rtc
+    hardware_pio
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -103,8 +111,8 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 ENDIF()
 
 # Enable usb output, disable uart output
-pico_enable_stdio_usb(${PROJECT_NAME} 1)
-pico_enable_stdio_uart(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 0)
+pico_enable_stdio_uart(${PROJECT_NAME} 1)
 
 pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
 pico_enable_stdio_uart(${PROJECT_NAME}_test 0)

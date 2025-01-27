@@ -10,64 +10,36 @@
 #include <hardware/rtc.h>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "debug.hpp"
 
 int main() {
     stdio_init_all();
-    sleep_ms(2000);
-    DEBUG("Booted");
+    DEBUG("Booted\n");
 
-    Motor motor_one(6, 7, 8, 9);
-    motor_one.initialize();
-    for (int i = 0; i < 100; ++i) {
-        motor_one.turnSteps(1024);
-    }
-    /* Compass compass;
-    compass.init();
+    // uint stepperPins[] = {2, 3, 6, 13};
+    std::vector<uint> stepperPins{2, 3, 6, 13};
+    // std::vector<uint> stepperPins2{18, 19, 20, 21};
+    std::vector<uint> optoforks(0);
 
-    float heading;
+    PIO pio = pio0;
+    StepperMotor motor(stepperPins, optoforks);
+    // StepperMotor motor2(stepperPins2, optoforks);
+    
+    motor.init(pio, 2, true);
+    // motor2.init(pio1, 5, true);
 
-    auto uart = std::make_shared<PicoUart>(0, 0, 1, 9600);
-    auto gps = std::make_unique<GPS>(uart);
-    auto clock = std::make_shared<Clock>();
-    sleep_ms(2000);
-
-    while (!clock->is_synced()) {
-        DEBUG("Waiting for RTC to sync");
-        // Request time from ESP32
-        sleep_ms(5000);
-        uint64_t unixtime_via_esp32 = 1733785923;
-        clock->update(unixtime_via_esp32);
-    }
-
-    sleep_ms(10000);
-    datetime_t now = clock->get_datetime();
-    DEBUG("Time:", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":",
-          unsigned(now.min), ":", unsigned(now.sec));
-
-    heading = compass.getHeading();
-    printf("we are pointing at %.2f degrees", heading);
-
-    gps->locate_position(600);
-    for (;;) {
-        sleep_ms(1000);
-        Coordinates coords = gps->get_coordinates();
-        if (coords.status) {
-            gps->set_mode(GPS::Mode::STANDBY);
-            for (;;) {
-                std::cout << "Lat: " << coords.latitude << " Lon: " << coords.longitude << std::endl;
-                sleep_ms(10000);
-            }
-        } else {
-            gps->set_mode(GPS::Mode::STANDBY);
-            std::cout << "No fix, trying again in 5s" << std::endl;
-            sleep_ms(5000);
-            gps->set_mode(GPS::Mode::FULL_ON);
-            gps->locate_position(300);
+    motor.turnSteps(10000);
+    motor.stop();
+    // motor2.turnSteps(10000);
+    while (true) {
+        for (auto pin : stepperPins) {
+            std::cout << gpio_get(pin) << ", ";
         }
+        std::cout << std::endl;
+        motor.turnSteps(1);
     }
-*/
 
     return 0;
 }
