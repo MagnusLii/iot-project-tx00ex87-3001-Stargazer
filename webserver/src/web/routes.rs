@@ -55,7 +55,7 @@ pub async fn gallery(
     html = html.replace("<!--COUNT-->", &count.to_string());
 
     let mut page: u32 = 1;
-    let mut page_size: u32 = 10;
+    let mut page_size: u32 = 8;
 
     if let Some(p) = query.page {
         if p > 0 {
@@ -63,10 +63,32 @@ pub async fn gallery(
         }
     }
     if let Some(p) = query.psize {
-        if p > 0 || p <= 25 {
+        if p >= 4 && p <= 24 {
             page_size = p
         }
     }
+
+    let mut last_on_page = (page * page_size) as u64;
+    if last_on_page > count {
+        last_on_page = count;
+    }
+
+    let total_pages = (count + page_size as u64 - 1) / page_size as u64;
+
+    let page_text = format!(
+        "\"{}\">{} - {} (of {} total)",
+        total_pages,
+        (page - 1) * page_size + 1,
+        last_on_page,
+        count
+    );
+    html = html.replace("<!--PAGE_TEXT-->", &page_text);
+
+    let psize_ph_text = format!(
+        "<option value=\"\" disabled selected>{}</option>",
+        page_size
+    );
+    html = html.replace("<!--PSIZE-->", &psize_ph_text);
 
     match images::get_image_info(&state.db, page, page_size).await {
         Ok(images) => {
