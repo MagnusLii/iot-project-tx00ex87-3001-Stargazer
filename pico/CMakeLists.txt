@@ -45,9 +45,9 @@ add_library(crc ${COMMON_DIR}/src/crc.cpp)
 add_library(convert ${COMMON_DIR}/src/convert.cpp
 )
 
-add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c)
+add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c src/devices/gps.cpp)
 target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
-target_include_directories(test_planet_finder PRIVATE inc/planet_finder tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
@@ -114,5 +114,8 @@ ENDIF()
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 
-pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
-pico_enable_stdio_uart(${PROJECT_NAME}_test 0)
+pico_enable_stdio_usb(${PROJECT_NAME}_test 0)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 1)
+
+pico_enable_stdio_usb(test_planet_finder 0)
+pico_enable_stdio_uart(test_planet_finder 1)

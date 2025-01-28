@@ -5,6 +5,8 @@
 #include "devices/compass.hpp"
 #include "message.hpp"
 #include "pico/stdlib.h" // IWYU pragma: keep
+#include "planet_finder.hpp"
+#include "pico/stdlib.h"
 #include "uart/PicoUart.hpp"
 #include <hardware/timer.h>
 #include <iostream>
@@ -117,6 +119,7 @@ int main() {
             DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour),
                   ":", unsigned(now.min), ":", unsigned(now.sec));
         }
+
     }
 
     return 0;

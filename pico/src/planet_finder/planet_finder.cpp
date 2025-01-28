@@ -99,25 +99,6 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-// Sun::Sun(double J2000_day) : oe(J2000_day, SUN) {
-// }
-
-// double Sun::mean_longitude(void) {
-//     return normalize_radians(oe.M + oe.w);
-// }
-
-// ecliptic_coordinates Sun::get_ecliptic_coordinates(void) {
-//     double E = eccentric_anomaly(oe.e, oe.M);
-//     rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
-//     double v = true_anomaly(xy);
-//     double r = distance(xy);
-//     ecliptic_coordinates result;
-//     result.lon = v + oe.w;
-//     result.distance = r;
-//     result.lat = 0;
-//     return result;
-// }
-
 
 Celestial::Celestial(Planets planet) : planet(planet) {}
 
@@ -207,6 +188,8 @@ void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observe
 
 
 void Celestial::print_coordinate_table(void) {
+    std::cout << (int)table_start_date.year << ", " << (int)table_start_date.month << ", " << (int)table_start_date.day << ", " << (int)table_start_date.hour << ", " << (int)table_start_date.min << std::endl;
+    std::cout << (int)table_stop_date.year << ", " << (int)table_stop_date.month << ", " << (int)table_stop_date.day << ", " << (int)table_stop_date.hour << ", " << (int)table_stop_date.min << std::endl;
     for (int i=0; i<TABLE_LEN; i++) {
         std::cout << coordinate_table[i].altitude << ", " << coordinate_table[i].azimuth << std::endl;
     }
@@ -216,12 +199,23 @@ void Celestial::print_coordinate_table(void) {
 datetime_t Celestial::get_interest_point_time(Interest_point point) {
     // note: coordinate table needs to be filled with desired day
     datetime_t date = table_start_date;
-    bool top_found = false;
-    bool bottom_found = false;
-    int top_hour = 0;
-    int bottom_hour = 0;
+    double last;
+    double current;
+    double next;
     for (int i=0; i<TABLE_LEN; i++) {
-        if ((coordinate_table[i] > coordinate_table[i+1]) && !bottom_found) bottom_hour = i;
+        if (i != 0)
+            last = coordinate_table[i-1].altitude;
+        else
+            last = 999;
+        double current = coordinate_table[i].altitude;
+        if (i != TABLE_LEN-1)
+            next = coordinate_table[i+1].altitude;
+        else
+            next = 999;
+        if ((last < current) && (current > next)) {
+            datetime_add_hours(date, i);
+            return date;
+        }
     }
     return date;
 }
