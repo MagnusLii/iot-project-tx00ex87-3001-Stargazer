@@ -1,122 +1,115 @@
-// #include "debug.hpp"
-#include <cstring>
+#include <cctype>
+#include <iostream>
+#include <map>
+#include <sstream>
 #include <string>
-#include <vector>
 
-int parse_json(const char *buffer, const int buffer_len, const std::vector<std::string> keys_to_look_for,
-               std::vector<std::string> &parsed_results) {
-    if (buffer == nullptr || buffer_len <= 0) {
-        // DEBUG("Invalid buffer, buffer_len: ", buffer_len);
-        return 1; // Invalid buffer
-    }
-    std::string tmp_buffer(buffer, buffer_len);
-    // DEBUG("Buffer: ", tmp_buffer.c_str());
+class JsonParser {
+  public:
+    static int parse(const std::string &json, std::map<std::string, std::string> *result) {
+        if (!result) return 1; // Null pointer
+        result->clear();
+        size_t pos = 0;
+        while (pos < json.length()) {
+            skipWhitespace(json, pos);
+            if (json[pos] == '"') {
+                std::string key;
+                if (parseString(json, pos, &key) != 0) return -2; // Error in parsing
+                skipWhitespace(json, pos);
 
-    size_t start = tmp_buffer.find_first_of('{');
-    size_t end = tmp_buffer.find_last_of('}');
-
-    if (start == std::string::npos || end == std::string::npos) { return 2; }
-
-    tmp_buffer = tmp_buffer.substr(start, end - start + 1);
-    // DEBUG("tmp_buffer: ", tmp_buffer.c_str());
-
-    size_t pos = 0;
-    while (pos < tmp_buffer.length()) {
-        size_t next_quote = tmp_buffer.find('\"', pos);
-        if (next_quote == std::string::npos) { break; }
-
-        size_t token_start = next_quote + 1;
-        size_t token_end = tmp_buffer.find('\"', token_start);
-        if (token_end == std::string::npos) { break; }
-
-        std::string token = tmp_buffer.substr(token_start, token_end - token_start);
-
-        size_t val_start;
-        size_t val_end;
-        int counter = 0;
-
-        for (auto key : keys_to_look_for) {
-            if (token == key) {
-                val_start = tmp_buffer.find(":", token_end) + 1;
-                val_end = tmp_buffer.find(',', val_start);
-                printf("val_end: %d\n", val_end);
-                parsed_results.push_back(tmp_buffer.substr(val_start + 1, val_end - val_start - 1));
-                if (val_end == std::string::npos){
-                    printf("npos\n");
-                    parsed_results[counter].pop_back();
+                // Expect a colon after the key
+                if (pos >= json.length() || json[pos] != ':') {
+                    return 3; // Missing ":" 
                 }
+                pos++; // Skip the colon
+                skipWhitespace(json, pos);
 
-                
-                break;
+                std::string value;
+                if (parseValue(json, pos, &value) != 0) return -4; // Error in parsing
+                (*result)[key] = value;
+            } else {
+                pos++;
             }
-            counter++;
         }
-
-        pos = token_end + 1;
+        return 0; // Success
     }
 
-    if (parsed_results.empty()) {
-        return 3; // No tokens found
-    }
-
-    for (auto result : parsed_results) {
-        result.erase('\"');
-        printf("Result: %s\n", result.c_str());
-    }
-
-    return 0;
-}
-
-int parse_json(const char *buffer, std::vector<std::string> &parsed_results) {
-    if (buffer == nullptr) {
-        return 1; // Invalid buffer
-    }
-    std::string tmp_buffer(buffer);
-
-    size_t start = tmp_buffer.find_first_of('{');
-    size_t end = tmp_buffer.find_last_of('}');
-
-    if (start == std::string::npos || end == std::string::npos) { return 2; }
-
-    tmp_buffer = tmp_buffer.substr(start, end - start + 1);
-
-    size_t pos = 0;
-    bool key = true;
-    while (pos < tmp_buffer.length()) {
-        size_t next_quote = tmp_buffer.find('\"', pos);
-        if (next_quote == std::string::npos) { break; }
-
-        size_t token_start = next_quote + 1;
-        size_t token_end = tmp_buffer.find('\"', token_start);
-        if (token_end == std::string::npos) { break; }
-
-        std::string token = tmp_buffer.substr(token_start, token_end - token_start);
-
-        if (key) {
-            key = false;
-        } else {
-            parsed_results.push_back(token);
-            key = true;
+  private:
+    static void skipWhitespace(const std::string &str, size_t &pos) {
+        while (pos < str.length() && std::isspace(str[pos])) {
+            pos++;
         }
-
-        pos = token_end + 1;
     }
 
-    if (parsed_results.empty()) {
-        return 3; // No tokens found
+    static int parseString(const std::string &str, size_t &pos, std::string *result) {
+        if (!result) return 1; // Null pointer 
+        result->clear();
+        if (str[pos] != '"') {
+            return 2; // Missing opening '"'
+        }
+        pos++; // Skip '"'
+        std::ostringstream buffer;
+        while (pos < str.length() && str[pos] != '"') {
+            if (str[pos] == '\\') { // Handle escape sequences
+                pos++;
+                if (pos < str.length()) {
+                    buffer << str[pos];
+                } else {
+                    return 3; // Incomplete escape sequence
+                }
+            } else {
+                buffer << str[pos];
+            }
+            pos++;
+        }
+        if (pos >= str.length() || str[pos] != '"') {
+            return 4; // Missing closing '"'
+        }
+        pos++; // Skip '"'
+        *result = buffer.str();
+        return 0;
     }
 
-    return 0;
-}
+    static int parseValue(const std::string &str, size_t &pos, std::string *result) {
+        if (!result) return 1; // Null pointer
+        result->clear();
+        if (str[pos] == '"') { return parseString(str, pos, result); }
+        // Handle other types of values
+        std::ostringstream buffer;
+        while (pos < str.length() && str[pos] != ',' && str[pos] != '}') {
+            if (!std::isspace(str[pos])) { buffer << str[pos]; }
+            pos++;
+        }
+        *result = buffer.str();
+        return 0;
+    }
+};
 
-int main() {
-    std::vector<std::string> keys = {"key1", "key2", "key3"};
-    std::vector<std::string> results;
 
-    const char *buffer = "{\"key1\": \"value1\", \"key2\": \"value2\", \"key3\": \"value3\"}";
-    const int buffer_len = strlen(buffer);
+// TEST
+// int main() {
+//     std::string json = "{\"key1\": \"value1\", \"key2\": \"value2\", \"key3\": \"value3\"}";
+//     std::map<std::string, std::string> parsedJson;
+//     int status = JsonParser::parse(json, &parsedJson);
 
-    int ret = parse_json(buffer, buffer_len, keys, results);
+//     if (status == 0) {
+//         for (const auto &[key, value] : parsedJson) {
+//             std::cout << key << ": " << value << std::endl;
+//         }
+//     } else {
+//         std::cerr << "Parsing failed with error code: " << status << std::endl;
+//     }
 
-    return 0;
-}
+//     json = R"({"name": "John", "age": "30", "city": "New York"})";
+//     status = JsonParser::parse(json, &parsedJson);
+
+//     if (status == 0) {
+//         for (const auto &[key, value] : parsedJson) {
+//             std::cout << key << ": " << value << std::endl;
+//         }
+//     } else {
+//         std::cerr << "Parsing failed with error code: " << status << std::endl;
+//     }
+
+//     return 0;
+// }

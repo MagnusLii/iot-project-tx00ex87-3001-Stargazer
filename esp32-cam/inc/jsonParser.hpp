@@ -2,10 +2,17 @@
 #define JSONPARSER_HPP
 
 #include <string>
-#include <vector>
+#include <map>
 
-int parse_json(const char *buffer, const int buffer_len, const std::vector<std::string> keys_to_look_for,
-               std::vector<std::string> &parsed_results);
-int parse_json(const char *buffer, std::vector<std::string> &parsed_results);
+class JsonParser {
+public:
+    static int parse(const std::string& json, std::map<std::string, std::string>* result);
+
+private:
+    static void skipWhitespace(const std::string& str, size_t& pos);
+    static int parseString(const std::string& str, size_t& pos, std::string* result);
+    static int parseValue(const std::string& str, size_t& pos, std::string* result);
+};
+
 
 #endif
