@@ -53,10 +53,13 @@ struct Handlers {
  * This function retrieves the `RequestHandler` object using the timer's ID, sends the user instructions
  * GET request to the web server request queue, and logs that the request has been sent.
  */
-void get_request_timer_callback(TimerHandle_t timer) {
-    RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
-    xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getUserInstructionsGETRequestptr(), 0);
-    DEBUG("GET request sent");
+void get_request_timer_task(void *pvParameters) {
+    RequestHandler *requestHandler = (RequestHandler *)pvParameters;
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getUserInstructionsGETRequestptr(), 0);
+        DEBUG("GET request sent");
+    }
 }
 
 // ----------------------------------------------------------
@@ -64,7 +67,6 @@ void get_request_timer_callback(TimerHandle_t timer) {
 // ----------------------------------------------------------
 
 void init_task(void *pvParameters) {
-    int retries = 0;
     Handlers handlers;
 
     EspPicoCommHandler uartCommHandler(UART_NUM_0);
@@ -100,17 +102,10 @@ void init_task(void *pvParameters) {
 
     handlers.cameraPtr = std::make_shared<Camera>(cameraPtr);
 
-    // TODO: do something if the timer fails to create
     xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 8192, &handlers, TaskPriorities::HIGH,
                 nullptr);
-    if (xTimerCreate("get_request_timer", pdMS_TO_TICKS(30000), pdTRUE, &requestHandler, get_request_timer_callback) ==
-            NULL &&
-        retries < RETRIES) {
-        DEBUG("Failed to create timer, retrying...");
-        retries++;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    retries = 0;
+
+    xTaskCreate(get_request_timer_task, "get_request_timer_task", 4096, &requestHandler, TaskPriorities::LOW, nullptr);
 
     xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH, nullptr);
@@ -118,11 +113,17 @@ void init_task(void *pvParameters) {
     // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
     //             (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
 
-    vTaskDelete(NULL);
+    int counter = 0;
+    while (true) {
+        counter++;
+        DEBUG("Init task running, counter: ", counter);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 
 // Sends requests to the web server
 void send_request_to_websrv_task(void *pvParameters) {
+    DEBUG("send_request_to_websrv_task started");
     Handlers *handlers = (Handlers *)pvParameters;
 
     RequestHandler *requestHandler = handlers->requestHandler.get();
@@ -132,10 +133,12 @@ void send_request_to_websrv_task(void *pvParameters) {
     QueueMessage request;
     QueueMessage response;
     std::vector<std::string> parsed_results;
+    std::vector<std::string> key_names;
 
     // Used for sending instructions to the Pico
     Message uart_msg;
     std::string uart_msg_str;
+    int returnval;
 
     while (true) {
         // Wait for a request to be available
@@ -144,14 +147,13 @@ void send_request_to_websrv_task(void *pvParameters) {
             switch (request.requestType) {
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
-                    requestHandler->sendRequest(request, response);
+                    requestHandler->sendRequest(request, &response);
 
                     // Parse the response
-                    parse_json(response.str_buffer, response.buffer_length, parsed_results);
-                    DEBUG("Parsed results: ");
-                    for (auto &result : parsed_results) {
-                        DEBUG(result);
-                    }
+                    DEBUG("Response: ", response.str_buffer);
+                    returnval = parse_json(response.str_buffer, response.buffer_length, parsed_results);
+                    DEBUG("Return value from parse_json: ", returnval);
+                    // DEBUG("Parsed results: ", parsed_results[0].c_str(), " ", parsed_results[1].c_str(), " ", parsed_results[2].c_str());
 
                     // create instructions uart message
                     uart_msg = instructions(parsed_results[0], parsed_results[1], parsed_results[2]);
@@ -192,6 +194,7 @@ void send_request_to_websrv_task(void *pvParameters) {
 // Run on highest prio.
 // Reads uart and enqueues received buffer to queue.
 void uart_read_task(void *pvParameters) {
+    DEBUG("uart_read_task started");
     EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
     uart_event_t event;
 
@@ -229,6 +232,7 @@ void uart_read_task(void *pvParameters) {
 }
 
 void handle_uart_data_task(void *pvParameters) {
+    DEBUG("handle_uart_data_task started");
     EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
     UartReceivedData receivedData;
     int retries = 0;

@@ -3,7 +3,7 @@
 
 #include "requestHandler.hpp"
 
-void get_request_timer_callback(TimerHandle_t timer);
+void get_request_timer_task(void *pvParameters);
 
 void init_task(void *pvParameters);
 void send_request_to_websrv_task(void *pvParameters);
