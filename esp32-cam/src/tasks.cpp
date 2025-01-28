@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vector>
+#include <map>
 
 #include "testMacros.hpp"
 
@@ -132,13 +133,12 @@ void send_request_to_websrv_task(void *pvParameters) {
     // Used for server communication
     QueueMessage request;
     QueueMessage response;
-    std::vector<std::string> parsed_results;
-    std::vector<std::string> key_names;
+    std::map<std::string, std::string> parsed_results;
+    std::string response_str;
 
     // Used for sending instructions to the Pico
     Message uart_msg;
     std::string uart_msg_str;
-    int returnval;
 
     while (true) {
         // Wait for a request to be available
@@ -151,12 +151,22 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Parse the response
                     DEBUG("Response: ", response.str_buffer);
-                    returnval = parse_json(response.str_buffer, response.buffer_length, parsed_results);
-                    DEBUG("Return value from parse_json: ", returnval);
-                    // DEBUG("Parsed results: ", parsed_results[0].c_str(), " ", parsed_results[1].c_str(), " ", parsed_results[2].c_str());
+                    response_str = response.str_buffer;
+                    if (JsonParser::parse(response_str, &parsed_results) != 0) {
+                        DEBUG("Failed to parse response");
+                        break;
+                    }
+
+                    // Verify correct keys.
+                    if (parsed_results.find("target") == parsed_results.end() ||
+                        parsed_results.find("id") == parsed_results.end() ||
+                        parsed_results.find("position") == parsed_results.end()) {
+                        DEBUG("Invalid response received");
+                        break;
+                    }
 
                     // create instructions uart message
-                    uart_msg = instructions(parsed_results[0], parsed_results[1], parsed_results[2]);
+                    uart_msg = instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
                     convert_to_string(uart_msg, uart_msg_str);
 
                     // Send the message to the Pico
