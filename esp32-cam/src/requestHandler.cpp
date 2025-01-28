@@ -117,7 +117,7 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
-RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request, QueueMessage response) {
+RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage* response) {
     // Lock mutex
     if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
         DEBUG("Failed to take request mutex");
@@ -194,35 +194,41 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request, Queue
     }
     DEBUG("... set socket receiving timeout success");
 
-    // Read the server's response in a loop
-    do {
-        bzero(receive_buffer, sizeof(receive_buffer));
-        read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
-        for (int i = 0; i < read_result; i++) {
-            putchar(receive_buffer[i]);
-        }
-    } while (read_result > 0);
+    // read response
+    int len = recv(socket_descriptor, receive_buffer, BUFFER_SIZE - 1, 0);
+    receive_buffer[len] = '\0'; // Null-terminate the response
+
+    // // Read the server's response in a loop
+    // int iterator = 0;
+    // do {
+    //     read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
+    //     for (iterator = 0; iterator < read_result; iterator++) {
+    //         putchar(receive_buffer[iterator]);
+    //     }
+    // } while (read_result > 0);
+    // receive_buffer[iterator] = '\0'; // Null-terminate the response
+
 
     DEBUG("\n... done reading from socket. Last read return=", read_result, " errno=", errno);
     DEBUG(receive_buffer, "\n");
     close(socket_descriptor);
 
     // Send the response to a message queue
-    strncpy(response.str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
-    response.str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
 
     // Set the request type for the response
     switch (request.requestType) {
         case RequestType::GET_COMMANDS:
-            response.requestType = RequestType::API_COMMAND;
+            response->requestType = RequestType::API_COMMAND;
             break;
 
         case RequestType::POST_IMAGE:
-            response.requestType = RequestType::API_UPLOAD;
+            response->requestType = RequestType::API_UPLOAD;
             break;
 
         case RequestType::POST_DIAGNOSTICS:
-            response.requestType = RequestType::API_DIAGNOSTICS;
+            response->requestType = RequestType::API_DIAGNOSTICS;
             break;
 
         default:
@@ -230,7 +236,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request, Queue
             break;
     }
 
-    parseResponseIntoJson(response.str_buffer); // Parse the response into json
+    DEBUG("\n\n\n\n\nResponse: ", response->str_buffer);
+
+    parseResponseIntoJson(response, len); // Parse the response into json
 
     // Unlock mutex
     xSemaphoreGive(this->requestMutex);
@@ -238,8 +246,10 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request, Queue
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-int RequestHandler::parseResponseIntoJson(char *buffer) {
-    std::string response(buffer);
+int RequestHandler::parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size) {
+    std::string response(responseBuffer->str_buffer, buffer_size);
+
+    DEBUG("Response: ", response.c_str());
 
     size_t pos = response.find_first_of("{");
     if (pos == std::string::npos) {
@@ -255,8 +265,10 @@ int RequestHandler::parseResponseIntoJson(char *buffer) {
 
     std::string json = response.substr(pos, end - pos + 1);
 
-    strncpy(buffer, json.c_str(), json.length());
-    buffer[json.length()] = '\0';
+    strncpy(responseBuffer->str_buffer, json.c_str(), json.length());
+    responseBuffer->str_buffer[json.length()] = '\0';
+    DEBUG("JSON: ", responseBuffer->str_buffer);
+    responseBuffer->buffer_length = json.length();
 
     return 0;
 }
