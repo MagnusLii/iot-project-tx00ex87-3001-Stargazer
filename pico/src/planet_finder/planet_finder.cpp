@@ -102,7 +102,7 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
 
 Celestial::Celestial(Planets planet) : planet(planet) {}
 
-azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const Coordinates observer_coordinates) {
+azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
     orbital_elements oe(J2000, planet);
     orbital_elements sun(J2000, SUN);
@@ -176,48 +176,60 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const C
 }
 
 
-void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
-    table_start_date = date;
-    for (int i=0; i<TABLE_LEN; i++) {
-        azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
-        coordinate_table[i] = coord;
-        datetime_increment_hour(date);
-    }
-    table_stop_date = date;
-}
+// void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
+//     table_start_date = date;
+//     for (int i=0; i<TABLE_LEN; i++) {
+//         azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
+//         coordinate_table[i] = coord;
+//         datetime_increment_hour(date);
+//     }
+//     table_stop_date = date;
+// }
 
 
-void Celestial::print_coordinate_table(void) {
-    std::cout << (int)table_start_date.year << ", " << (int)table_start_date.month << ", " << (int)table_start_date.day << ", " << (int)table_start_date.hour << ", " << (int)table_start_date.min << std::endl;
-    std::cout << (int)table_stop_date.year << ", " << (int)table_stop_date.month << ", " << (int)table_stop_date.day << ", " << (int)table_stop_date.hour << ", " << (int)table_stop_date.min << std::endl;
-    for (int i=0; i<TABLE_LEN; i++) {
-        std::cout << coordinate_table[i].altitude << ", " << coordinate_table[i].azimuth << std::endl;
-    }
-    std::cout << "end" << std::endl;
-}
+// void Celestial::print_coordinate_table(void) {
+//     std::cout << (int)table_start_date.year << ", " << (int)table_start_date.month << ", " << (int)table_start_date.day << ", " << (int)table_start_date.hour << ", " << (int)table_start_date.min << std::endl;
+//     std::cout << (int)table_stop_date.year << ", " << (int)table_stop_date.month << ", " << (int)table_stop_date.day << ", " << (int)table_stop_date.hour << ", " << (int)table_stop_date.min << std::endl;
+//     for (int i=0; i<TABLE_LEN; i++) {
+//         std::cout << coordinate_table[i].altitude << ", " << coordinate_table[i].azimuth << std::endl;
+//     }
+//     std::cout << "end" << std::endl;
+// }
 
-datetime_t Celestial::get_interest_point_time(Interest_point point) {
-    // note: coordinate table needs to be filled with desired day
-    datetime_t date = table_start_date;
-    double last;
-    double current;
-    double next;
-    for (int i=0; i<TABLE_LEN; i++) {
-        if (i != 0)
-            last = coordinate_table[i-1].altitude;
-        else
-            last = 999;
-        double current = coordinate_table[i].altitude;
-        if (i != TABLE_LEN-1)
-            next = coordinate_table[i+1].altitude;
-        else
-            next = 999;
-        if ((last < current) && (current > next)) {
-            datetime_add_hours(date, i);
-            return date;
+datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+    datetime_t iter_date = start_date;
+    datetime_t top_date{0};
+    datetime_t bottom_date{0};
+    azimuthal_coordinates last = get_coordinates(iter_date);
+    datetime_increment_hour(iter_date);
+    azimuthal_coordinates current = get_coordinates(iter_date);
+    datetime_increment_hour(iter_date);
+    azimuthal_coordinates next = get_coordinates(iter_date);
+    bool done = false;
+    bool top_done = false;
+    bool bottom_done = false;
+    while (!done) {
+        if ((last.altitude < current.altitude) && (next.altitude < current.altitude) && !top_done) {
+            if (point == ZENITH) done = true;
+            top_date = iter_date;
+            top_done = true;
+        } else if ((last.altitude > current.altitude) && (next.altitude > current.altitude) && !bottom_done) {
+            bottom_date = iter_date;
+            bottom_done = true;
         }
+        if (top_done && bottom_done) done = true;
+        datetime_increment_hour(iter_date);
+        last = current;
+        current = next;
+        next = get_coordinates(iter_date);
     }
-    return date;
+
+    
+    return start_date;
+}
+
+void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
+    this->observer_coordinates = observer_coordinates;
 }
 
 
