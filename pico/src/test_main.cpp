@@ -25,9 +25,8 @@ int main() {
     date.day = 28;
     date.hour = 10;
     Coordinates coords(60.1699, 24.9384);
-    moon.fill_coordinate_table(date, coords);
-    datetime_t date2 = moon.get_interest_point_time(ZENITH);
-    moon.print_coordinate_table();
+    moon.set_observer_coordinates(coords);
+    datetime_t date2 = moon.get_interest_point_time(ZENITH, date);
     while (true) {
         
     }

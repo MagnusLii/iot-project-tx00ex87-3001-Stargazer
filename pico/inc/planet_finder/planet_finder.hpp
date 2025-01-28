@@ -89,13 +89,15 @@ struct orbital_elements {
 class Celestial {
     public:
         Celestial(Planets planet);
-        azimuthal_coordinates get_coordinates(const datetime_t &date, const Coordinates observer_coordinates);
-        void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
-        void print_coordinate_table(void);
-        datetime_t get_interest_point_time(Interest_point point);
+        azimuthal_coordinates get_coordinates(const datetime_t &date);
+        // void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
+        // void print_coordinate_table(void);
+        datetime_t get_interest_point_time(Interest_point point,const datetime_t &start_date);
+        void set_observer_coordinates(const Coordinates observer_coordinates);
     private:
         Planets planet;
-        azimuthal_coordinates coordinate_table[TABLE_LEN];
+        Coordinates observer_coordinates;
+        // azimuthal_coordinates coordinate_table[TABLE_LEN];
         datetime_t table_start_date;
         datetime_t table_stop_date;
 };
