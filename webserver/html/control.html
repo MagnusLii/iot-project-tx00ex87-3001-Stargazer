@@ -2,63 +2,116 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Control - Stargazer</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Commands - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
-        <script src="/assets/commands.js"></script>
-        <script src="/assets/display-user.js"></script>
+        <script src="/assets/js/commands.js"></script>
+        <script src="/assets/js/sitewide.js"></script>
     </head>
     <body>
         <div id="header">
-            <ul id="nav">
-                <li><a href="/">Home</a></li>
-                <li><a href="/control">Control</a></li>
-                <li><a href="/gallery">Gallery</a></li>
-                <li><a href="/users">Users</a></li>
-            </ul>
-            <div id="user-login">
-                <a id="user" href="/user"></a>
-                <span> | </span>
-                <a id="logout" href="/logout">Logout</a>
+            <div id="nav" class="topnav">
+                <a href="/" >Home</a>
+                <a href="/control" class="active">Control</a>
+                <a href="/gallery">Gallery</a>
+                <a href="/users">Users</a>
+                <div id="user-login" class="topnav-right">
+                    <a id="user" href="/user"></a>
+                    <a id="logout" href="/logout">Logout</a>
+                </div>
+                <a href="javascript:void(0);" class="icon" onclick="navResponsive()">&#9776;</a>
             </div>
         </div>
-        <h1>Control</h1>
-        <ul id="subnav">
-            <li><a href="/control">Commands</a></li>
-            <li><a href="/control/keys">Keys</a></li>
-            <li><a href="/control/diagnostics">Diagnostics</a></li>
-        </ul>
-        <br>
-        <label for="targets">Take a picture of:</label>
-        <select name="targets" id="targets">
-            <!--TARGETS-->
-        </select>
-        <br>
-        <label for="positions">Position:</label>
-        <select name="positions" id="positions">
-            <!--POSITIONS-->
-        </select>
-        <br>
-        <label for="selected_key">Selected key:</label>
-        <select name="selected_key" id="selected_key">
-            <!--API_KEYS-->
-        </select>
-        <br>
-        <button value="Take picture" onclick="queuePicture();">Confirm</button>
-        <br>
-        <br>
-        <table id="commands">
-            <legend>Command list</legend>
-            <tr>
-                <th>Nr.</th>
-                <th>Target</th>
-                <th>Position</th>
-                <th>Key name</th>
-                <th>Key id</th>
-                <th>Status</th>
-                <th>Est. time (UTC)</th>
-            </tr>
-            <!--API_COMMANDS-->
-        </table>
-        <br>
+        <h1 id="commands-title" class="main-title">Commands</h1>
+        <div id="control-subnav">
+            <a href="/control" class="active">Commands</a>
+            <a href="/control/keys">Keys</a>
+            <a href="/control/diagnostics">Diagnostics</a>
+        </div>
+        <div id="control-content" class="main-content">
+            <div class="row">
+                <div id="commands-column" class="col-6">
+                    <h3 id="command-form-title">Queue picture command</h3>
+                    <div id="command-form">
+                        <div id="command-form-option">
+                            <label for="targets">Target:</label>
+                            <select name="targets" id="targets">
+                                <!--TARGETS-->
+                            </select>
+                        </div>
+                        <div id="command-form-option">
+                            <label for="positions">Position:</label>
+                            <select name="positions" id="positions">
+                                <!--POSITIONS-->
+                            </select>
+                        </div>
+                        <div id="command-form-option">
+                            <label for="selected_key">Selected key:</label>
+                            <select name="selected_key" id="selected_key">
+                                <!--API_KEYS-->
+                            </select>
+                        </div>
+                        <button value="Take picture" onclick="queuePicture();">Confirm</button>
+                    </div>
+                </div>
+                <div id="commands-column" class="col-6">
+                    <div id="command-statistics">
+                        <h3>Command statistics</h3>
+                        <table id="statistics-table">
+                            <tr>
+                                <th>Completed</th>
+                                <td id="completed"><!--COMPLETED--></td>
+                            </tr>
+                            <tr>
+                                <th>Failed</th>
+                                <td id="failed"><!--FAILED--></td>
+                            </tr>
+                            <tr>
+                                <th>In progress</th>
+                                <td id="in_progress"><!--IN_PROGRESS--></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div id="commands-column" class="col-12">
+                    <div id="command-list-container">
+                        <h3>Command list</h3>
+                        <select id="command-filter" onchange="firstPage();">
+                            <option value="0">All</option>
+                            <option value="1">Completed</option>
+                            <option value="2">In Progress</option>
+                            <option value="3">Failed</option>
+                            <option value="4">Cancelled/Deleted</option>
+                        </select>
+                        <table id="command-table" cellspacing="0">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Target</th>
+                                <th>Position</th>
+                                <th>Key Name</th>
+                                <th>Key ID</th>
+                                <th>Status</th>
+                                <th>Est. time (UTC)</th>
+                            </tr>
+                            </thead>
+                            <tbody id="command-list">
+                            </tbody>
+                        </table>
+                        <div id="pagination">
+                            <button id="first-page" onclick="firstPage();" disabled>First</button>
+                            <button id="prev-page" onclick="prevPage();" disabled>Previous</button>
+                            <a id="current-page" class="not-link" data-cpage="0">1</>
+                            <a id="separator" class="not-link"> / </a>
+                            <a id="total-pages" class="not-link" data-tpage="1">1</a>
+                            <button id="next-page" onclick="nextPage();">Next</button>
+                            <button id="last-page" onclick="lastPage();">Last</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </body>
 </html>

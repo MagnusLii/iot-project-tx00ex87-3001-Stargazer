@@ -13,6 +13,15 @@ function currentUser() {
     });
 }
 
+function navResponsive() {
+    const nav = document.getElementById("nav");
+    if (nav.className === "topnav") {
+        nav.className += " responsive";
+    } else {
+        nav.className = "topnav";
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     currentUser();
 });

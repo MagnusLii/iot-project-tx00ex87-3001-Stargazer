@@ -1,24 +1,12 @@
 use crate::{
-    api::{
-        commands::{fetch_command, respond_command},
-        diagnostics::send_diagnostics,
-        time_srv,
-        upload::upload_image,
-    },
+    api,
     auth::{
         backend::Backend,
         login::{login, login_page, logout},
-        user::{current_user, modify_user, new_user, remove_user},
+        user,
     },
-    keys::{new_key, remove_key},
-    web::{
-        commands::{new_command, remove_command},
-        images::ImageDirectory,
-        routes::{
-            api_keys, control, diagnostics, gallery, root, unknown_route, user_management,
-            user_page,
-        },
-    },
+    keys,
+    web::{commands, images::ImageDirectory, routes},
     SharedState,
 };
 use axum::{
@@ -75,40 +63,42 @@ impl App {
         let auth_layer = AuthManagerLayerBuilder::new(self.backend, session_layer).build();
 
         let router = Router::<_>::new()
-            .route("/", get(root))
-            .route("/gallery", get(gallery))
-            .route("/control", get(control))
-            .route("/control/keys", get(api_keys))
-            .route("/control/keys", post(new_key))
-            .route("/control/keys", delete(remove_key))
-            .route("/control/command", post(new_command))
-            .route("/control/command", delete(remove_command))
-            .route("/control/diagnostics", get(diagnostics))
-            .route("/users", get(user_management))
-            .route("/users", post(new_user))
-            .route("/users", delete(remove_user))
-            .route("/users/current", post(current_user))
-            .route("/user", get(user_page))
-            .route("/user", post(modify_user))
+            .route("/", get(routes::root))
+            .route("/gallery", get(routes::gallery))
+            .route("/control", get(routes::control))
+            .route("/control", post(commands::request_commands_info))
+            .route("/control/keys", get(routes::api_keys))
+            .route("/control/keys", post(keys::new_key))
+            .route("/control/keys", delete(keys::remove_key))
+            .route("/control/command", post(commands::new_command))
+            .route("/control/command", delete(commands::remove_command))
+            .route("/control/diagnostics", get(routes::diagnostics))
+            .route("/users", get(routes::user_management))
+            .route("/users", post(user::new_user))
+            .route("/users", delete(user::remove_user))
+            .route("/users/current", post(user::current_user))
+            .route("/user", get(routes::user_page))
+            .route("/user", post(user::modify_user))
             .nest_service("/assets/images", ServeDir::new("assets/images"))
             .route_layer(login_required!(Backend, login_url = "/login"))
             .route("/login", get(login_page))
             .route("/login", post(login))
             .route("/logout", get(logout))
             .route("/test", get(crate::web::routes::test))
+            .route("/test", post(commands::request_commands_info))
             .layer(MessagesManagerLayer)
             .layer(auth_layer)
             .route(
                 "/api/upload",
-                post(upload_image).layer(DefaultBodyLimit::max(262_144_000)),
+                post(api::upload::upload_image).layer(DefaultBodyLimit::max(262_144_000)),
             )
-            .route("/api/command", get(fetch_command))
-            .route("/api/command", post(respond_command))
-            .route("/api/diagnostics", post(send_diagnostics))
-            .route("/api/time", get(time_srv::time))
+            .route("/api/command", get(api::commands::fetch_command))
+            .route("/api/command", post(api::commands::respond_command))
+            .route("/api/diagnostics", post(api::diagnostics::send_diagnostics))
+            .route("/api/time", get(api::time_srv::time))
             .with_state(self.shared_state)
             .nest_service("/assets", ServeDir::new("assets"))
-            .fallback(unknown_route);
+            .fallback(routes::unknown_route);
 
         let listener = TcpListener::bind(address).await.unwrap();
 
