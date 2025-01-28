@@ -8,6 +8,7 @@
 #include "pico/util/datetime.h"
 #include "debug.hpp"
 #include "date_utils.hpp"
+#include "gps.hpp"
 
 #define TABLE_LEN 24
 
@@ -30,11 +31,11 @@ enum Interest_point {
     DESCENDING
 };
 
-struct Coordinates {
-    double latitude;
-    double longitude;
-    bool status;
-};
+// struct Coordinates {
+//     double latitude;
+//     double longitude;
+//     bool status;
+// };
 
 struct rect_coordinates {
     double x;
