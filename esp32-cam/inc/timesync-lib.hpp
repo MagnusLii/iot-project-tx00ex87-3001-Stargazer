@@ -19,5 +19,6 @@ timeSyncLibReturnCodes print_local_time();
 timeSyncLibReturnCodes get_localtime_string(char* buffer, int buffer_size);
 timeSyncLibReturnCodes get_localtime_struct(struct tm* timeinfo);
 timeSyncLibReturnCodes get_utc_struct(struct tm* timeinfo);
+int get_datetime();
 
 #endif

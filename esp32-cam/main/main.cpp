@@ -1,3 +1,15 @@
+// Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
+// #define RESERVE_UART0_FOR_PICO_COMM
+
+// Sends datetime response over UART0 every 10 seconds
+// #define UART_DEMO
+
+// Settings file write and read test.
+// #define WRITE_READ_SETTINGS_TEST
+
+#define PRODUCTION_CODE
+
+
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
@@ -33,17 +45,6 @@
 #include "message.hpp"
 
 
-// Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
-// #define RESERVE_UART0_FOR_PICO_COMM
-
-// Sends datetime response over UART0 every 10 seconds
-// #define UART_DEMO
-
-// Settings file write and read test.
-// #define WRITE_READ_SETTINGS_TEST
-
-#define PRODUCTION_CODE
-
 extern "C" {
 void app_main(void);
 }
@@ -67,12 +68,6 @@ void app_main(void) {
         retries++;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    #endif
-
-    #ifdef RESERVE_UART0_FOR_PICO_COMM 
-    esp_log_level_set("*", ESP_LOG_NONE);
-    gpio_reset_pin(GPIO_NUM_1);
-    gpio_reset_pin(GPIO_NUM_3);
     #endif
 
     #ifdef UART_DEMO
