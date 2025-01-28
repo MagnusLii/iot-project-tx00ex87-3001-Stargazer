@@ -4,7 +4,7 @@
 #include "hardware/clock.hpp"
 #include "devices/compass.hpp"
 #include "message.hpp"
-#include "pico/stdlib.h"
+#include "pico/stdlib.h" // IWYU pragma: keep
 #include "uart/PicoUart.hpp"
 #include <hardware/timer.h>
 #include <iostream>
@@ -20,13 +20,13 @@ int main() {
     sleep_ms(5000);
     DEBUG("Start\r\n");
     auto queue = std::make_shared<std::queue<msg::Message>>();
-    auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 9600);
+    auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
 
     auto clock = std::make_shared<Clock>();
     auto gps = std::make_unique<GPS>(uart_1, false, true);
-    Compass compass(21, 20, i2c0);
-    compass.init();
+    //Compass compass(17, 16, i2c0);
+    //compass.init();
 
     CommBridge bridge(uart_0, queue);
 
@@ -48,8 +48,27 @@ int main() {
             gps->locate_position(5);
         }
 
-        heading = compass.getHeading();
-        DEBUG("Heading: ", heading);
+        bridge.send(msg::datetime_request());
+        sleep_ms(1000);
+
+        //heading = compass.getHeading();
+        //DEBUG("Heading: ", heading);
+        bridge.send(msg::esp_init(true));
+        sleep_ms(1000);
+        bridge.send(msg::instructions(3, 15, 2));
+        sleep_ms(1000);
+        bridge.send(msg::picture(3, 15));
+        sleep_ms(1000);
+        const std::string ssid = "Stargazer";
+        const std::string password = "stargazer";
+        bridge.send(msg::wifi(ssid, password));
+        sleep_ms(1000);
+        const std::string server_addr = "237.84.2.178";
+        bridge.send(msg::server(server_addr));
+        sleep_ms(1000);
+        const std::string api_token = "stargazer123123231";
+        bridge.send(msg::api(api_token));
+        sleep_ms(1000);
 
         DEBUG("Received wakeup signal\r\n");
         bridge.read_and_parse(10000, true);
@@ -64,6 +83,7 @@ int main() {
                 case msg::DATETIME:
                     DEBUG("Received datetime");
                     clock->update(msg.content[0]);
+                    bridge.send(msg::response(true));
                     break;
                 case msg::ESP_INIT: // Send ACK response back to ESP
                     DEBUG("Received ESP init");
