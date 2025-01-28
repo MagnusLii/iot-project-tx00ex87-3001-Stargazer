@@ -7,7 +7,7 @@
 -   ESPidf 5.3.1
 -   Docker/podman
 -   ESP32-cam AIthinker board
--   Pico/PicoW/Pico2/Pico2W board
+-   Pico/PicoW board
 -   
 
 
