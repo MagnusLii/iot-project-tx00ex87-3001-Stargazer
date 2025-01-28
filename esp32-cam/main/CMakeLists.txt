@@ -1,11 +1,12 @@
 file(GLOB SRCS
     "main.cpp"
     "../src/*.cpp"
+    "../../common/src/*.cpp"
 )
 
 file(GLOB INCLUDE_DIRS
     "../inc"
-    "../../common/inc" # Debug functions
+    "../../common/inc"
 )
 
 idf_component_register(

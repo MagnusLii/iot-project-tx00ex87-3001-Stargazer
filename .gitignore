@@ -10,7 +10,7 @@ db
 *.log
 *.override.yml
 *esp-test
-*sdkconfig*
+sdkconfig.*
 managed_components
 *.lock
 config.toml
@@ -21,3 +21,4 @@ esp32-cam/test
 db
 target
 cargo.lock
+*/ideas.txt

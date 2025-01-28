@@ -172,3 +172,7 @@ timeSyncLibReturnCodes get_utc_struct(struct tm* timeinfo) {
     if (timeinfo == nullptr) {return timeSyncLibReturnCodes::GET_TIME_ERROR;}
     return timeSyncLibReturnCodes::SUCCESS;
 }
+
+int get_datetime(){
+    return time(NULL);
+}

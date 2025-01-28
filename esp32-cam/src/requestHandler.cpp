@@ -29,15 +29,20 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->webServerToken = webServerToken;
     this->wirelessHandler = wirelessHandler;
     this->sdcard = sdcard;
-    this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage *));
-    this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage *));
+    this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
+    this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
+    this->requestMutex = xSemaphoreCreateMutex();
 
     std::string getRequest;
     this->createUserInstructionsGETRequest(&getRequest);
     strncpy(this->getUserInsturctionsRequest.str_buffer, getRequest.c_str(),
             sizeof(this->getUserInsturctionsRequest.str_buffer) - 1);
     this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
+    this->getUserInsturctionsRequest.buffer_length = getRequest.length();
     this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
+
+    DEBUG("getUserInsturctionsRequest.str_buffer: ", this->getUserInsturctionsRequest.str_buffer);
+    DEBUG("getUserInsturctionsRequest.requestType: ", (int)this->getUserInsturctionsRequest.requestType);
 }
 
 RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::string *requestPtr) {
@@ -61,7 +66,7 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
  */
 RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
-                  "/api/command" +
+                  "/api/command?token=" +
                   this->webServerToken +
                   " HTTP/1.0\r\n"
                   "Host: " +
@@ -79,34 +84,6 @@ RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::s
  * @return QueueMessage* - A pointer to the reusable `QueueMessage` object saved in the handler.
  */
 QueueMessage *RequestHandler::getUserInstructionsGETRequestptr() { return &this->getUserInsturctionsRequest; }
-
-// TEST FUNCTION
-void createTestGETRequest(std::string *request) {
-    std::string query = "?token=a8c6c161-633f-4b8b-b259-bf30a2538611";
-
-    *request = "GET " WEB_PATH + query +
-               " HTTP/1.0\r\n"
-               "Host: " WEB_SERVER ":" WEB_PORT "\r\n"
-               "User-Agent: esp-idf/1.0 esp32\r\n"
-               "Connection: keep-alive\r\n"
-               "\r\n";
-}
-
-// TEST FUNCTION
-void createTestPOSTRequest(std::string *request) {
-    std::string json = "{\"1\":\"1\", \"2\":\"2\"}";
-
-    *request = "POST " WEB_PATH " HTTP/1.0\r\n"
-               "Host: " WEB_SERVER ":" WEB_PORT "\r\n"
-               "User-Agent: esp-idf/1.0 esp32\r\n"
-               "Connection: keep-alive\r\n"
-               "Content-Length: " +
-               std::to_string(json.length()) +
-               "\r\n"
-               "Content-Type: application/json\r\n"
-               "\r\n" +
-               json;
-}
 
 /**
  * Retrieves the web server's address as a C-style string.
@@ -140,21 +117,13 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
-/**
- * Sends a request to a web server over a TCP socket and handles the response.
- *
- * @param request - A QueueMessage object containing the request string to send.
- *
- * @return RequestHandlerReturnCode - Indicates the result of the operation. Possible values:
- *         - SUCCESS: The request was sent and a response was handled successfully.
- *         - DNS_LOOKUP_FAIL: DNS resolution of the web server address failed.
- *         - SOCKET_ALLOCATION_FAIL: Failed to create a socket for the connection.
- *         - SOCKET_CONNECT_FAIL: Failed to establish a connection with the server.
- *         - SOCKET_SEND_FAIL: Failed to send the request to the server.
- *         - SOCKET_TIMEOUT_FAIL: Failed to set a timeout for receiving data.
- */
-RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request) {
-    QueueMessage response;
+RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage* response) {
+    // Lock mutex
+    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
+        DEBUG("Failed to take request mutex");
+        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
+    }
+
     addrinfo *dns_lookup_results = nullptr;
     in_addr *ip_address = nullptr;
     int socket_descriptor = 0;
@@ -173,7 +142,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request) {
     timeval receiving_timeout;
     receiving_timeout.tv_sec = 5;  // Timeout for receiving data in seconds
     receiving_timeout.tv_usec = 0; // Timeout in microseconds
-    int retry_count = 0;
 
     // Perform DNS lookup for the server
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
@@ -226,138 +194,81 @@ RequestHandlerReturnCode RequestHandler::sendRequest(QueueMessage request) {
     }
     DEBUG("... set socket receiving timeout success");
 
-    // Read the server's response in a loop
-    do {
-        bzero(receive_buffer, sizeof(receive_buffer));
-        read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
-        for (int i = 0; i < read_result; i++) {
-            putchar(receive_buffer[i]);
-        }
-    } while (read_result > 0);
+    // read response
+    int len = recv(socket_descriptor, receive_buffer, BUFFER_SIZE - 1, 0);
+    receive_buffer[len] = '\0'; // Null-terminate the response
+
+    // // Read the server's response in a loop
+    // int iterator = 0;
+    // do {
+    //     read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
+    //     for (iterator = 0; iterator < read_result; iterator++) {
+    //         putchar(receive_buffer[iterator]);
+    //     }
+    // } while (read_result > 0);
+    // receive_buffer[iterator] = '\0'; // Null-terminate the response
+
 
     DEBUG("\n... done reading from socket. Last read return=", read_result, " errno=", errno);
     DEBUG(receive_buffer, "\n");
     close(socket_descriptor);
 
     // Send the response to a message queue
-    strncpy(response.str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
-    response.str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
-    response.requestType = RequestType::WEB_SERVER_RESPONSE;   // Set response type
-    while (xQueueSend(this->getWebSrvResponseQueue(), &request, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
-        retry_count++;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
+
+    // Set the request type for the response
+    switch (request.requestType) {
+        case RequestType::GET_COMMANDS:
+            response->requestType = RequestType::API_COMMAND;
+            break;
+
+        case RequestType::POST_IMAGE:
+            response->requestType = RequestType::API_UPLOAD;
+            break;
+
+        case RequestType::POST_DIAGNOSTICS:
+            response->requestType = RequestType::API_DIAGNOSTICS;
+            break;
+
+        default:
+            DEBUG("Unknown request type received");
+            break;
     }
+
+    DEBUG("\n\n\n\n\nResponse: ", response->str_buffer);
+
+    parseResponseIntoJson(response, len); // Parse the response into json
+
+    // Unlock mutex
+    xSemaphoreGive(this->requestMutex);
 
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-/**
- * Sends a request to a web server over a TCP socket and handles the response.
- *
- * @param request - A std::string containing the request data to be sent to the server.
- *
- * @return RequestHandlerReturnCode - Indicates the result of the operation. Possible values:
- *         - SUCCESS: The request was sent and a response was handled successfully.
- *         - DNS_LOOKUP_FAIL: DNS resolution of the web server address failed.
- *         - SOCKET_ALLOCATION_FAIL: Failed to create a socket for the connection.
- *         - SOCKET_CONNECT_FAIL: Failed to establish a connection with the server.
- *         - SOCKET_SEND_FAIL: Failed to send the request to the server.
- *         - SOCKET_TIMEOUT_FAIL: Failed to set a timeout for receiving data.
- */
-RequestHandlerReturnCode RequestHandler::sendRequest(std::string request) {
-    QueueMessage response;
-    addrinfo *dns_lookup_results = nullptr;
-    in_addr *ip_address = nullptr;
-    int socket_descriptor = 0;
-    int read_result = 0;
-    char receive_buffer[BUFFER_SIZE];
-    const addrinfo hints = {
-        .ai_flags = 0,              // Default settings for the DNS lookup
-        .ai_family = AF_INET,       // Use IPv4
-        .ai_socktype = SOCK_STREAM, // Use TCP
-        .ai_protocol = 0,           // Any protocol
-        .ai_addrlen = 0,            // Default
-        .ai_addr = nullptr,         // Default
-        .ai_canonname = nullptr,    // Default
-        .ai_next = nullptr          // Default
-    };
-    timeval receiving_timeout;
-    receiving_timeout.tv_sec = 5;  // Timeout for receiving data in seconds
-    receiving_timeout.tv_usec = 0; // Timeout in microseconds
-    int retry_count = 0;
+int RequestHandler::parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size) {
+    std::string response(responseBuffer->str_buffer, buffer_size);
 
-    // Perform DNS lookup for the server
-    int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
-    if (err != 0 || dns_lookup_results == nullptr) {
-        DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
-        return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
+    DEBUG("Response: ", response.c_str());
+
+    size_t pos = response.find_first_of("{");
+    if (pos == std::string::npos) {
+        DEBUG("'{' not found in response.");
+        return 1;
     }
 
-    // Extract and print resolved IP address
-    ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
-    DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
-
-    // Create a TCP socket
-    socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
-    if (socket_descriptor < 0) {
-        DEBUG("... Failed to allocate socket.");
-        freeaddrinfo(dns_lookup_results); // Cleanup DNS results
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
-    }
-    DEBUG("... allocated socket");
-
-    // Establish a connection with the server
-    if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
-        DEBUG("... socket connect failed errno=", errno);
-        close(socket_descriptor);
-        freeaddrinfo(dns_lookup_results);
-        vTaskDelay(5000 / portTICK_PERIOD_MS); // Retry delay
-        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
-    }
-    DEBUG("... connected");
-
-    // Send the request data to the server
-    freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
-    if (write(socket_descriptor, request.c_str(), strlen(request.c_str())) < 0) {
-        DEBUG("... socket send failed\n");
-        close(socket_descriptor);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
-    }
-    DEBUG("... socket send success");
-
-    // Set a timeout for receiving data from the server
-    if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
-        DEBUG("... failed to set socket receiving timeout");
-        close(socket_descriptor);
-        vTaskDelay(4000 / portTICK_PERIOD_MS);
-        return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
-    }
-    DEBUG("... set socket receiving timeout success");
-
-    // Read the server's response in a loop
-    do {
-        bzero(receive_buffer, sizeof(receive_buffer)); // Clear the buffer
-        read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
-        for (int i = 0; i < read_result; i++) {
-            putchar(receive_buffer[i]); // Print response character by character
-        }
-    } while (read_result > 0);
-
-    DEBUG("\n... done reading from socket. Last read return=", read_result, " errno=", errno);
-    DEBUG(receive_buffer, "\n");
-    close(socket_descriptor); // Close the socket
-
-    // Send the response to a message queue
-    strncpy(response.str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
-    response.str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
-    response.requestType = RequestType::WEB_SERVER_RESPONSE;   // Set response type
-    while (xQueueSend(this->getWebSrvResponseQueue(), &request, 0) != pdTRUE && retry_count < ENQUEUE_REQUEST_RETRIES) {
-        retry_count++;
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
+    size_t end = response.find_last_of("}");
+    if (end == std::string::npos) {
+        DEBUG("'}' not found in response.");
+        return 1;
     }
 
-    return RequestHandlerReturnCode::SUCCESS; // Indicate success
+    std::string json = response.substr(pos, end - pos + 1);
+
+    strncpy(responseBuffer->str_buffer, json.c_str(), json.length());
+    responseBuffer->str_buffer[json.length()] = '\0';
+    DEBUG("JSON: ", responseBuffer->str_buffer);
+    responseBuffer->buffer_length = json.length();
+
+    return 0;
 }
