@@ -3,34 +3,37 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>User - Stargazer</title>
+        <title>Control Center - Stargazer</title>
         <link rel="stylesheet" href="/assets/main.css">
-        <script src="/assets/js/users.js"></script>
         <script src="/assets/js/sitewide.js"></script>
     </head>
     <body>
         <div id="header">
             <div id="nav" class="topnav">
-                <a href="/" >Home</a>
+                <a href="/" class="active">Home</a>
                 <a href="/control">Control</a>
                 <a href="/gallery">Gallery</a>
                 <a href="/users">Users</a>
                 <div id="user-login" class="topnav-right">
-                    <a id="user" href="/user" class="active"></a>
+                    <a id="user" href="/user"></a>
                     <a id="logout" href="/logout">Logout</a>
                 </div>
                 <a href="javascript:void(0);" class="icon" onclick="navResponsive()">&#9776;</a>
             </div>
         </div>
-        <h1>User: <span id="user"></span></h1>
-        <form id="modify-user">
-            <legend><b>Change username or password:</b></legend>
-            <label for="new-username">New username:</label>
-            <input type="text" id="new-username" name="new-username" value="<!--NAME-->">
-            <label for="new-password">New password:</label>
-            <input type="password" id="new-password" name="new-password">
-            <input type="submit" value="Update" onclick="modifyUser(); return false">
-        </form>
-        <div id="message"></div>
+        <h1 id="home-title" class="main-title">Home</h1>
+        <div id="home-content" class="main-content">
+            <div class="row">
+                <div id="home-column" class="col-6">
+                    <h3>Next picture (Estimated)</h3>
+                    <p id="next-pic"><!--NEXT_PIC--></p>
+                </div>
+                <div id="home-column" class="col-6">
+                    <h3>Last picture</h3>
+                    <img id="last-pic" <!--LAST_PIC--> max-width="100%" height="auto"></img>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
+

@@ -38,7 +38,7 @@ curl "127.0.0.1:7878/api/command?token=<api_token>"
 ```
 
 Returns a JSON object with the following fields:
-- `target`: The target object (string) [NOTE: will be changed to an id (int)]
+- `target`: The target object (int)
 - `id`: The ID of the command/picture (int)
 - `position`: The position to take the photo (int) {1,2,3}
 

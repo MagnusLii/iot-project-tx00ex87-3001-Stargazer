@@ -1,0 +1,115 @@
+
+
+.program stepper_clockwise
+    .side_set 1 opt
+    .origin 0
+
+    ; 0x01, 0x03, 0x02, 0x06, 0x04, 0x0c, 0x08, 0x09
+
+    .define pins0   0b00000
+    .define pins1   0b00001
+    .define pins12  0b00011
+    .define pins2   0b00010
+    .define pins23  0b10010
+    .define pins3   0b10000
+
+    .define public irq_num 0
+
+    start:
+        pull                ; pull content from rxfifo, wait if empty
+        out x, 16           ; shift 16 LSB to x register, this is the step count.
+        out pc, 16          ; shift 16 MSB to pc, this is where the program should start.
+
+
+    public loop:
+        set pins, pins1 side 0 [7]
+        jmp x--, inplace1 [6]
+        inplace1:
+        jmp !x start
+        set pins, pins12 side 0 [7]
+        jmp x--, inplace2 [6]
+        inplace2:
+        jmp !x start
+        set pins, pins2 side 0 [7]
+        jmp x--, inplace3 [6]
+        inplace3:
+        jmp !x start
+        set pins, pins23 side 0 [7]
+        jmp x--, inplace4 [6]
+        inplace4:
+        jmp !x start
+        set pins, pins3 side 0 [7]
+        jmp x--, inplace5 [6]
+        inplace5:
+        jmp !x start
+        set pins, pins3 side 1 [7]
+        jmp x--, inplace6 [6]
+        inplace6:
+        jmp !x start
+        set pins, pins0 side 1 [7]
+        jmp x--, inplace7 [6]
+        inplace7:
+        jmp !x start
+        set pins, pins1 side 1 [7]
+        jmp x--, inplace8 [5]
+        inplace8:
+        jmp !x start
+        jmp loop
+
+
+.program stepper_anticlockwise
+    .side_set 1 opt
+    .origin 0
+
+    ; 0x01, 0x03, 0x02, 0x06, 0x04, 0x0c, 0x08, 0x09
+
+    .define pins0   0b00000
+    .define pins1   0b00001
+    .define pins12  0b00011
+    .define pins2   0b00010
+    .define pins23  0b10010
+    .define pins3   0b10000
+
+    .define irq_num 0
+
+
+    start:
+        pull
+        out x, 16
+        out pc, 16
+
+
+    loop_acw:
+        set pins, pins1 side 1 [7]
+        jmp x--, inplace1 [6]
+        inplace1:
+        jmp !x start
+        set pins, pins0 side 1 [7]
+        jmp x--, inplace2 [6]
+        inplace2:
+        jmp !x start
+        set pins, pins3 side 1 [7]
+        jmp x--, inplace3 [6]
+        inplace3:
+        jmp !x start
+        set pins, pins3 side 0 [7]
+        jmp x--, inplace4 [6]
+        inplace4:
+        jmp !x start
+        set pins, pins23 side 0 [7]
+        jmp x--, inplace5 [6]
+        inplace5:
+        jmp !x start
+        set pins, pins2 side 0 [7]
+        jmp x--, inplace6 [6]
+        inplace6:
+        jmp !x start
+        set pins, pins12 side 0 [7]
+        jmp x--, inplace7 [6]
+        inplace7:
+        jmp !x start
+        set pins, pins1 side 0 [7]
+        jmp x--, inplace8 [5]
+        inplace8:
+        jmp !x start
+        jmp loop_acw

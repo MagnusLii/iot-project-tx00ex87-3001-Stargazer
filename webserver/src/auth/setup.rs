@@ -1,3 +1,6 @@
+#[cfg(feature = "pw_hash")]
+use crate::auth::password;
+
 use sqlx::SqlitePool;
 
 pub async fn create_user_table(db: &SqlitePool) {
@@ -15,10 +18,17 @@ pub async fn create_user_table(db: &SqlitePool) {
 }
 
 pub async fn create_admin(db: &SqlitePool) {
+    #[cfg(feature = "pw_hash")]
+    let pw = password::generate_phc_string("admin").unwrap();
+
+    #[cfg(not(feature = "pw_hash"))]
+    let pw = "admin";
+
     sqlx::query(
         "INSERT INTO users (username, password, superuser) 
-            VALUES ('admin', 'admin', 1)",
+            VALUES ('admin', ?, 1)",
     )
+    .bind(&pw)
     .execute(db)
     .await
     .unwrap();

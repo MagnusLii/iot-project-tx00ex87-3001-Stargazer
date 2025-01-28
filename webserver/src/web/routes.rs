@@ -1,11 +1,7 @@
 use crate::{
     auth::login::AuthSession,
     keys,
-    web::{
-        commands::{get_commands, get_target_names, get_target_positions},
-        diagnostics::get_diagnostics,
-        images,
-    },
+    web::{commands, diagnostics, images},
     SharedState,
 };
 use axum::{
@@ -15,8 +11,22 @@ use axum::{
 };
 use serde::Deserialize;
 
-pub async fn root() -> impl IntoResponse {
-    let html = std::include_str!("../../html/index.html").to_string();
+pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
+    let mut html = std::include_str!("../../html/home.html").to_string();
+
+    if let Ok(next_pic) = commands::get_next_pic_estimate(&state.db).await {
+        let html_next_pic = format!("{} at {}", next_pic.target, next_pic.datetime);
+        html = html.replace("<!--NEXT_PIC-->", &html_next_pic);
+    } else {
+        html = html.replace("<!--NEXT_PIC-->", "No estimates currently available");
+    }
+
+    if let Ok(last_pic) = images::get_last_image(&state.db).await {
+        let html_last_pic = format!("src=\"{}\" alt=\"{}\"", last_pic.web_path, last_pic.name);
+        html = html.replace("<!--LAST_PIC-->", &html_last_pic);
+    } else {
+        html = html.replace("<!--LAST_PIC-->", "No images currently available");
+    }
 
     (StatusCode::OK, Html(html))
 }
@@ -33,15 +43,8 @@ pub async fn gallery(
     let mut html = include_str!("../../html/images.html").to_string();
     println!("Query: {:?}", query);
 
-    images::check_images(&state.db, &state.image_dir, false)
-        .await
-        .unwrap();
-
-    let count = images::get_image_count(&state.db).await.unwrap();
-    html = html.replace("<!--COUNT-->", &count.to_string());
-
     let mut page: u32 = 1;
-    let mut page_size: u32 = 10;
+    let mut page_size: u32 = 8;
 
     if let Some(p) = query.page {
         if p > 0 {
@@ -49,10 +52,43 @@ pub async fn gallery(
         }
     }
     if let Some(p) = query.psize {
-        if p > 0 || p <= 25 {
+        if p >= 4 && p <= 24 {
             page_size = p
         }
     }
+
+    images::check_images(&state.db, &state.image_dir, false)
+        .await
+        .unwrap();
+
+    if let Ok(count) = images::get_image_count(&state.db).await {
+        html = html.replace("<!--COUNT-->", &count.to_string());
+
+        let mut last_on_page = (page * page_size) as u64;
+        if last_on_page > count {
+            last_on_page = count;
+        }
+
+        let total_pages = (count + page_size as u64 - 1) / page_size as u64;
+
+        let page_text = format!(
+            "\"{}\">{} - {} (of {} total)",
+            total_pages,
+            (page - 1) * page_size + 1,
+            last_on_page,
+            count
+        );
+        html = html.replace("<!--PAGE_TEXT-->", &page_text);
+    } else {
+        html = html.replace("<!--COUNT-->", "??");
+        html = html.replace("<!--PAGE_TEXT-->", "\"?\">? - ? (of ?? total)");
+    }
+
+    let psize_ph_text = format!(
+        "<option value=\"{}\" disabled selected>{}</option>",
+        page_size, page_size
+    );
+    html = html.replace("<!--PSIZE-->", &psize_ph_text);
 
     match images::get_image_info(&state.db, page, page_size).await {
         Ok(images) => {
@@ -80,57 +116,62 @@ pub async fn gallery(
 pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/control.html").to_string();
 
-    let html_keys = keys::get_keys(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|key| format!("<option value=\"{}\">{}</option>", key.id, key.name))
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--API_KEYS-->", &html_keys);
+    if let Ok(keys) = keys::get_keys(&state.db).await {
+        let html_keys = keys
+            .iter()
+            .map(|key| format!("<option value=\"{}\">{}</option>", key.id, key.name))
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--API_KEYS-->", &html_keys);
+    } else {
+        html = html.replace(
+            "<!--API_KEYS-->",
+            "<option value=\"-1\" disabled>Error loading options</option>",
+        );
+    }
 
-    let html_targets = get_target_names(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|target| format!("<option value=\"{}\">{}</option>", target.id, target.name))
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--TARGETS-->", &html_targets);
+    if let Ok(targets) = commands::get_target_names(&state.db).await {
+        let html_targets = targets
+            .iter()
+            .map(|target| format!("<option value=\"{}\">{}</option>", target.id, target.name))
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--TARGETS-->", &html_targets);
+    } else {
+        html = html.replace(
+            "<!--TARGETS-->",
+            "<option value=\"-1\" disabled>Error loading options</option>",
+        );
+    }
 
-    let html_positions = get_target_positions(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|position| {
-            format!(
-                "<option value=\"{}\">{}</option>",
-                position.id, position.position
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--POSITIONS-->", &html_positions);
+    if let Ok(positions) = commands::get_target_positions(&state.db).await {
+        let html_positions = positions
+            .iter()
+            .map(|position| {
+                format!(
+                    "<option value=\"{}\">{}</option>",
+                    position.id, position.position
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--POSITIONS-->", &html_positions);
+    } else {
+        html = html.replace(
+            "<!--POSITIONS-->",
+            "<option value=\"-1\" disabled>Error loading options</option>",
+        );
+    }
 
-    let html_commands = get_commands(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|command| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                command.id,
-                command.target,
-                command.position,
-                command.name,
-                command.associated_key,
-                command.status,
-                command.datetime
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--API_COMMANDS-->", &html_commands);
+    if let Ok(statistics) = commands::fetch_command_statistics(&state.db).await {
+        html = html.replace("<!--COMPLETED-->", &statistics.completed.to_string());
+        html = html.replace("<!--FAILED-->", &statistics.failed.to_string());
+        html = html.replace("<!--IN_PROGRESS-->", &statistics.in_progress.to_string());
+    } else {
+        html = html.replace("<!--COMPLETED-->", "??");
+        html = html.replace("<!--FAILED-->", "??");
+        html = html.replace("<!--IN_PROGRESS-->", "??");
+    }
 
     (StatusCode::OK, Html(html))
 }
@@ -165,7 +206,7 @@ pub async fn diagnostics(
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
 
-    let html_diagnostics = get_diagnostics(name.name, &state.db)
+    let html_diagnostics = diagnostics::get_diagnostics(name.name, &state.db)
         .await
         .unwrap()
         .iter()
@@ -183,38 +224,44 @@ pub async fn diagnostics(
 }
 
 pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
-    if auth_session.user.unwrap().superuser != true {
-        return (
-            StatusCode::FORBIDDEN,
-            Html(include_str!("../../html/403.html").to_string()),
-        );
+    if let Some(user) = auth_session.user {
+        if user.superuser != true {
+            return (
+                StatusCode::FORBIDDEN,
+                Html(include_str!("../../html/403.html").to_string()),
+            );
+        }
     }
+
     let mut html = include_str!("../../html/user_management.html").to_string();
 
-    let html_users = auth_session
-        .backend
-        .get_users()
-        .await
-        .unwrap()
-        .iter()
-        .map(|user| {
-            format!(
-                "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button>",
-                user.id, user.username, user.id
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--USERS-->", &html_users);
+    if let Ok(users) = auth_session.backend.get_users().await {
+        let html_users = users
+            .iter()
+            .map(|user| {
+                format!(
+                    "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button>",
+                    user.id, user.username, user.id
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--USERS-->", &html_users);
+    } else {
+        html = html.replace("<!--USERS-->", "<section>Error loading users</section>");
+    }
 
     (StatusCode::OK, Html(html))
 }
 
 pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
-    let html = include_str!("../../html/user.html").to_string();
+    let mut html = include_str!("../../html/user.html").to_string();
 
-    let name = auth_session.user.unwrap().username;
-    let html = html.replace("<!--NAME-->", &name);
+    if let Some(user) = auth_session.user {
+        html = html.replace("<!--NAME-->", &user.username);
+    } else {
+        html = html.replace("<!--NAME-->", "???");
+    }
 
     (StatusCode::OK, Html(html))
 }
@@ -226,8 +273,10 @@ pub async fn unknown_route() -> impl IntoResponse {
     )
 }
 
-pub async fn test() -> impl IntoResponse {
+pub async fn test(messages: axum_messages::Messages) -> impl IntoResponse {
     let html = include_str!("../../html/images.html").to_string();
+
+    messages.error("Test error");
 
     (StatusCode::OK, Html(html))
 }
