@@ -29,6 +29,7 @@
 #include <string.h>
 #include <vector>
 #include <map>
+#include "timesync-lib.hpp"
 
 #include "testMacros.hpp"
 
@@ -75,6 +76,7 @@ void init_task(void *pvParameters) {
     handlers.wirelessHandler = std::make_shared<WirelessHandler>(wifi);
     handlers.uartCommHandler = std::make_shared<EspPicoCommHandler>(uartCommHandler);
 
+    // Initialize sdcard
     SDcard sdcard("/sdcard");
     while (sdcard.get_sd_card_status() != ESP_OK) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -83,6 +85,7 @@ void init_task(void *pvParameters) {
 
     handlers.sdcard = std::make_shared<SDcard>(sdcard);
 
+    // Initialize wifi
     wifi.connect(WIFI_SSID, WIFI_PASSWORD);
     do {
         vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
@@ -93,21 +96,23 @@ void init_task(void *pvParameters) {
     } while (!wifi.isConnected());
     DEBUG("Connected to wifi");
 
+    // Initialize request handler
     RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
                                   std::make_shared<SDcard>(sdcard));
     DEBUG("RequestHandler created");
-
     handlers.requestHandler = std::make_shared<RequestHandler>(requestHandler);
 
+    // Initialize camera
     Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
-
     handlers.cameraPtr = std::make_shared<Camera>(cameraPtr);
+
+    // Set timezone
+    set_tz(); // TODO: modiify to use provided tz.
+
 
     xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 8192, &handlers, TaskPriorities::HIGH,
                 nullptr);
-
     xTaskCreate(get_request_timer_task, "get_request_timer_task", 4096, &requestHandler, TaskPriorities::LOW, nullptr);
-
     xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH, nullptr);
 
@@ -137,7 +142,7 @@ void send_request_to_websrv_task(void *pvParameters) {
     std::string response_str;
 
     // Used for sending instructions to the Pico
-    Message uart_msg;
+    msg::Message uart_msg;
     std::string uart_msg_str;
 
     while (true) {
@@ -166,7 +171,7 @@ void send_request_to_websrv_task(void *pvParameters) {
                     }
 
                     // create instructions uart message
-                    uart_msg = instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
+                    uart_msg = msg::instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
                     convert_to_string(uart_msg, uart_msg_str);
 
                     // Send the message to the Pico
@@ -248,19 +253,19 @@ void handle_uart_data_task(void *pvParameters) {
     int retries = 0;
 
     std::string string;
-    Message msg;
+    msg::Message msg;
 
     while (true) {
         if (xQueueReceive(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, portMAX_DELAY) ==
             pdTRUE) {
             string = receivedData.buffer;
-            if (convert_to_message(string, msg) == 0) {
+            if (msg::convert_to_message(string, msg) == 0) {
                 switch (msg.type) {
-                    case MessageType::UNASSIGNED:
+                    case msg::MessageType::UNASSIGNED:
                         DEBUG("Unassigned message type received");
                         break;
 
-                    case MessageType::RESPONSE:
+                    case msg::MessageType::RESPONSE:
                         if (msg.content[0] == "1") {
                             uartCommHandler->disable_response_wait_timer();
                         } else {
@@ -268,9 +273,9 @@ void handle_uart_data_task(void *pvParameters) {
                         }
                         break;
 
-                    case MessageType::DATETIME:
+                    case msg::MessageType::DATETIME:
                         if (msg.content[0] == "1") {
-                            msg = datetime_response();
+                            msg = msg::datetime_response(get_datetime());
                             convert_to_string(msg, string);
                             uartCommHandler->send_data(string.c_str(), string.length());
                             while (uartCommHandler->set_response_wait_timer(string) == false && retries < RETRIES) {
@@ -283,15 +288,15 @@ void handle_uart_data_task(void *pvParameters) {
                         }
                         break;
 
-                    case MessageType::ESP_INIT: // Should not be sent by Pico
+                    case msg::MessageType::ESP_INIT: // Should not be sent by Pico
                         DEBUG("ESP_INIT message sent by Pico");
                         break;
 
-                    case MessageType::INSTRUCTIONS: // Should not be sent by Pico
+                    case msg::MessageType::INSTRUCTIONS: // Should not be sent by Pico
                         DEBUG("INSTRUCTIONS message sent by Pico");
                         break;
 
-                    case MessageType::PICTURE:
+                    case msg::MessageType::PICTURE:
                         // TODO: TAKE PICTURE
                         // TODO: enqueue post req
 
@@ -300,7 +305,7 @@ void handle_uart_data_task(void *pvParameters) {
                         // uartCommHandler->send_data(string.c_str(), string.length());
                         // break;
 
-                    case MessageType::DIAGNOSTICS:
+                    case msg::MessageType::DIAGNOSTICS:
                         // TODO: Gather diagnostics data
                         // TODO: enqueue post req
 

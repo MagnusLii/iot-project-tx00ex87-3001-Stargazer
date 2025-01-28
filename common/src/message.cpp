@@ -114,10 +114,6 @@ Message cmd_status(int image_id, int status, int datetime) {
     return Message{.type = CMD_STATUS, .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
-Message instructions(const int celestial_obj_id, const int instruction_identifier_id, const int image_position_id) {
-    return Message{.type = INSTRUCTIONS, .content = {std::to_string(celestial_obj_id), std::to_string(instruction_identifier_id), std::to_string(image_position_id)}};
-}
-
 Message instructions(const std::string celestial_obj_id, const std::string instruction_identifier_id, const std::string image_position_id) {
     return Message{.type = INSTRUCTIONS, .content = {celestial_obj_id, instruction_identifier_id, image_position_id}};
 }

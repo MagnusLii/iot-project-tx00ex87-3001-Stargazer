@@ -1,15 +1,17 @@
 #include "espPicoUartCommHandler.hpp"
 #include "debug.hpp"
 #include "defines.hpp"
-#include "message.hpp"
 #include "driver/gpio.h"
+#include "message.hpp"
 
 EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_config) {
+#ifdef RESERVE_UART0_FOR_PICO_COMM
     DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
     vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow for debug messages to be sent before disabling them
-    // esp_log_level_set("*", ESP_LOG_NONE);
-    // gpio_reset_pin(GPIO_NUM_0);
-    // gpio_reset_pin(GPIO_NUM_3);
+    esp_log_level_set("*", ESP_LOG_NONE);
+    gpio_reset_pin(GPIO_NUM_0);
+    gpio_reset_pin(GPIO_NUM_3);
+#endif
 
     this->uart_num = uart_num;
     this->uart_config = uart_config;
