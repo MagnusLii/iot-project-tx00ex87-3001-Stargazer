@@ -17,6 +17,8 @@ pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
+    src/commbridge.cpp
+    src/controller.cpp
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/devices/gps.cpp
@@ -31,6 +33,8 @@ add_executable(${PROJECT_NAME}
 
 add_executable(${PROJECT_NAME}_test
     src/test_main.cpp
+    src/commbridge.cpp
+    src/controller.cpp
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
@@ -39,7 +43,6 @@ add_executable(${PROJECT_NAME}_test
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
     src/devices/motor-control.cpp
-    src/commbridge.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
 )
@@ -66,19 +69,19 @@ pico_add_extra_outputs(${PROJECT_NAME}_test)
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
-    inc/devices
     inc/hardware
     inc/hardware/uart
-    ${COMMON_DIR}/inc
+    inc/devices
     inc/planet_finder
+    ${COMMON_DIR}/inc
 )
 
 target_include_directories(${PROJECT_NAME}_test PRIVATE
     src
     inc
-    inc/devices
     inc/hardware
     inc/hardware/uart
+    inc/devices
     inc/planet_finder
     ${COMMON_DIR}/inc
 )
@@ -95,6 +98,9 @@ target_link_libraries(${PROJECT_NAME}
     hardware_pio
     hardware_rosc
     hardware_sleep
+    message
+    crc
+    convert
 )
 
 target_link_libraries(${PROJECT_NAME}_test 
@@ -102,6 +108,7 @@ target_link_libraries(${PROJECT_NAME}_test
     hardware_i2c
     hardware_gpio
     hardware_rtc
+    hardware_pio
     message
     crc
     convert
@@ -117,11 +124,11 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 ENDIF()
 
 # Enable usb output, disable uart output
-pico_enable_stdio_usb(${PROJECT_NAME} 0)
-pico_enable_stdio_uart(${PROJECT_NAME} 1)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
+pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
-pico_enable_stdio_usb(${PROJECT_NAME}_test 0)
-pico_enable_stdio_uart(${PROJECT_NAME}_test 1)
+pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 0)
 
 pico_enable_stdio_usb(test_planet_finder 0)
 pico_enable_stdio_uart(test_planet_finder 1)
