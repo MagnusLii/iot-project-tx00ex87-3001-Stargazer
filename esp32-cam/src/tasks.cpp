@@ -61,6 +61,7 @@ void get_request_timer_callback(TimerHandle_t timer) {
 }
 
 // does same as get_request_timer_callback but as a task
+// TODO: remove if still unused during production
 void get_request_timer_task(void *pvParameters) {
     RequestHandler *requestHandler = (RequestHandler *)pvParameters;
     while (true) {
@@ -81,7 +82,7 @@ void init_task(void *pvParameters) {
 
     EspPicoCommHandler uartCommHandler(UART_NUM_0);
     WirelessHandler wifi;
-    handlers->wirelessHandler = std::make_shared<WirelessHandler>(UART_NUM_0);
+    handlers->wirelessHandler = std::make_shared<WirelessHandler>();
     handlers->uartCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcard
@@ -137,7 +138,7 @@ void init_task(void *pvParameters) {
     DEBUG("Initialization complete. Deleting init task.");
 
     // Send ESP initialized message to Pico
-    msg::Message msg = msg::esp_init();
+    msg::Message msg = msg::esp_init(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
     uartCommHandler.send_data(msg_str.c_str(), msg_str.length());
