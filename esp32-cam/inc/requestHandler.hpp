@@ -58,7 +58,6 @@ class RequestHandler {
     QueueHandle_t getWebSrvResponseQueue();
 
     RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage* response);
-    RequestHandlerReturnCode sendRequest(std::string request, QueueMessage response);
 
     int parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size);
 
