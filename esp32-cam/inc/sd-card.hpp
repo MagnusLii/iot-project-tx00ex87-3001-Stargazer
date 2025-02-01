@@ -15,12 +15,12 @@ enum class Settings{
   CRC // Keep as final element
 };
 
-class SDcard {
+class SDcardHandler {
   public:
-    SDcard(std::string mount_point_arg, int max_open_files = 2, int CMD = 15, int D0 = 2, int D1 = 4, int D2 = 12,
+    SDcardHandler(std::string mount_point_arg, int max_open_files = 2, int CMD = 15, int D0 = 2, int D1 = 4, int D2 = 12,
            int D3 = 13);
 
-    ~SDcard();
+    ~SDcardHandler();
     esp_err_t mount_sd_card(std::string mount_point_arg, int max_open_files = 2, int CMD = 15, int D0 = 2,
            int D1 = 4, int D2 = 12, int D3 = 13);
     

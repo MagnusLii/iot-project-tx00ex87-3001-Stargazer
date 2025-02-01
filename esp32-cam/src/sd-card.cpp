@@ -9,7 +9,7 @@
 #include <string>
 
 /**
- * @brief Initializes the SDcard object and attempts to mount the SD card.
+ * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
  *
  * This constructor tries to mount the SD card at the specified mount point up to 3 times.
  * If successful, it creates a mutex for file operations. If the mount fails, an error message is logged
@@ -25,7 +25,7 @@
  * @note The function will log the SD card status on each attempt and will return after successful mounting or failure
  * after retries.
  */
-SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2, int D3) {
+SDcardHandler::SDcardHandler(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2, int D3) {
     for (int i = 0; i < 3; i++) {
         this->sd_card_status = this->mount_sd_card(mount_point_arg, max_open_files, CMD, D0, D1, D2, D3);
         if (this->sd_card_status == ESP_OK) {
@@ -42,7 +42,7 @@ SDcard::SDcard(std::string mount_point_arg, int max_open_files, int CMD, int D0,
     return;
 }
 
-SDcard::~SDcard() {
+SDcardHandler::~SDcardHandler() {
     if (this->sd_card_status == ESP_OK) {
         esp_vfs_fat_sdcard_unmount(mount_point.c_str(), NULL);
         DEBUG("SD card unmounted from ", mount_point.c_str());
@@ -67,7 +67,7 @@ SDcard::~SDcard() {
  *
  * @note This function configures GPIO pull-up resistors for the SD card pins before attempting to mount.
  */
-esp_err_t SDcard::mount_sd_card(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2,
+esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2,
                                 int D3) {
 
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
@@ -97,21 +97,21 @@ esp_err_t SDcard::mount_sd_card(std::string mount_point_arg, int max_open_files,
  *
  * @return std::string* A pointer to the mount point string.
  */
-std::string *SDcard::get_mount_point() { return &this->mount_point; }
+std::string *SDcardHandler::get_mount_point() { return &this->mount_point; }
 
 /**
  * @brief Returns the mount point as a C-style string.
  *
  * @return const char* A constant pointer to the C-style string representing the mount point.
  */
-const char *SDcard::get_mount_point_c_str() { return this->mount_point.c_str(); }
+const char *SDcardHandler::get_mount_point_c_str() { return this->mount_point.c_str(); }
 
 /**
  * @brief Returns the current status of the SD card.
  *
  * @return esp_err_t The current SD card status (e.g., ESP_OK or error code).
  */
-esp_err_t SDcard::get_sd_card_status() { return this->sd_card_status; }
+esp_err_t SDcardHandler::get_sd_card_status() { return this->sd_card_status; }
 
 /**
  * @brief Writes data to a file on the SD card.
@@ -129,7 +129,7 @@ esp_err_t SDcard::get_sd_card_status() { return this->sd_card_status; }
  *
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
-int SDcard::write_file(const char *filename, std::string data) {
+int SDcardHandler::write_file(const char *filename, std::string data) {
     if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
         DEBUG("Failed to acquire mutex");
         return 1; // Mutex acquisition failure
@@ -177,7 +177,7 @@ int SDcard::write_file(const char *filename, std::string data) {
  *
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
-int SDcard::write_file(const char *filename, const char *data) { return write_file(filename, std::string(data)); }
+int SDcardHandler::write_file(const char *filename, const char *data) { return write_file(filename, std::string(data)); }
 
 /**
  * @brief Writes binary data to a file on the SD card.
@@ -197,7 +197,7 @@ int SDcard::write_file(const char *filename, const char *data) { return write_fi
  *
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
-int SDcard::write_file(const char *filename, const uint8_t *data, const size_t len) {
+int SDcardHandler::write_file(const char *filename, const uint8_t *data, const size_t len) {
     if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
         DEBUG("Failed to acquire mutex");
         return 1; // Mutex acquisition failure
@@ -241,7 +241,7 @@ int SDcard::write_file(const char *filename, const uint8_t *data, const size_t l
  *
  * @note The CRC16 checksum is calculated and appended to the data as a comma-separated value.
  */
-void SDcard::add_crc(std::string &data) {
+void SDcardHandler::add_crc(std::string &data) {
     DEBUG("Adding CRC to data");
     DEBUG("Data: ", data.c_str());
     uint16_t crc = crc16(data);
@@ -261,7 +261,7 @@ void SDcard::add_crc(std::string &data) {
  *
  * @note The CRC value is expected to be the last part of the data, separated by a comma.
  */
-bool SDcard::check_crc(const std::string &data) {
+bool SDcardHandler::check_crc(const std::string &data) {
     std::string copy = data;
     size_t pos = copy.find_last_of(',');
     if (pos == std::string::npos) { return false; }
@@ -295,7 +295,7 @@ bool SDcard::check_crc(const std::string &data) {
  * @note The function expects the settings vector to contain at least `Settings::CRC - 1` settings.
  * The CRC is appended to the settings before saving.
  */
-int SDcard::save_all_settings(const std::vector<std::string> settings) {
+int SDcardHandler::save_all_settings(const std::vector<std::string> settings) {
     DEBUG("Saving all settings");
     std::string temp_settings;
     for (int i = 0; i < (int)Settings::CRC - 1; i++) {
@@ -334,7 +334,7 @@ int SDcard::save_all_settings(const std::vector<std::string> settings) {
  * @note The function reads `Settings::CRC` lines from the file and expects the last line to be the CRC.
  * The settings are extracted and stored in the provided vector.
  */
-int SDcard::read_all_settings(std::vector<std::string> settings) {
+int SDcardHandler::read_all_settings(std::vector<std::string> settings) {
     DEBUG("Reading all settings");
     std::string full_filename_str = this->mount_point + "/settings.txt";
     std::string temp_settings;
@@ -401,7 +401,7 @@ int SDcard::read_all_settings(std::vector<std::string> settings) {
  *
  * @note The function modifies a specific setting and saves all settings to the file.
  */
-int SDcard::save_setting(const Settings settingID, const std::string &value) {
+int SDcardHandler::save_setting(const Settings settingID, const std::string &value) {
     std::vector<std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
@@ -432,7 +432,7 @@ int SDcard::save_setting(const Settings settingID, const std::string &value) {
  *
  * @note The function retrieves the setting value based on its identifier and stores it in the provided reference.
  */
-int SDcard::read_setting(const Settings settingID, std::string &value) {
+int SDcardHandler::read_setting(const Settings settingID, std::string &value) {
     std::vector<std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
