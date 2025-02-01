@@ -31,19 +31,19 @@ class EspPicoCommHandler {
                                                               .flags = 0
                                                           });
 
-    void send_data(const char *data, size_t len);
-    int receive_data(char *buffer, size_t max_len);
+    void send_data(const char *data, const size_t len);
+    int receive_data(char *buffer, const size_t max_len);
 
     uart_port_t get_uart_num();
     uart_config_t get_uart_config();
     QueueHandle_t get_uart_event_queue_handle();
     QueueHandle_t get_uart_received_data_queue_handle();
-    TimerHandle_t get_request_timer_handle();
 
-    bool set_response_wait_timer(std::string command);
-    void disable_response_wait_timer();
+    void set_waiting_for_response(bool status);
+    bool get_waiting_for_response();
 
-    void set_request_handler(std::shared_ptr<RequestHandler> requestHandler);
+    int send_msg_and_wait_for_response(const char* data, const size_t len);
+    void check_if_confirmation_msg(const UartReceivedData &receivedData);
 
   private:
     uart_port_t uart_num;
@@ -53,9 +53,6 @@ class EspPicoCommHandler {
 
     std::string previousCommand;
     bool waitingForResponse = false;
-    TimerHandle_t responseWaitTimer;
-
-    std::shared_ptr<RequestHandler> requestHandler; // TODO: remove dependency on direct access to requestHandler
 };
 
 #endif

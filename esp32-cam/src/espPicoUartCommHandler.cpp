@@ -25,10 +25,10 @@ EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_
                                         &this->uart_event_queue, 0));
 }
 
-void EspPicoCommHandler::send_data(const char *data, size_t len) { uart_write_bytes(this->uart_num, data, len); }
+void EspPicoCommHandler::send_data(const char *data, const size_t len) { uart_write_bytes(this->uart_num, data, len); }
 
 // blocking
-int EspPicoCommHandler::receive_data(char *buffer, size_t max_len) {
+int EspPicoCommHandler::receive_data(char *buffer, const size_t max_len) {
     uart_event_t event;
     if (xQueueReceive(this->uart_event_queue, (void *)&event, portMAX_DELAY)) {
         if (event.type == UART_DATA) {
@@ -47,37 +47,39 @@ QueueHandle_t EspPicoCommHandler::get_uart_event_queue_handle() { return this->u
 
 QueueHandle_t EspPicoCommHandler::get_uart_received_data_queue_handle() { return this->uart_received_data_queue; }
 
-TimerHandle_t EspPicoCommHandler::get_request_timer_handle() { return this->responseWaitTimer; }
+void EspPicoCommHandler::set_waiting_for_response(bool status) { this->waitingForResponse = status; }
 
-bool EspPicoCommHandler::set_response_wait_timer(std::string command) {
-    if (this->waitingForResponse) {
-        DEBUG("Already waiting for response, ignoring new command");
-        return false;
+bool EspPicoCommHandler::get_waiting_for_response() { return this->waitingForResponse; }
+
+int EspPicoCommHandler::send_msg_and_wait_for_response(const char* data, const size_t len) {
+    int retries = 0;
+    this->set_waiting_for_response(true);
+    while (this->get_waiting_for_response() && retries < RETRIES) {
+        vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
+        this->send_data(data, len);
+        retries++;
     }
 
-    this->previousCommand = command;
-    this->waitingForResponse = true;
-
-    TimerHandle_t timer =
-        xTimerCreate("responseWaitTimer", pdMS_TO_TICKS(RESPONSE_WAIT_TIME), pdFALSE, (void *)0, NULL);
-    if (timer == NULL) {
-        DEBUG("Failed to create response wait timer");
-        return false;
+    // Didn't receive confirmation response
+    if (retries >= RETRIES) {
+        DEBUG("Failed to receive confirmation response after ", retries, " attempts");
+        this->set_waiting_for_response(false);
+        return 1;
     }
-
-    this->responseWaitTimer = timer;
-    xTimerStart(this->responseWaitTimer, 0);
-
-    return true;
+    return 0;
 }
 
-void EspPicoCommHandler::disable_response_wait_timer() {
-    this->waitingForResponse = false;
-    previousCommand.clear();
+void EspPicoCommHandler::check_if_confirmation_msg(const UartReceivedData &receivedData) {
+    std::string string(receivedData.buffer, receivedData.len);
+    msg::Message msg;
 
-    xTimerDelete(this->responseWaitTimer, 0);
-}
-
-void EspPicoCommHandler::set_request_handler(std::shared_ptr<RequestHandler> requestHandler) {
-    this->requestHandler = requestHandler;
+    if (convert_to_message(string, msg) == 0) {
+        if (msg.type == msg::MessageType::RESPONSE) {
+            if (msg.content[0] == "1") {
+                this->set_waiting_for_response(false);
+            } else {
+                DEBUG("Pico Confirmation response returned false");
+            }
+        }
+    }
 }
