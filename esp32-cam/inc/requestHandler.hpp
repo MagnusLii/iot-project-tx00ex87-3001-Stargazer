@@ -44,7 +44,7 @@ enum class RequestHandlerReturnCode {
 class RequestHandler {
   public:
     RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
-                   std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcard> sdcard);
+                   std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
     // TODO: Add destructor
 
     RequestHandlerReturnCode createDiagnosticsPOSTRequest(std::string *requestPtr);
@@ -67,7 +67,7 @@ class RequestHandler {
     std::string webServerToken;
 
     std::shared_ptr<WirelessHandler> wirelessHandler; // TODO: remove dependency on direct access to wirelessHandler
-    std::shared_ptr<SDcard> sdcard; // TODO: remove dependency on direct access to sdcard
+    std::shared_ptr<SDcardHandler> sdcardHandler; // TODO: remove dependency on direct access to sdcardHandler
     
     QueueHandle_t webSrvRequestQueue;  // Queue for sending requests to the web server
     QueueHandle_t webSrvResponseQueue; // Queue where responses from the web server are forwarded

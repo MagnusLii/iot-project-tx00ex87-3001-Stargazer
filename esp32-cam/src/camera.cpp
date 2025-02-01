@@ -11,7 +11,7 @@
  * and SD card reference. It also initializes the camera hardware and handles any potential errors during
  * initialization.
  *
- * @param sdcardPtr A shared pointer to an SDcard object for accessing storage.
+ * @param sdcardPtr A shared pointer to an SDcardHandler object for accessing storage.
  * @param webSrvRequestQueueHandle A handle to the web server request queue.
  * @param PWDN, RESET, XCLK, SIOD, SIOC, D7, D6, D5, D4, D3, D2, D1, D0, VSYNC, HREF, PCLK Pin assignments for the
  * camera hardware.
@@ -28,13 +28,13 @@
  * @note This constructor initializes the camera with the provided settings, mounts the SD card,
  * and handles errors during the camera initialization process.
  */
-CameraHandler::CameraHandler(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
+CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
                int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC, int HREF,
                int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT,
                framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
     DEBUG("CameraHandler constructor called\n");
 
-    this->sdcard = sdcardPtr;
+    this->sdcardHandler = sdcardPtr;
     this->camera_config.pin_pwdn = PWDN;
     this->camera_config.pin_reset = RESET;
     this->camera_config.pin_xclk = XCLK;
@@ -144,7 +144,7 @@ int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str
         return 1; // Image capture failure
     }
 
-    if (this->sdcard->write_file(full_filename_str, pic->buf, pic->len) != 0) {
+    if (this->sdcardHandler->write_file(full_filename_str, pic->buf, pic->len) != 0) {
         esp_camera_fb_return(pic);
         return 2; // Failed to write image to file
     }

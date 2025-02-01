@@ -23,12 +23,12 @@
 #include <string.h>
 
 RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
-                               std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcard> sdcard) {
+                               std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler) {
     this->webServer = webServer;
     this->webPort = webPort;
     this->webServerToken = webServerToken;
     this->wirelessHandler = wirelessHandler;
-    this->sdcard = sdcard;
+    this->sdcardHandler = sdcardHandler;
     this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
     this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
     this->requestMutex = xSemaphoreCreateMutex();

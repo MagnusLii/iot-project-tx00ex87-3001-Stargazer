@@ -38,7 +38,7 @@ class CameraHandler {
         JPEG = PIXFORMAT_JPEG
     };
 
-    CameraHandler(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN = CAM_PIN_PWDN,
+    CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN = CAM_PIN_PWDN,
            int RESET = CAM_PIN_RESET, int XCLK = CAM_PIN_XCLK, int SIOD = CAM_PIN_SIOD, int SIOC = CAM_PIN_SIOC,
            int D7 = CAM_PIN_D7, int D6 = CAM_PIN_D6, int D5 = CAM_PIN_D5, int D4 = CAM_PIN_D4, int D3 = CAM_PIN_D3,
            int D2 = CAM_PIN_D2, int D1 = CAM_PIN_D1, int D0 = CAM_PIN_D0, int VSYNC = CAM_PIN_VSYNC,
@@ -54,7 +54,7 @@ class CameraHandler {
     int notify_request_handler_of_image(const char *filename);
 
   private:
-    std::shared_ptr<SDcard> sdcard;
+    std::shared_ptr<SDcardHandler> sdcardHandler;
     QueueHandle_t webSrvRequestQueueHandle;
     camera_config_t camera_config;
     Filetype image_filetype;

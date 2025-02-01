@@ -76,15 +76,15 @@ void app_main(void) {
 #ifdef WRITE_READ_SETTINGS_TEST
     int retries = 0;
     std::vector<std::string> settings = {"WIFI_SSID", "WIFI_PASSWORD", "WEB_PATH", "WEB_PORT"};
-    SDcard sdcard("/sdcard");
-    while (sdcard.save_all_settings(settings) != 0 && retries < 3) {
+    SDcardHandler sdcardHandler("/sdcard");
+    while (sdcardHandler.save_all_settings(settings) != 0 && retries < 3) {
         DEBUG("Retrying save settings");
         retries++;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
     retries = 0;
 
-    while (sdcard.read_all_settings(settings) != 0 && retries < 3) {
+    while (sdcardHandler.read_all_settings(settings) != 0 && retries < 3) {
         DEBUG("Retrying read settings");
         retries++;
         vTaskDelay(pdMS_TO_TICKS(1000));

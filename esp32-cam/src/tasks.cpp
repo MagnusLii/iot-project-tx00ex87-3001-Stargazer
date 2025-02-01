@@ -35,7 +35,7 @@
 
 struct Handlers {
     std::shared_ptr<WirelessHandler> wirelessHandler;
-    std::shared_ptr<SDcard> sdcard;
+    std::shared_ptr<SDcardHandler> sdcardHandler;
     std::shared_ptr<RequestHandler> requestHandler;
     std::shared_ptr<EspPicoCommHandler> espPicoCommHandler;
     std::shared_ptr<CameraHandler> cameraHandler;
@@ -86,14 +86,14 @@ void init_task(void *pvParameters) {
     handlers->wirelessHandler = std::make_shared<WirelessHandler>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
-    // Initialize sdcard
-    auto sdcard = std::make_shared<SDcard>("/sdcard");
-    while (sdcard->get_sd_card_status() != ESP_OK) {
+    // Initialize sdcardHandler
+    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
+    while (sdcardHandler->get_sd_card_status() != ESP_OK) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        sdcard->mount_sd_card("/sdcard");
+        sdcardHandler->mount_sd_card("/sdcard");
     }
 
-    handlers->sdcard = sdcard;
+    handlers->sdcardHandler = sdcardHandler;
 
     // Initialize Wi-Fi
     handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
@@ -106,11 +106,11 @@ void init_task(void *pvParameters) {
 
     // Initialize request handler
     auto requestHandler =
-        std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler, handlers->sdcard);
+        std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler, handlers->sdcardHandler);
     handlers->requestHandler = requestHandler;
 
     // Initialize camera
-    auto cameraHandler = std::make_shared<CameraHandler>(sdcard, requestHandler->getWebSrvRequestQueue());
+    auto cameraHandler = std::make_shared<CameraHandler>(sdcardHandler, requestHandler->getWebSrvRequestQueue());
     handlers->cameraHandler = cameraHandler;
 
     // Set timezone
