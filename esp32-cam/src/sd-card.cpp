@@ -1,12 +1,14 @@
 #include "sd-card.hpp"
 #include "crc.hpp"
 #include "debug.hpp"
+#include "defines.hpp"
 #include "driver/sdmmc_defs.h"
 #include "driver/sdmmc_host.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include <string.h>
 #include <string>
+#include "mbedtls/base64.h"
 
 /**
  * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
@@ -68,7 +70,7 @@ SDcardHandler::~SDcardHandler() {
  * @note This function configures GPIO pull-up resistors for the SD card pins before attempting to mount.
  */
 esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2,
-                                int D3) {
+                                       int D3) {
 
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
                                                      .max_files = max_open_files,
@@ -177,7 +179,9 @@ int SDcardHandler::write_file(const char *filename, std::string data) {
  *
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
-int SDcardHandler::write_file(const char *filename, const char *data) { return write_file(filename, std::string(data)); }
+int SDcardHandler::write_file(const char *filename, const char *data) {
+    return write_file(filename, std::string(data));
+}
 
 /**
  * @brief Writes binary data to a file on the SD card.
@@ -228,6 +232,107 @@ int SDcardHandler::write_file(const char *filename, const uint8_t *data, const s
     xSemaphoreGive(file_mutex);
     return 0; // Success
 }
+
+int SDcardHandler::read_file(const char *filename, std::string &read_data_storage) {
+    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
+        DEBUG("Failed to acquire mutex");
+        return 1;
+    }
+
+    std::string full_filename_str = this->mount_point + "/" + filename;
+    FILE *file = fopen(full_filename_str.c_str(), "rb");  // "rb" for binary-safe reading
+    if (!file) {
+        DEBUG("Failed to open file for reading");
+        perror("File open error");
+        xSemaphoreGive(file_mutex);
+        return 2;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t file_size = ftell(file);
+    rewind(file);
+
+    char *read_buffer = new char[file_size];
+    size_t read_size = fread(read_buffer, 1, file_size, file);
+    if (read_size != file_size) {
+        DEBUG("Failed to read the complete file");
+        fclose(file);
+        xSemaphoreGive(file_mutex);
+        delete[] read_buffer;
+        return 3;
+    }
+
+    data.assign(read_buffer, read_size);
+    delete[] read_buffer;
+
+    fclose(file);
+    xSemaphoreGive(file_mutex);
+    return 0;
+}
+
+int SDcardHandler::read_file_base64(const char *filename, std::string &read_data_storage) {
+    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
+        DEBUG("Failed to acquire mutex");
+        return 1;
+    }
+
+    std::string full_filename_str = this->mount_point + "/" + filename;
+    FILE *file = fopen(full_filename_str.c_str(), "rb");  // "rb" for binary-safe reading
+    if (!file) {
+        DEBUG("Failed to open file for reading");
+        perror("File open error");
+        xSemaphoreGive(file_mutex);
+        return 2;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t file_size = ftell(file);
+    rewind(file);
+
+    if (file_size == 0) {
+        DEBUG("File is empty");
+        fclose(file);
+        xSemaphoreGive(file_mutex);
+        return 3;
+    }
+
+    char *read_buffer = new char[file_size];
+    size_t read_size = fread(read_buffer, 1, file_size, file);
+    if (read_size != file_size) {
+        DEBUG("Failed to read the complete file");
+        fclose(file);
+        xSemaphoreGive(file_mutex);
+        delete[] read_buffer;
+        return 4;
+    }
+
+    // Calculate required Base64 buffer size
+    size_t base64_len = ((read_size + 2) / 3) * 4;
+    unsigned char *base64_buffer = new unsigned char[base64_len + 1];
+
+    size_t actual_base64_len;
+    int ret = mbedtls_base64_encode(base64_buffer, base64_len + 1, &actual_base64_len,
+                                     (const unsigned char *)read_buffer, read_size);
+    delete[] read_buffer;
+
+    if (ret != 0) {
+        DEBUG("Base64 encoding failed");
+        fclose(file);
+        xSemaphoreGive(file_mutex);
+        delete[] base64_buffer;
+        return 5;
+    }
+
+    base64_buffer[actual_base64_len] = '\0';
+    base64_data.assign((char *)base64_buffer);
+    delete[] base64_buffer;
+
+    fclose(file);
+    xSemaphoreGive(file_mutex);
+    return 0; // Success
+}
+
+
 
 /**
  * @brief Adds a CRC value to the given data string.
