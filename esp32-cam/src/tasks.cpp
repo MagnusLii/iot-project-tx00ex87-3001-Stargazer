@@ -254,7 +254,6 @@ void uart_read_task(void *pvParameters) {
                     receivedData.len = uart_read_bytes(uartCommHandler->get_uart_num(), (uint8_t *)receivedData.buffer,
                                                        sizeof(receivedData.buffer), pdMS_TO_TICKS(10));
                     receivedData.buffer[receivedData.len] = '\0'; // Null-terminate the received string
-                                                                  // TODO: Process the received data
 
                     if (uartCommHandler->get_waiting_for_response()) {
                         uartCommHandler->check_if_confirmation_msg(receivedData);
