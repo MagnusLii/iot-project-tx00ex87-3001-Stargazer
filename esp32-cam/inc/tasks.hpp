@@ -2,7 +2,9 @@
 #define TASKS_HPP
 
 #include "requestHandler.hpp"
+#include "espPicoUartCommHandler.hpp"
 
+void get_request_timer_task(void *pvParameters);
 void get_request_timer_task(void *pvParameters);
 
 void init_task(void *pvParameters);
