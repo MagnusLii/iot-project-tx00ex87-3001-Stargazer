@@ -92,7 +92,7 @@ void app_main(void) {
 #endif
 
 #ifdef UART_DEMO
-    EspPicoCommHandler uartCommHandler(UART_NUM_0);
+    EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
 
     Message msg = datetime_response();
     std::string string;
@@ -106,7 +106,7 @@ void app_main(void) {
 
     while (1) {
 #ifdef UART_DEMO
-        uartCommHandler.send_data(string.c_str(), string.length());
+        espPicoCommHandler.send_data(string.c_str(), string.length());
 #endif
 
         vTaskDelay(pdMS_TO_TICKS(10000));

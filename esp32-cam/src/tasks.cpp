@@ -37,8 +37,8 @@ struct Handlers {
     std::shared_ptr<WirelessHandler> wirelessHandler;
     std::shared_ptr<SDcard> sdcard;
     std::shared_ptr<RequestHandler> requestHandler;
-    std::shared_ptr<EspPicoCommHandler> uartCommHandler;
-    std::shared_ptr<Camera> cameraPtr;
+    std::shared_ptr<EspPicoCommHandler> espPicoCommHandler;
+    std::shared_ptr<CameraHandler> cameraHandler;
 };
 
 // ----------------------------------------------------------
@@ -81,10 +81,10 @@ void init_task(void *pvParameters) {
 
     auto handlers = std::make_shared<Handlers>();
 
-    EspPicoCommHandler uartCommHandler(UART_NUM_0);
-    WirelessHandler wifi;
+    EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
+    WirelessHandler wirelessHandler;
     handlers->wirelessHandler = std::make_shared<WirelessHandler>();
-    handlers->uartCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
+    handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcard
     auto sdcard = std::make_shared<SDcard>("/sdcard");
@@ -110,8 +110,8 @@ void init_task(void *pvParameters) {
     handlers->requestHandler = requestHandler;
 
     // Initialize camera
-    auto cameraPtr = std::make_shared<Camera>(sdcard, requestHandler->getWebSrvRequestQueue());
-    handlers->cameraPtr = cameraPtr;
+    auto cameraHandler = std::make_shared<CameraHandler>(sdcard, requestHandler->getWebSrvRequestQueue());
+    handlers->cameraHandler = cameraHandler;
 
     // Set timezone
     set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
@@ -142,7 +142,7 @@ void init_task(void *pvParameters) {
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
-    uartCommHandler.send_data(msg_str.c_str(), msg_str.length());
+    espPicoCommHandler.send_data(msg_str.c_str(), msg_str.length());
 
     vTaskDelete(NULL);
 }
@@ -154,7 +154,7 @@ void send_request_to_websrv_task(void *pvParameters) {
     Handlers *handlers = (Handlers *)pvParameters;
 
     RequestHandler *requestHandler = handlers->requestHandler.get();
-    EspPicoCommHandler *uartCommHandler = handlers->uartCommHandler.get();
+    EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
 
     // Used for server communication
     QueueMessage request;
@@ -197,14 +197,7 @@ void send_request_to_websrv_task(void *pvParameters) {
                     convert_to_string(uart_msg, uart_msg_str);
 
                     // Send the message to the Pico
-                    uartCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
-
-                    // TODO: Add timer to wait for response
-                    // requestHandler->setWaitingForConfirmation(true);
-                    // while (requestHandler->isWaitingForConfirmation() && response_retry < RETRIES) {
-                    //     vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
-                    //     response_retry++;
-                    // }
+                    espPicoCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
 
                     // Clear variables
                     parsed_results.clear();
@@ -238,27 +231,27 @@ void send_request_to_websrv_task(void *pvParameters) {
 void uart_read_task(void *pvParameters) {
     DEBUG("uart_read_task started");
     Handlers *handlers = (Handlers *)pvParameters;
-    EspPicoCommHandler *uartCommHandler = handlers->uartCommHandler.get();
+    EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
     uart_event_t event;
 
-    UartReceivedData receivedData;
+    UartReceivedData uartReceivedData;
     int retries = 0;
     std::string string;
     msg::Message msg;
 
     while (true) {
-        if (xQueueReceive(uartCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
+        if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
 
             switch (event.type) {
                 case UART_DATA:
-                    receivedData.len = uart_read_bytes(uartCommHandler->get_uart_num(), (uint8_t *)receivedData.buffer,
-                                                       sizeof(receivedData.buffer), pdMS_TO_TICKS(10));
-                    receivedData.buffer[receivedData.len] = '\0'; // Null-terminate the received string
+                    uartReceivedData.len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)uartReceivedData.buffer,
+                                                       sizeof(uartReceivedData.buffer), pdMS_TO_TICKS(10));
+                    uartReceivedData.buffer[uartReceivedData.len] = '\0'; // Null-terminate the received string
 
-                    if (uartCommHandler->get_waiting_for_response()) {
-                        uartCommHandler->check_if_confirmation_msg(receivedData);
+                    if (espPicoCommHandler->get_waiting_for_response()) {
+                        espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
                     } else {
-                        while (xQueueSend(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, 0) !=
+                        while (xQueueSend(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData, 0) !=
                                    pdTRUE &&
                                retries < RETRIES) {
                             DEBUG("Failed to enqueue received data, retrying...");
@@ -273,8 +266,8 @@ void uart_read_task(void *pvParameters) {
 
                 default:
                     DEBUG("Unknown event type received");
-                    uart_flush_input(uartCommHandler->get_uart_num());
-                    xQueueReset(uartCommHandler->get_uart_event_queue_handle());
+                    uart_flush_input(espPicoCommHandler->get_uart_num());
+                    xQueueReset(espPicoCommHandler->get_uart_event_queue_handle());
                     break;
             }
         }
@@ -284,16 +277,17 @@ void uart_read_task(void *pvParameters) {
 void handle_uart_data_task(void *pvParameters) {
     DEBUG("handle_uart_data_task started");
     Handlers *handlers = (Handlers *)pvParameters;
-    EspPicoCommHandler *uartCommHandler = handlers->uartCommHandler.get();
-    UartReceivedData receivedData;
+    EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
+    UartReceivedData uartReceivedData;
+    CameraHandler *cameraHandler = handlers->cameraHandler.get();
 
     std::string string;
     msg::Message msg;
 
     while (true) {
-        if (xQueueReceive(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, ) ==
+        if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData, portMAX_DELAY) ==
             pdTRUE) {
-            string = receivedData.buffer;
+            string = uartReceivedData.buffer;
             if (msg::convert_to_message(string, msg) == 0) {
                 switch (msg.type) {
                     case msg::MessageType::UNASSIGNED:
@@ -308,10 +302,10 @@ void handle_uart_data_task(void *pvParameters) {
                         if (msg.content[0] == "1") {
                             msg = msg::datetime_response(get_datetime());
                             convert_to_string(msg, string);
-                            uartCommHandler->send_data(string.c_str(), string.length());
+                            espPicoCommHandler->send_data(string.c_str(), string.length());
 
                             // Waiting for confirmation response
-                            uartCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length());
+                            espPicoCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length());
                             string.clear();
                         } else {
                             DEBUG("Datetime request first value is not 1");
@@ -328,11 +322,13 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::PICTURE:
                         // TODO: TAKE PICTURE
+
+
                         // TODO: enqueue post req
 
                         // msg = response(true);
                         // convert_to_string(msg, string);
-                        // uartCommHandler->send_data(string.c_str(), string.length());
+                        // espPicoCommHandler->send_data(string.c_str(), string.length());
                         // break;
 
                     case msg::MessageType::DIAGNOSTICS:
@@ -355,12 +351,12 @@ void handle_uart_data_task(void *pvParameters) {
 
 // Test task
 void take_picture_and_save_to_sdcard_in_loop_task(void *pvParameters) {
-    Camera *cameraPtr = (Camera *)pvParameters;
+    CameraHandler *cameraHandler = (CameraHandler *)pvParameters;
     std::string filepath;
 
     while (true) {
-        cameraPtr->create_image_filename(filepath);
-        cameraPtr->take_picture_and_save_to_sdcard(filepath.c_str());
+        cameraHandler->create_image_filename(filepath);
+        cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
 
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
