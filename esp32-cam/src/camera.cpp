@@ -5,7 +5,7 @@
 #include "timesync-lib.hpp"
 
 /**
- * @brief Constructs a Camera object with the specified configuration.
+ * @brief Constructs a CameraHandler object with the specified configuration.
  *
  * This constructor initializes the camera with the provided pin assignments, configuration parameters,
  * and SD card reference. It also initializes the camera hardware and handles any potential errors during
@@ -28,11 +28,11 @@
  * @note This constructor initializes the camera with the provided settings, mounts the SD card,
  * and handles errors during the camera initialization process.
  */
-Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
+CameraHandler::CameraHandler(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
                int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC, int HREF,
                int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT,
                framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
-    DEBUG("Camera constructor called\n");
+    DEBUG("CameraHandler constructor called\n");
 
     this->sdcard = sdcardPtr;
     this->camera_config.pin_pwdn = PWDN;
@@ -67,15 +67,15 @@ Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQue
 
     DEBUG("Initializing camera\n");
     esp_err_t err = esp_camera_init(&camera_config);
-    DEBUG("Camera initialized\n");
+    DEBUG("CameraHandler initialized\n");
     if (err != ESP_OK) {
-        DEBUG("Camera init failed with error: ", err);
+        DEBUG("CameraHandler init failed with error: ", err);
         // TODO: Handle error
     }
 }
 
 /**
- * @brief Destroys the Camera object and cleans up resources.
+ * @brief Destroys the CameraHandler object and cleans up resources.
  *
  * This destructor ensures that any allocated resources for the camera are released. It handles any
  * necessary cleanup of the camera's configuration and deallocates any memory if required.
@@ -84,12 +84,12 @@ Camera::Camera(std::shared_ptr<SDcard> sdcardPtr, QueueHandle_t webSrvRequestQue
  *
  * @note The destructor cleans up camera resources to avoid memory leaks or undefined behavior.
  */
-Camera::~Camera() {
+CameraHandler::~CameraHandler() {
     esp_err_t err = esp_camera_deinit();
     if (err != ESP_OK) {
-        DEBUG("Camera deinit failed with error: ", err);
+        DEBUG("CameraHandler deinit failed with error: ", err);
     } else {
-        DEBUG("Camera deinitialized successfully");
+        DEBUG("CameraHandler deinitialized successfully");
     }
 }
 
@@ -104,20 +104,20 @@ Camera::~Camera() {
  *
  * @note This function is used to reset the camera hardware.
  */
-int Camera::reinit_cam() {
+int CameraHandler::reinit_cam() {
     esp_err_t err = esp_camera_deinit();
     if (err != ESP_OK) {
-        DEBUG("Camera deinit failed with error: ", err);
-        return 1; // Camera deinit failure
+        DEBUG("CameraHandler deinit failed with error: ", err);
+        return 1; // CameraHandler deinit failure
     }
 
     err = esp_camera_init(&camera_config);
     if (err != ESP_OK) {
-        DEBUG("Camera reinit failed with error: ", err);
-        return 2; // Camera reinit failure
+        DEBUG("CameraHandler reinit failed with error: ", err);
+        return 2; // CameraHandler reinit failure
     }
 
-    DEBUG("Camera reinit successful\n");
+    DEBUG("CameraHandler reinit successful\n");
     return 0; // Success
 }
 
@@ -137,7 +137,7 @@ int Camera::reinit_cam() {
  * @note The function retrieves a frame buffer from the camera and ensures the buffer
  *       is released after writing to the file.
  */
-int Camera::take_picture_and_save_to_sdcard(const char *full_filename_str) {
+int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str) {
     camera_fb_t *pic = esp_camera_fb_get();
     if (!pic) {
         DEBUG("Failed to capture image");
@@ -168,7 +168,7 @@ int Camera::take_picture_and_save_to_sdcard(const char *full_filename_str) {
  *
  * @note Ensure that time synchronization is properly set up before calling this function.
  */
-int Camera::create_image_filename(std::string &filenamePtr) {
+int CameraHandler::create_image_filename(std::string &filenamePtr) {
     char datetime[IMAGE_NAME_MAX_LENGTH];
     if (get_localtime_string(datetime, IMAGE_NAME_MAX_LENGTH) == timeSyncLibReturnCodes::SUCCESS) {
         filenamePtr += datetime;
@@ -193,7 +193,7 @@ int Camera::create_image_filename(std::string &filenamePtr) {
  * @note The function uses a queue to communicate with the request handler. Ensure that
  *       `webSrvRequestQueueHandle` is properly initialized before calling this function.
  */
-int Camera::notify_request_handler_of_image(const char *filename) {
+int CameraHandler::notify_request_handler_of_image(const char *filename) {
     QueueMessage message;
     message.requestType = RequestType::POST_IMAGE;
     strncpy(message.imageFilename, filename, BUFFER_SIZE);
