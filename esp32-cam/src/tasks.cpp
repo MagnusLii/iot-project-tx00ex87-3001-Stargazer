@@ -135,6 +135,13 @@ void init_task(void *pvParameters) {
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
     DEBUG("Initialization complete. Deleting init task.");
+
+    // Send ESP initialized message to Pico
+    msg::Message msg = msg::esp_init();
+    std::string msg_str;
+    convert_to_string(msg, msg_str);
+    uartCommHandler.send_data(msg_str.c_str(), msg_str.length());
+
     vTaskDelete(NULL);
 }
 
