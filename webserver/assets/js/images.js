@@ -46,6 +46,19 @@ function changePageSize() {
     window.location.href = `/gallery?page=${current}&psize=${page_size}`
 }
 
+function changeView() {
+    const view = Number(document.getElementById("gallery-view-select").value);
+    if (view == 1) {
+        document.getElementById("gallery-container").className = "view-grid-small";
+    } else if (view == 2) {
+        document.getElementById("gallery-container").className = "view-grid-medium";
+    } else if (view == 3) {
+        document.getElementById("gallery-container").className = "view-grid-large";
+    } else if (view == 4) {
+        document.getElementById("gallery-container").className = "view-grid-full";
+    }
+}
+
 function disableButtons() {
     const query_params = new URLSearchParams(window.location.search);
     const page = Number(query_params.get("page"));
@@ -60,12 +73,20 @@ function disableButtons() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const imgs = document.querySelectorAll(".photo");
-    imgs.forEach(img => {
-        img.onclick = () => openModal(img.src);
-    });
+    document.addEventListener("click", (event) => {
+        if (document.getElementById("image-modal").style.display === "none") {
+            if (event.target.matches(".photo")) {
+                openModal(event.target.src);
+            }
+        } else {
+            if (event.target.matches("#image-modal-close") ||
+                !event.target.closest("#image-modal-content")) {
+                closeModal();
+            }
+        }
 
-    document.getElementById("image-modal-close").onclick = () => closeModal();
+        false
+    });
 
     disableButtons();
 })
