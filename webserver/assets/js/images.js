@@ -1,6 +1,8 @@
-function openModal(image) {
+function openModal(image, caption) {
+    console.log(image, caption);
     document.getElementById("image-modal").style.display = "block";
-    document.getElementById("image-modal-content").src = image;
+    document.getElementById("image-modal-image").src = image;
+    document.getElementById("image-modal-caption").innerHTML = caption;
 }
 
 function closeModal() {
@@ -36,14 +38,12 @@ function nextPage() {
 }
 
 function changePageSize() {
-    const query_params = new URLSearchParams(window.location.search);
-    let current = Number(query_params.get("page"));
     let page_size = Number(document.getElementById("gallery-page-size-select").value);
     if (page_size == 0) {
         page_size = 8;
     }
 
-    window.location.href = `/gallery?page=${current}&psize=${page_size}`
+    window.location.href = `/gallery?psize=${page_size}`
 }
 
 function changeView() {
@@ -57,12 +57,12 @@ function changeView() {
     } else if (view == 4) {
         document.getElementById("gallery-container").className = "view-grid-full";
     }
+    localStorage.setItem("view", view);
 }
 
 function disableButtons() {
-    const query_params = new URLSearchParams(window.location.search);
-    const page = Number(query_params.get("page"));
-    const pages = Number(document.getElementById("gallery-current").dataset.page);
+    const page = Number(document.getElementById("gallery-current").dataset.page);
+    const pages = Number(document.getElementById("gallery-current").dataset.pages);
 
     if (page <= 1) {
         document.getElementById("gallery-previous").disabled = true;
@@ -73,10 +73,16 @@ function disableButtons() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const view = localStorage.getItem("view");
+    if (view) {
+        document.getElementById("gallery-view-select").value = view;
+        changeView();
+    }
+
     document.addEventListener("click", (event) => {
         if (document.getElementById("image-modal").style.display === "none") {
             if (event.target.matches(".photo")) {
-                openModal(event.target.src);
+                openModal(event.target.src, event.target.alt);
             }
         } else {
             if (event.target.matches("#image-modal-close") ||

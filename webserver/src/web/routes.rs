@@ -5,7 +5,7 @@ use crate::{
     SharedState,
 };
 use axum::{
-    extract::{Query, State},
+    extract::{rejection::QueryRejection, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
@@ -38,41 +38,49 @@ pub struct GalleryQuery {
 }
 pub async fn gallery(
     State(state): State<SharedState>,
-    Query(query): Query<GalleryQuery>,
+    query: Result<Query<GalleryQuery>, QueryRejection>,
 ) -> impl IntoResponse {
-    let mut html = include_str!("../../html/images.html").to_string();
-    println!("Query: {:?}", query);
-
     let mut page: u32 = 1;
     let mut page_size: u32 = 8;
 
-    if let Some(p) = query.page {
-        if p > 0 {
-            page = p
+    match query {
+        Ok(q) => {
+            let params = q.0;
+            println!("Query: {:?}", params);
+
+            if let Some(p) = params.page {
+                if p > 0 {
+                    page = p
+                }
+            }
+            if let Some(sz) = params.psize {
+                if sz >= 4 && sz <= 24 {
+                    page_size = sz
+                }
+            }
         }
+        Err(e) => eprintln!("Error parsing query: {}", e),
     }
-    if let Some(p) = query.psize {
-        if p >= 4 && p <= 24 {
-            page_size = p
-        }
-    }
+
+    let mut html = include_str!("../../html/images.html").to_string();
 
     images::check_images(&state.db, &state.image_dir, false)
         .await
         .unwrap();
 
     if let Ok(count) = images::get_image_count(&state.db).await {
-        html = html.replace("<!--COUNT-->", &count.to_string());
-
         let mut last_on_page = (page * page_size) as u64;
         if last_on_page > count {
             last_on_page = count;
         }
 
+        html = html.replace("<!--COUNT-->", &count.to_string());
+
         let total_pages = (count + page_size as u64 - 1) / page_size as u64;
 
         let page_text = format!(
-            "\"{}\">{} - {} (of {} total)",
+            "data-page=\"{}\" data-pages=\"{}\">{} - {} (of {} total)",
+            page,
             total_pages,
             (page - 1) * page_size + 1,
             last_on_page,
@@ -81,21 +89,29 @@ pub async fn gallery(
         html = html.replace("<!--PAGE_TEXT-->", &page_text);
     } else {
         html = html.replace("<!--COUNT-->", "??");
-        html = html.replace("<!--PAGE_TEXT-->", "\"?\">? - ? (of ?? total)");
+        html = html.replace(
+            "<!--PAGE_TEXT-->",
+            "data-page=\"1\" data-pages=\"1\">? - ? (of ?? total)",
+        );
     }
 
-    let psize_ph_text = format!(
+    let psize_selected = format!(
         "<option value=\"{}\" disabled selected>{}</option>",
         page_size, page_size
     );
-    html = html.replace("<!--PSIZE-->", &psize_ph_text);
+    html = html.replace("<!--PSIZE-->", &psize_selected);
 
     match images::get_image_info(&state.db, page, page_size).await {
         Ok(images) => {
             if images.len() > 0 {
                 let html_images = images
                     .iter()
-                    .map(|image| format!("<img class=\"photo\" src=\"{}\"/>", image.web_path))
+                    .map(|image| {
+                        format!(
+                            "<img class=\"photo\" src=\"{}\" alt=\"{}\"/>",
+                            image.web_path, image.name
+                        )
+                    })
                     .collect::<Vec<String>>()
                     .join("\n");
 
