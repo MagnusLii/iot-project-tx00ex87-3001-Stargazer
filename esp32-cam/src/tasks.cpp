@@ -24,12 +24,11 @@
 #include "socket.h"
 #include "timesync-lib.hpp"
 #include "wireless.hpp"
+#include <map>
 #include <memory>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
-#include <map>
-#include "timesync-lib.hpp"
 
 #include "testMacros.hpp"
 
@@ -55,6 +54,13 @@ struct Handlers {
  * This function retrieves the `RequestHandler` object using the timer's ID, sends the user instructions
  * GET request to the web server request queue, and logs that the request has been sent.
  */
+void get_request_timer_callback(TimerHandle_t timer) {
+    RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
+    xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getUserInstructionsGETRequestptr(), 0);
+    DEBUG("GET request sent");
+}
+
+// does same as get_request_timer_callback but as a task
 void get_request_timer_task(void *pvParameters) {
     RequestHandler *requestHandler = (RequestHandler *)pvParameters;
     while (true) {
@@ -69,62 +75,67 @@ void get_request_timer_task(void *pvParameters) {
 // ----------------------------------------------------------
 
 void init_task(void *pvParameters) {
-    Handlers handlers;
+    int retries = 0;
+
+    auto handlers = std::make_shared<Handlers>();
 
     EspPicoCommHandler uartCommHandler(UART_NUM_0);
     WirelessHandler wifi;
-    handlers.wirelessHandler = std::make_shared<WirelessHandler>(wifi);
-    handlers.uartCommHandler = std::make_shared<EspPicoCommHandler>(uartCommHandler);
+    handlers->wirelessHandler = std::make_shared<WirelessHandler>(UART_NUM_0);
+    handlers->uartCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcard
-    SDcard sdcard("/sdcard");
-    while (sdcard.get_sd_card_status() != ESP_OK) {
+    auto sdcard = std::make_shared<SDcard>("/sdcard");
+    while (sdcard->get_sd_card_status() != ESP_OK) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        sdcard.mount_sd_card("/sdcard");
+        sdcard->mount_sd_card("/sdcard");
     }
 
-    handlers.sdcard = std::make_shared<SDcard>(sdcard);
+    handlers->sdcard = sdcard;
 
-    // Initialize wifi
-    wifi.connect(WIFI_SSID, WIFI_PASSWORD);
-    do {
-        vTaskDelay(10000 / portTICK_PERIOD_MS); // Give the wifi some time to connect
-        if (!wifi.isConnected()) {
-            wifi.disconnect();
-            wifi.connect(WIFI_SSID, WIFI_PASSWORD);
-        }
-    } while (!wifi.isConnected());
-    DEBUG("Connected to wifi");
+    // Initialize Wi-Fi
+    handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
+    while (!handlers->wirelessHandler->isConnected()) {
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        handlers->wirelessHandler->disconnect();
+        handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
+    }
+    DEBUG("Connected to Wi-Fi");
 
     // Initialize request handler
-    RequestHandler requestHandler(WEB_SERVER, WEB_PORT, WEB_TOKEN, std::make_shared<WirelessHandler>(wifi),
-                                  std::make_shared<SDcard>(sdcard));
-    DEBUG("RequestHandler created");
-    handlers.requestHandler = std::make_shared<RequestHandler>(requestHandler);
+    auto requestHandler =
+        std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler, handlers->sdcard);
+    handlers->requestHandler = requestHandler;
 
     // Initialize camera
-    Camera cameraPtr(std::make_shared<SDcard>(sdcard), requestHandler.getWebSrvRequestQueue());
-    handlers.cameraPtr = std::make_shared<Camera>(cameraPtr);
+    auto cameraPtr = std::make_shared<Camera>(sdcard, requestHandler->getWebSrvRequestQueue());
+    handlers->cameraPtr = cameraPtr;
 
     // Set timezone
-    set_tz(); // TODO: modiify to use provided tz.
+    set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
 
-
-    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 8192, &handlers, TaskPriorities::HIGH,
-                nullptr);
-    xTaskCreate(get_request_timer_task, "get_request_timer_task", 4096, &requestHandler, TaskPriorities::LOW, nullptr);
-    xTaskCreate(uart_read_task, "uart_read_task", 4096, &uartCommHandler, TaskPriorities::ABSOLUTE, nullptr);
-    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, &uartCommHandler, TaskPriorities::HIGH, nullptr);
-
-    // xTaskCreate(take_picture_and_save_to_sdcard_in_loop_task, "take_picture_and_save_to_sdcard_in_loop_task", 4096,
-    //             (void *)&cameraPtr, TaskPriorities::HIGH, NULL);
-
-    int counter = 0;
-    while (true) {
-        counter++;
-        DEBUG("Init task running, counter: ", counter);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // Create a timer to fetch user instructions from the web server
+    TimerHandle_t getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
+                                                 requestHandler.get(), get_request_timer_callback);
+    while (getRequestTimer == NULL && retries < RETRIES) {
+        getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
+                                       requestHandler.get(), get_request_timer_callback);
+        retries++;
     }
+    if (getRequestTimer != NULL) {
+        xTimerStart(getRequestTimer, 0);
+    } else {
+        DEBUG("Failed to create GET request timer");
+    }
+
+    // Create tasks
+    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 8192, handlers.get(), TaskPriorities::HIGH,
+                nullptr);
+    xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
+    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
+
+    DEBUG("Initialization complete. Deleting init task.");
+    vTaskDelete(NULL);
 }
 
 // Sends requests to the web server
@@ -171,13 +182,19 @@ void send_request_to_websrv_task(void *pvParameters) {
                     }
 
                     // create instructions uart message
-                    uart_msg = msg::instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
+                    uart_msg =
+                        msg::instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
                     convert_to_string(uart_msg, uart_msg_str);
 
                     // Send the message to the Pico
                     uartCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
 
                     // TODO: Add timer to wait for response
+                    // requestHandler->setWaitingForConfirmation(true);
+                    // while (requestHandler->isWaitingForConfirmation() && response_retry < RETRIES) {
+                    //     vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
+                    //     response_retry++;
+                    // }
 
                     // Clear variables
                     parsed_results.clear();
@@ -210,11 +227,14 @@ void send_request_to_websrv_task(void *pvParameters) {
 // Reads uart and enqueues received buffer to queue.
 void uart_read_task(void *pvParameters) {
     DEBUG("uart_read_task started");
-    EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
+    Handlers *handlers = (Handlers *)pvParameters;
+    EspPicoCommHandler *uartCommHandler = handlers->uartCommHandler.get();
     uart_event_t event;
 
     UartReceivedData receivedData;
     int retries = 0;
+    std::string string;
+    msg::Message msg;
 
     while (true) {
         if (xQueueReceive(uartCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
@@ -226,14 +246,20 @@ void uart_read_task(void *pvParameters) {
                     receivedData.buffer[receivedData.len] = '\0'; // Null-terminate the received string
                                                                   // TODO: Process the received data
 
-                    while (xQueueSend(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, 0) !=
-                               pdTRUE &&
-                           retries < RETRIES) {
-                        DEBUG("Failed to enqueue received data, retrying...");
-                        retries++;
+                    if (uartCommHandler->get_waiting_for_response()) {
+                        uartCommHandler->check_if_confirmation_msg(receivedData);
+                    } else {
+                        while (xQueueSend(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, 0) !=
+                                   pdTRUE &&
+                               retries < RETRIES) {
+                            DEBUG("Failed to enqueue received data, retrying...");
+                            retries++;
+                        }
+                        if (retries >= RETRIES) {
+                            DEBUG("Failed to enqueue received data after ", RETRIES, " attempts");
+                        }
+                        retries = 0;
                     }
-                    if (retries >= RETRIES) { DEBUG("Failed to enqueue received data after ", RETRIES, " attempts"); }
-                    retries = 0;
                     break;
 
                 default:
@@ -248,9 +274,9 @@ void uart_read_task(void *pvParameters) {
 
 void handle_uart_data_task(void *pvParameters) {
     DEBUG("handle_uart_data_task started");
-    EspPicoCommHandler *uartCommHandler = (EspPicoCommHandler *)pvParameters;
+    Handlers *handlers = (Handlers *)pvParameters;
+    EspPicoCommHandler *uartCommHandler = handlers->uartCommHandler.get();
     UartReceivedData receivedData;
-    int retries = 0;
 
     std::string string;
     msg::Message msg;
@@ -266,11 +292,7 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::RESPONSE:
-                        if (msg.content[0] == "1") {
-                            uartCommHandler->disable_response_wait_timer();
-                        } else {
-                            DEBUG("Response returned false");
-                        }
+                        DEBUG("Response message not filtered before reaching handle_uart_data_task");
                         break;
 
                     case msg::MessageType::DATETIME:
@@ -278,10 +300,9 @@ void handle_uart_data_task(void *pvParameters) {
                             msg = msg::datetime_response(get_datetime());
                             convert_to_string(msg, string);
                             uartCommHandler->send_data(string.c_str(), string.length());
-                            while (uartCommHandler->set_response_wait_timer(string) == false && retries < RETRIES) {
-                                vTaskDelay(1000 / portTICK_PERIOD_MS);
-                                retries++;
-                            }
+
+                            // Waiting for confirmation response
+                            uartCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length());
                             string.clear();
                         } else {
                             DEBUG("Datetime request first value is not 1");
@@ -315,7 +336,6 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
                 }
 
-                retries = 0;
             } else {
                 // TODO: Handle failed conversion or something idk...
                 DEBUG("Failed to convert received data to message");
