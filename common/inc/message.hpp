@@ -38,6 +38,7 @@ Message response(bool ack);
 Message datetime_request();
 Message datetime_response(int datetime);
 Message esp_init(bool success);
+Message instructions(const std::string celestial_obj_id, const std::string instruction_identifier_id, const std::string image_position_id);
 Message instructions(int object_id, int image_id, int position_id);
 Message instructions(const std::string object_id, const std::string image_id, const std::string position_id);
 Message cmd_status(int image_id, int status, int datetime);
