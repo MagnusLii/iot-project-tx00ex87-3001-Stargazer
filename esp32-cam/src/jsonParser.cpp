@@ -16,11 +16,11 @@ int JsonParser::parse(const std::string &json, std::map<std::string, std::string
             if (parseString(json, pos, &key) != 0) return -2; // Error in parsing
             skipWhitespace(json, pos);
 
-            // Expect a colon after the key
+            // Expect ":" after the key
             if (pos >= json.length() || json[pos] != ':') {
                 return 3; // Missing ":"
             }
-            pos++; // Skip the colon
+            pos++; // Skip ":"
             skipWhitespace(json, pos);
 
             std::string value;
