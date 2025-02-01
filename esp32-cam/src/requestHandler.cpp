@@ -23,7 +23,8 @@
 #include <string.h>
 
 RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
-                               std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler) {
+                               std::shared_ptr<WirelessHandler> wirelessHandler,
+                               std::shared_ptr<SDcardHandler> sdcardHandler) {
     this->webServer = webServer;
     this->webPort = webPort;
     this->webServerToken = webServerToken;
@@ -50,8 +51,27 @@ RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::strin
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr) {
-    // Implement when requests are more clear.
+RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr, const int image_id,
+                                                                std::string base64_image_data) {
+    *requestPtr = "POST "
+                  "/api/upload?token=" +
+                  this->webServerToken +
+                  " HTTP/1.0\r\n"
+                  "Host: " +
+                  this->webServer + ":" + this->webPort +
+                  "\r\n"
+                  "User-Agent: esp-idf/1.0 esp32\r\n"
+                  "Connection: keep-alive\r\n"
+                  "Content-Type: application/json\r\n"
+                  "Content-Length: " +
+                  std::to_string(base64_image_data.length()) +
+                  "\r\n"
+                  "\r\n"
+                  "{"
+                  "\"token\":\"" +
+                  this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + ",\"image\":\"" +
+                  base64_image_data + "\"" + "}\r\n";
+
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -117,7 +137,7 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
-RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage* response) {
+RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
     // Lock mutex
     if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
         DEBUG("Failed to take request mutex");
@@ -208,7 +228,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     // } while (read_result > 0);
     // receive_buffer[iterator] = '\0'; // Null-terminate the response
 
-
     DEBUG("\n... done reading from socket. Last read return=", read_result, " errno=", errno);
     DEBUG(receive_buffer, "\n");
     close(socket_descriptor);
@@ -246,7 +265,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-int RequestHandler::parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size) {
+int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const int buffer_size) {
     std::string response(responseBuffer->str_buffer, buffer_size);
 
     DEBUG("Response: ", response.c_str());

@@ -27,6 +27,7 @@ struct QueueMessage {
     char str_buffer[BUFFER_SIZE];
     int buffer_length;
     char imageFilename[BUFFER_SIZE];
+    int image_id;
     RequestType requestType;
 };
 
@@ -48,7 +49,7 @@ class RequestHandler {
     // TODO: Add destructor
 
     RequestHandlerReturnCode createDiagnosticsPOSTRequest(std::string *requestPtr);
-    RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr);
+    RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
     RequestHandlerReturnCode createUserInstructionsGETRequest(std::string *requestPtr);
     QueueMessage *getUserInstructionsGETRequestptr();
 
