@@ -24,6 +24,7 @@
 #include "socket.h"
 #include "timesync-lib.hpp"
 #include "wireless.hpp"
+#include <esp_task_wdt.h>
 #include <map>
 #include <memory>
 #include <stdio.h>
@@ -149,6 +150,7 @@ void init_task(void *pvParameters) {
 // Sends requests to the web server
 void send_request_to_websrv_task(void *pvParameters) {
     DEBUG("send_request_to_websrv_task started");
+
     Handlers *handlers = (Handlers *)pvParameters;
 
     RequestHandler *requestHandler = handlers->requestHandler.get();
@@ -290,7 +292,7 @@ void handle_uart_data_task(void *pvParameters) {
     msg::Message msg;
 
     while (true) {
-        if (xQueueReceive(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, portMAX_DELAY) ==
+        if (xQueueReceive(uartCommHandler->get_uart_received_data_queue_handle(), &receivedData, ) ==
             pdTRUE) {
             string = receivedData.buffer;
             if (msg::convert_to_message(string, msg) == 0) {
