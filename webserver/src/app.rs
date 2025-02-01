@@ -100,7 +100,7 @@ impl App {
             .nest_service("/assets", ServeDir::new("assets"))
             .fallback(routes::unknown_route);
 
-        let listener = TcpListener::bind(address).await.unwrap();
+        let listener = TcpListener::bind(address).await?;
 
         println!("Listening on: http://{}", address);
 
