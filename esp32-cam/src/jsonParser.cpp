@@ -81,31 +81,3 @@ int JsonParser::parseValue(const std::string &str, size_t &pos, std::string *res
     *result = buffer.str();
     return 0;
 }
-
-// TEST
-// int main() {
-//     std::string json = "{\"key1\": \"value1\", \"key2\": \"value2\", \"key3\": \"value3\"}";
-//     std::map<std::string, std::string> parsedJson;
-//     int status = JsonParser::parse(json, &parsedJson);
-
-//     if (status == 0) {
-//         for (const auto &[key, value] : parsedJson) {
-//             std::cout << key << ": " << value << std::endl;
-//         }
-//     } else {
-//         std::cerr << "Parsing failed with error code: " << status << std::endl;
-//     }
-
-//     json = R"({"name": "John", "age": "30", "city": "New York"})";
-//     status = JsonParser::parse(json, &parsedJson);
-
-//     if (status == 0) {
-//         for (const auto &[key, value] : parsedJson) {
-//             std::cout << key << ": " << value << std::endl;
-//         }
-//     } else {
-//         std::cerr << "Parsing failed with error code: " << status << std::endl;
-//     }
-
-//     return 0;
-// }
