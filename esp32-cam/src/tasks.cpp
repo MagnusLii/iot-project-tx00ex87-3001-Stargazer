@@ -31,7 +31,7 @@
 #include <string.h>
 #include <vector>
 
-#include "testMacros.hpp"
+#include "testMacros.hpp" // TODO: remove after testing
 
 struct Handlers {
     std::shared_ptr<WirelessHandler> wirelessHandler;
@@ -72,6 +72,32 @@ void get_request_timer_task(void *pvParameters) {
     }
 }
 
+bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t ticks_to_wait, int retries) {
+    while (retries > 0) {
+        if (xQueueSend(queue, item, ticks_to_wait) == pdTRUE) { return true; }
+        retries--;
+    }
+    return false;
+}
+
+bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filename, std::string &file_data,
+                          int retries) {
+    while (retries > 0) {
+        if (sdcardHandler->read_file(filename.c_str(), file_data) == 0) { return true; }
+        retries--;
+    }
+    return false;
+}
+
+bool read_file_with_retry_base64(SDcardHandler *sdcardHandler, const std::string &filename, std::string &file_data,
+                                 int retries) {
+    while (retries > 0) {
+        if (sdcardHandler->read_file(filename.c_str(), file_data) == 0) { return true; }
+        retries--;
+    }
+    return false;
+}
+
 // ----------------------------------------------------------
 // ------------------------TASKS-----------------------------
 // ----------------------------------------------------------
@@ -92,8 +118,10 @@ void init_task(void *pvParameters) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         sdcardHandler->mount_sd_card("/sdcard");
     }
-
     handlers->sdcardHandler = sdcardHandler;
+
+    // TODO: clear the sd card if needed
+    // TODO: read settings from sd card
 
     // Initialize Wi-Fi
     handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
@@ -105,8 +133,8 @@ void init_task(void *pvParameters) {
     DEBUG("Connected to Wi-Fi");
 
     // Initialize request handler
-    auto requestHandler =
-        std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler, handlers->sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler,
+                                                           handlers->sdcardHandler);
     handlers->requestHandler = requestHandler;
 
     // Initialize camera
@@ -144,6 +172,23 @@ void init_task(void *pvParameters) {
     convert_to_string(msg, msg_str);
     espPicoCommHandler.send_data(msg_str.c_str(), msg_str.length());
 
+    // Initialize watchdog for tasks
+#ifdef WATCHDOG_MONITOR_IDLE_TASKS
+    // Monitors idle tasks on both cores as we've multiple tasks that may be idle indefinetly as they wait for events.
+    const esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = TASK_WATCHDOG_TIMEOUT,
+        .idle_core_mask = (1 << 0) | (1 << 1), // Monitor core 0 and 1
+        .trigger_panic = true                  // Trigger panic on timeout
+    };
+
+    esp_err_t err = esp_task_wdt_init(&twdt_config);
+    if (err == ESP_OK) {
+        printf("Task Watchdog initialized successfully for both cores.\n");
+    } else {
+        printf("Failed to initialize Task Watchdog: %d\n", err);
+    }
+#endif
+
     vTaskDelete(NULL);
 }
 
@@ -160,11 +205,14 @@ void send_request_to_websrv_task(void *pvParameters) {
     QueueMessage request;
     QueueMessage response;
     std::map<std::string, std::string> parsed_results;
-    std::string response_str;
+    std::string string;
 
     // Used for sending instructions to the Pico
     msg::Message uart_msg;
     std::string uart_msg_str;
+
+    SDcardHandler *sdcardHandler = handlers->sdcardHandler.get();
+    std::string file_data;
 
     while (true) {
         // Wait for a request to be available
@@ -177,8 +225,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Parse the response
                     DEBUG("Response: ", response.str_buffer);
-                    response_str = response.str_buffer;
-                    if (JsonParser::parse(response_str, &parsed_results) != 0) {
+                    string = response.str_buffer;
+                    if (JsonParser::parse(string, &parsed_results) != 0) {
                         DEBUG("Failed to parse response");
                         break;
                     }
@@ -204,13 +252,31 @@ void send_request_to_websrv_task(void *pvParameters) {
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
                     uart_msg_str.clear();
-
                     break;
                 case RequestType::POST_IMAGE:
                     DEBUG("POST_IMAGE request received");
+
+                    // read image from sd card in base64
+                    if (read_file_with_retry_base64(sdcardHandler, request.imageFilename, file_data, RETRIES) ==
+                        false) {
+                        DEBUG("Failed to read image file");
+                        break;
+                    }
+
                     // Create a POST request
-                    // Add image link to the request
+                    requestHandler->createImagePOSTRequest(&string, request.image_id, file_data);
+                    strncpy(request.str_buffer, string.c_str(), string.length());
+                    request.str_buffer[string.length()] = '\0';
+                    request.buffer_length = string.length();
+
                     // Send the request and enqueue the response
+                    requestHandler->sendRequest(request, &response);
+
+                    // Clear variables
+                    response.buffer_length = 0;
+                    response.str_buffer[0] = '\0';
+                    file_data.clear();
+                    string.clear();
                     break;
                 case RequestType::POST_DIAGNOSTICS:
                     DEBUG("POST_DIAGNOSTICS request received");
@@ -235,7 +301,6 @@ void uart_read_task(void *pvParameters) {
     uart_event_t event;
 
     UartReceivedData uartReceivedData;
-    int retries = 0;
     std::string string;
     msg::Message msg;
 
@@ -244,23 +309,18 @@ void uart_read_task(void *pvParameters) {
 
             switch (event.type) {
                 case UART_DATA:
-                    uartReceivedData.len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)uartReceivedData.buffer,
-                                                       sizeof(uartReceivedData.buffer), pdMS_TO_TICKS(10));
+                    uartReceivedData.len =
+                        uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)uartReceivedData.buffer,
+                                        sizeof(uartReceivedData.buffer), pdMS_TO_TICKS(10));
                     uartReceivedData.buffer[uartReceivedData.len] = '\0'; // Null-terminate the received string
 
                     if (espPicoCommHandler->get_waiting_for_response()) {
                         espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
                     } else {
-                        while (xQueueSend(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData, 0) !=
-                                   pdTRUE &&
-                               retries < RETRIES) {
-                            DEBUG("Failed to enqueue received data, retrying...");
-                            retries++;
+                        if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
+                                               &uartReceivedData, 0, RETRIES) == false) {
+                            DEBUG("Failed to enqueue received data");
                         }
-                        if (retries >= RETRIES) {
-                            DEBUG("Failed to enqueue received data after ", RETRIES, " attempts");
-                        }
-                        retries = 0;
                     }
                     break;
 
@@ -279,14 +339,17 @@ void handle_uart_data_task(void *pvParameters) {
     Handlers *handlers = (Handlers *)pvParameters;
     EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
     UartReceivedData uartReceivedData;
+
     CameraHandler *cameraHandler = handlers->cameraHandler.get();
+    std::string filepath;
+    QueueMessage request;
 
     std::string string;
     msg::Message msg;
 
     while (true) {
-        if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData, portMAX_DELAY) ==
-            pdTRUE) {
+        if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
+                          portMAX_DELAY) == pdTRUE) {
             string = uartReceivedData.buffer;
             if (msg::convert_to_message(string, msg) == 0) {
                 switch (msg.type) {
@@ -321,15 +384,37 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::PICTURE:
-                        // TODO: TAKE PICTURE
+                        // Send confirmation message
+                        // TODO: maybe handle confirmation message in uart_read_task
+                        msg = msg::response(true);
+                        convert_to_string(msg, string);
+                        espPicoCommHandler->send_data(string.c_str(), string.length());
 
+                        // Take picture and save to sd card
+                        cameraHandler->create_image_filename(filepath);
+                        cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
 
-                        // TODO: enqueue post req
+                        // Create queue message for enqueuing
+                        request.requestType = RequestType::POST_IMAGE;
+                        if (filepath.size() < BUFFER_SIZE) {
+                            strncpy(request.imageFilename, filepath.c_str(), filepath.size());
+                            request.imageFilename[filepath.size()] = '\0';
+                            DEBUG("Image filename: ", request.imageFilename);
+                        } else {
+                            DEBUG("Filename too long");
+                            break;
+                        }
 
-                        // msg = response(true);
-                        // convert_to_string(msg, string);
-                        // espPicoCommHandler->send_data(string.c_str(), string.length());
-                        // break;
+                        // store image/command id in request
+                        request.image_id = std::stoi(msg.content[1]);
+                        DEBUG("Image ID: ", request.image_id);
+
+                        // Enqueue the request
+                        if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
+                                               RETRIES) == false) {
+                            DEBUG("Failed to enqueue POST_IMAGE request");
+                        }
+                        break;
 
                     case msg::MessageType::DIAGNOSTICS:
                         // TODO: Gather diagnostics data

@@ -56,23 +56,6 @@ void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-// Initialize watchdog for tasks
-#ifdef WATCHDOG_MONITOR_IDLE_TASKS
-    // Monitors idle tasks on both cores as we've multiple tasks that may be idle indefinetly as they wait for events.
-    const esp_task_wdt_config_t twdt_config = {
-        .timeout_ms = TASK_WATCHDOG_TIMEOUT,   // 5-second timeout
-        .idle_core_mask = (1 << 0) | (1 << 1), // Monitor core 0 and 1
-        .trigger_panic = true                  // Trigger panic on timeout
-    };
-
-    esp_err_t err = esp_task_wdt_init(&twdt_config);
-    if (err == ESP_OK) {
-        printf("Task Watchdog initialized successfully for both cores.\n");
-    } else {
-        printf("Failed to initialize Task Watchdog: %d\n", err);
-    }
-#endif
-
 #ifdef WRITE_READ_SETTINGS_TEST
     int retries = 0;
     std::vector<std::string> settings = {"WIFI_SSID", "WIFI_PASSWORD", "WEB_PATH", "WEB_PORT"};
