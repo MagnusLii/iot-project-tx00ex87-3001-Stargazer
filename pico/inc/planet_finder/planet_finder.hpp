@@ -91,7 +91,7 @@ class Celestial {
         Celestial(Planets planet);
         azimuthal_coordinates get_coordinates(const datetime_t &date);
         // void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
-        // void print_coordinate_table(void);
+        void print_coordinates(const datetime_t start_date, int hours);
         datetime_t get_interest_point_time(Interest_point point,const datetime_t &start_date);
         void set_observer_coordinates(const Coordinates observer_coordinates);
     private:

@@ -187,20 +187,22 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
 // }
 
 
-// void Celestial::print_coordinate_table(void) {
-//     std::cout << (int)table_start_date.year << ", " << (int)table_start_date.month << ", " << (int)table_start_date.day << ", " << (int)table_start_date.hour << ", " << (int)table_start_date.min << std::endl;
-//     std::cout << (int)table_stop_date.year << ", " << (int)table_stop_date.month << ", " << (int)table_stop_date.day << ", " << (int)table_stop_date.hour << ", " << (int)table_stop_date.min << std::endl;
-//     for (int i=0; i<TABLE_LEN; i++) {
-//         std::cout << coordinate_table[i].altitude << ", " << coordinate_table[i].azimuth << std::endl;
-//     }
-//     std::cout << "end" << std::endl;
-// }
+void Celestial::print_coordinates(datetime_t start_date, int hours) {
+    std::cout << (int)start_date.year << ", " << (int)start_date.month << ", " << (int)start_date.day << ", " << (int)start_date.hour << ", " << (int)start_date.min << std::endl;
+
+    for (int i=0; i<hours; i++) {
+        azimuthal_coordinates coord = get_coordinates(start_date);
+        std::cout << coord.altitude << ", " << coord.azimuth << std::endl;
+        datetime_increment_hour(start_date);
+    }
+    std::cout << "end" << std::endl;
+}
 
 datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
     datetime_t date = get_zenith_time(start_date);
 
     
-    return start_date;
+    return date;
 }
 
 datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
@@ -216,7 +218,6 @@ datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
     int i = 0;
     while (!done) {
         if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
-            result_date = iter_date;
             done = true;
         }
         if (i >= 48) { // two days
@@ -225,6 +226,7 @@ datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
         }
         i++;
         if (!done) {
+            result_date = iter_date;
             datetime_increment_hour(iter_date);
             last = current;
             current = next;
