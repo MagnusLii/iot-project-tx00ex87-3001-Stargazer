@@ -3,9 +3,10 @@ use crate::{
     err::Error,
 };
 use axum::{
+    body::Body,
     extract::{Json, Query},
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
 use axum_login::AuthUser;
 use serde::{Deserialize, Serialize};
@@ -55,12 +56,10 @@ pub async fn new_user(auth_session: AuthSession, user: Json<Credentials>) -> imp
         return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
     }
 
-    dbg!("Attempting to add user: {}", &user.username);
-    if let Ok(_) = auth_session.backend.add_user(user.0).await {
-        (StatusCode::OK, "User added").into_response()
-    } else {
-        eprintln!("Error adding user");
-        (StatusCode::INTERNAL_SERVER_ERROR, "Error adding user").into_response()
+    println!("Attempting to add user: {}", &user.username);
+    match auth_session.backend.add_user(user.0).await {
+        Ok(_) => (StatusCode::OK, "User added").into_response(),
+        Err(e) => user_mod_err_handling(e),
     }
 }
 
@@ -79,7 +78,7 @@ pub async fn remove_user(
         return (StatusCode::FORBIDDEN, "Not authorized").into_response();
     }
 
-    dbg!("Attempting to remove user: {}", user.id);
+    println!("Attempting to remove user: {}", user.id);
     if user_session.id == user.id {
         (StatusCode::FORBIDDEN, "Can't remove yourself").into_response()
     } else {
@@ -131,35 +130,7 @@ pub async fn modify_user(
             .await
         {
             Ok(_) => println!("Changed username of user: {}", target_user_id),
-            Err(e) => match e {
-                Error::Sqlx(e) => match e {
-                    sqlx::Error::RowNotFound => {
-                        println!("Error: User not found");
-                        return (StatusCode::BAD_REQUEST, "User not found").into_response();
-                    }
-                    sqlx::Error::Database(e) => {
-                        if e.is_unique_violation() {
-                            println!("Error: Username already in use");
-                            return (StatusCode::BAD_REQUEST, "Username already in use")
-                                .into_response();
-                        } else {
-                            println!("Database Error: {}", e);
-                            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
-                                .into_response();
-                        }
-                    }
-                    _ => {
-                        println!("Sqlx Error: {}", e);
-                        return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
-                            .into_response();
-                    }
-                },
-                _ => {
-                    println!("Other Error: {}", e);
-                    return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
-                        .into_response();
-                }
-            },
+            Err(e) => return user_mod_err_handling(e),
         }
     }
 
@@ -181,4 +152,20 @@ pub async fn modify_user(
     }
 
     (StatusCode::OK, "User modified").into_response()
+}
+
+fn user_mod_err_handling(err: Error) -> Response<Body> {
+    match err {
+        Error::Sqlx(e) => match e {
+            sqlx::Error::Database(e) => {
+                if e.is_unique_violation() {
+                    (StatusCode::BAD_REQUEST, "Username already in use").into_response()
+                } else {
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Error adding user").into_response()
+                }
+            }
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Error adding user").into_response(),
+        },
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, "Error adding user").into_response(),
+    }
 }

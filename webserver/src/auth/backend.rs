@@ -47,10 +47,19 @@ impl Backend {
         Ok(())
     }
 
-    pub async fn get_users(&self) -> Result<Vec<User>, Error> {
-        let users = sqlx::query_as("SELECT * FROM users")
-            .fetch_all(&self.db)
-            .await?;
+    pub async fn get_users(&self, privileged: Option<bool>) -> Result<Vec<User>, Error> {
+        let users: Vec<User>;
+
+        if let Some(privileged) = privileged {
+            users = sqlx::query_as("SELECT * FROM users WHERE superuser = ?")
+                .bind(privileged)
+                .fetch_all(&self.db)
+                .await?;
+        } else {
+            users = sqlx::query_as("SELECT * FROM users")
+                .fetch_all(&self.db)
+                .await?;
+        }
 
         Ok(users)
     }

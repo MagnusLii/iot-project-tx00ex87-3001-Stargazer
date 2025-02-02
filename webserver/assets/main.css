@@ -498,13 +498,14 @@ body {
 
 /* USERS */
 
-
-/* USER */
-
-#modify-user .row {
-    padding: 10px;
+#input-user .row {
+    padding: 5px 0;
 }
 
-#modify-user-message {
+#feedback-user-message {
     min-height: 30px;
+}
+
+#users button {
+    margin-left: 10px
 }

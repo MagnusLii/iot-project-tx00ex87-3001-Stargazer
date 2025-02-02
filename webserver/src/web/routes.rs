@@ -251,12 +251,23 @@ pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
 
     let mut html = include_str!("../../html/user_management.html").to_string();
 
-    if let Ok(users) = auth_session.backend.get_users().await {
+    if let Ok(admins) = auth_session.backend.get_users(Some(true)).await {
+        let html_admins = admins
+            .iter()
+            .map(|user| format!("<li value=\"{}\">{}</li>", user.id, user.username))
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--ADMINS-->", &html_admins);
+    } else {
+        html = html.replace("<!--ADMINS-->", "<section>Error loading admins</section>");
+    }
+
+    if let Ok(users) = auth_session.backend.get_users(Some(false)).await {
         let html_users = users
             .iter()
             .map(|user| {
                 format!(
-                    "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button>",
+                    "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button></li>",
                     user.id, user.username, user.id
                 )
             })
