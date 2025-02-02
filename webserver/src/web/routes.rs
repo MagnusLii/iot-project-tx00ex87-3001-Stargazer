@@ -200,7 +200,7 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
         .iter()
         .map(|key| {
             format!(
-                "<li value=\"{}\">{}: {}</li><button onclick=\"deleteKey({})\">Delete</button>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
                 key.id, key.name, key.api_token, key.id
             )
         })
