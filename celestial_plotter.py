@@ -6,16 +6,14 @@ import datetime
 
 
 
-port = serial.Serial('/dev/ttyACM0', 115200)
+port = serial.Serial('COM7', 115200)
 done = False
 
 altitudes = []
 azimuths = []
 print("reading...")
 start_date_str = port.readline().decode("utf-8").strip().replace('\0', '')
-stop_date_str = port.readline().decode("utf-8").strip().replace('\0', '')
 start_date = datetime.datetime.strptime(start_date_str, "%Y, %m, %d, %H, %M")
-dates = [start_date + datetime.timedelta(hours=x) for x in range(24)]
 while not done:
     string = port.readline().decode("utf-8").strip().replace('\0', '')
     print(string)
@@ -28,8 +26,8 @@ while not done:
         azimuths.append(math.degrees(float(azimuth)))
 
 
-hours = [x for x in range(24)]
-
+dates = [start_date + datetime.timedelta(hours=x) for x in range(len(altitudes))]
+port.close()
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H'))
 plt.gca().xaxis.set_major_locator(mdates.HourLocator())
 
