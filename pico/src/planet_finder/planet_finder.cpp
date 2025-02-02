@@ -197,35 +197,44 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
 // }
 
 datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+    datetime_t date = get_zenith_time(start_date);
+
+    
+    return start_date;
+}
+
+datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
     datetime_t iter_date = start_date;
-    datetime_t top_date{0};
-    datetime_t bottom_date{0};
+    datetime_t result_date{0};
     azimuthal_coordinates last = get_coordinates(iter_date);
     datetime_increment_hour(iter_date);
     azimuthal_coordinates current = get_coordinates(iter_date);
     datetime_increment_hour(iter_date);
     azimuthal_coordinates next = get_coordinates(iter_date);
     bool done = false;
-    bool top_done = false;
-    bool bottom_done = false;
+    bool error = false;
+    int i = 0;
     while (!done) {
-        if ((last.altitude < current.altitude) && (next.altitude < current.altitude) && !top_done) {
-            if (point == ZENITH) done = true;
-            top_date = iter_date;
-            top_done = true;
-        } else if ((last.altitude > current.altitude) && (next.altitude > current.altitude) && !bottom_done) {
-            bottom_date = iter_date;
-            bottom_done = true;
+        if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
+            result_date = iter_date;
+            done = true;
         }
-        if (top_done && bottom_done) done = true;
-        datetime_increment_hour(iter_date);
-        last = current;
-        current = next;
-        next = get_coordinates(iter_date);
+        if (i >= 48) { // two days
+            done = true;
+            error = true;
+        }
+        i++;
+        if (!done) {
+            datetime_increment_hour(iter_date);
+            last = current;
+            current = next;
+            next = get_coordinates(iter_date);
+        }
     }
-
-    
-    return start_date;
+    if (error) { // -1 year means no date could be found in 2 days
+        result_date.year = -1;
+    }
+    return result_date;
 }
 
 void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
