@@ -10,7 +10,6 @@
 class Controller {
   public:
     enum State {
-        INIT,
         SLEEP,
         COMM_READ,
         COMM_PROCESS,
@@ -27,7 +26,7 @@ class Controller {
 
   private:
     bool init();
-    void comm_read();
+    // void comm_read();
     void comm_process();
     void instr_process();
     void motor_control();
@@ -35,10 +34,10 @@ class Controller {
 
   private:
     bool initialized = false;
-    State state;
-    std::queue<msg::Message> new_instr_queue;
-
-    // TODO: Something where instructions are stored?
+    State state; // TODO: How do we handle state changes that are external to the loop?
+                 // Do we need timers?
+                 // ...
+    std::queue<msg::Message> instr_msg_queue;
 
     std::shared_ptr<Clock> clock;
     std::shared_ptr<GPS> gps;

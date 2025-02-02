@@ -1,7 +1,6 @@
 #include "controller.hpp"
 
 #include "debug.hpp"
-#include "message.hpp"
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<std::queue<msg::Message>> msg_queue)
@@ -34,7 +33,6 @@ void Controller::run() {
                 }
             case COMM_PROCESS:
                 comm_process();
-                break;
             case INSTR_PROCESS:
                 instr_process();
                 break;
@@ -43,6 +41,10 @@ void Controller::run() {
                 break;
             case CAMERA_EXECUTE:
                 commbridge->send(msg::picture(object_id, image_id));
+                break;
+            case SLEEP: // TODO: Go here after full round of nothing to do?
+                DEBUG("Sleeping");
+                // TODO: Sleeping
                 break;
             default:
                 DEBUG("Unknown state: ", state);
@@ -53,6 +55,7 @@ void Controller::run() {
 }
 
 bool Controller::init() {
+    DEBUG("Initializing");
     bool result = false;
     int attempts = 0;
 
@@ -61,19 +64,23 @@ bool Controller::init() {
     compass->calibrate();
     // Motor calibration
     while (!result && attempts < 9) {
-        comm_process();
-        gps->locate_position(3);
+        if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
+        gps->locate_position(2);
         if (gps->get_coordinates().status && clock->is_synced()) { result = true; }
         attempts++;
+
+        result = true; // TODO: Remove
     }
 
     return result;
 }
 
-void Controller::comm_read() {}
+//void Controller::comm_read() {}
 
 void Controller::comm_process() {
+    DEBUG("Processing messages");
     while (msg_queue->size() > 0) {
+        DEBUG(msg_queue->size());
         msg::Message msg = msg_queue->front();
 
         switch (msg.type) {
@@ -90,6 +97,7 @@ void Controller::comm_process() {
                 break;
             case msg::INSTRUCTIONS: // Store/Process instructions
                 DEBUG("Received instructions");
+                instr_msg_queue.push(msg);
                 break;
             default:
                 DEBUG("Unexpected message type: ", msg.type);
@@ -101,13 +109,18 @@ void Controller::comm_process() {
 }
 
 void Controller::instr_process() {
-    if (new_instr_queue.size() > 0) {
+    DEBUG("Processing instructions");
+    if (instr_msg_queue.size() > 0) {
         // TODO: Process instructions
-        msg::Message instr = new_instr_queue.front();
-        new_instr_queue.pop();
+        msg::Message instr = instr_msg_queue.front();
+        for (auto &val : instr.content) {
+            DEBUG(val);
+        }
+        instr_msg_queue.pop();
     }
 }
 
 void Controller::motor_control() {
+    DEBUG("Controlling motors");
     // TODO: Control motors to adjust the camera in the direction of the object
 }
