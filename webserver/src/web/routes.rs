@@ -240,13 +240,13 @@ pub async fn diagnostics(
 }
 
 pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
+    let forbidden = include_str!("../../html/user_management_403.html").to_string();
     if let Some(user) = auth_session.user {
         if user.superuser != true {
-            return (
-                StatusCode::FORBIDDEN,
-                Html(include_str!("../../html/403.html").to_string()),
-            );
+            return (StatusCode::FORBIDDEN, Html(forbidden));
         }
+    } else {
+        return (StatusCode::FORBIDDEN, Html(forbidden));
     }
 
     let mut html = include_str!("../../html/user_management.html").to_string();

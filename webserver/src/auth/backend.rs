@@ -66,8 +66,14 @@ impl Backend {
     }
 
     pub async fn change_password(&self, id: i64, password: String) -> Result<(), Error> {
+        #[cfg(feature = "pw_hash")]
+        let pw = password::generate_phc_string(&password)?;
+
+        #[cfg(not(feature = "pw_hash"))]
+        let pw = password;
+
         sqlx::query("UPDATE users SET password = ? WHERE id = ?")
-            .bind(password)
+            .bind(pw)
             .bind(id)
             .execute(&self.db)
             .await?;

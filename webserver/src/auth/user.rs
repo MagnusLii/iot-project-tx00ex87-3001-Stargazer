@@ -1,4 +1,7 @@
-use crate::auth::{backend::Credentials, login::AuthSession};
+use crate::{
+    auth::{backend::Credentials, login::AuthSession, password},
+    err::Error,
+};
 use axum::{
     extract::{Json, Query},
     http::StatusCode,
@@ -48,14 +51,15 @@ pub async fn new_user(auth_session: AuthSession, user: Json<Credentials>) -> imp
     if !user.username.chars().all(char::is_alphanumeric) {
         return (StatusCode::BAD_REQUEST, "Invalid username").into_response();
     }
-    if !user.password.chars().all(char::is_alphanumeric) {
+    if !user.password.chars().all(password::is_valid_char) {
         return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
     }
 
-    println!("Attempting to add user: {}", user.username);
+    dbg!("Attempting to add user: {}", &user.username);
     if let Ok(_) = auth_session.backend.add_user(user.0).await {
         (StatusCode::OK, "User added").into_response()
     } else {
+        eprintln!("Error adding user");
         (StatusCode::INTERNAL_SERVER_ERROR, "Error adding user").into_response()
     }
 }
@@ -75,13 +79,14 @@ pub async fn remove_user(
         return (StatusCode::FORBIDDEN, "Not authorized").into_response();
     }
 
-    println!("Attempting to remove user: {}", user.id);
+    dbg!("Attempting to remove user: {}", user.id);
     if user_session.id == user.id {
         (StatusCode::FORBIDDEN, "Can't remove yourself").into_response()
     } else {
         if let Ok(_) = auth_session.backend.delete_user(user.id).await {
             (StatusCode::OK, "User removed").into_response()
         } else {
+            eprintln!("Error removing user");
             (StatusCode::INTERNAL_SERVER_ERROR, "Error removing user").into_response()
         }
     }
@@ -120,20 +125,47 @@ pub async fn modify_user(
             return (StatusCode::BAD_REQUEST, "Invalid username").into_response();
         }
 
-        if let Ok(_) = auth_session
+        match auth_session
             .backend
             .change_username(target_user_id, new_username)
             .await
         {
-            println!("Changed username of user {}", target_user_id);
-        } else {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username").into_response();
+            Ok(_) => println!("Changed username of user: {}", target_user_id),
+            Err(e) => match e {
+                Error::Sqlx(e) => match e {
+                    sqlx::Error::RowNotFound => {
+                        println!("Error: User not found");
+                        return (StatusCode::BAD_REQUEST, "User not found").into_response();
+                    }
+                    sqlx::Error::Database(e) => {
+                        if e.is_unique_violation() {
+                            println!("Error: Username already in use");
+                            return (StatusCode::BAD_REQUEST, "Username already in use")
+                                .into_response();
+                        } else {
+                            println!("Database Error: {}", e);
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
+                                .into_response();
+                        }
+                    }
+                    _ => {
+                        println!("Sqlx Error: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
+                            .into_response();
+                    }
+                },
+                _ => {
+                    println!("Other Error: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing username")
+                        .into_response();
+                }
+            },
         }
     }
 
     // Change password if provided
     if let Some(new_password) = modified_details.password {
-        if !new_password.chars().all(char::is_alphanumeric) || new_password.is_empty() {
+        if !new_password.chars().all(password::is_valid_char) || new_password.is_empty() {
             return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
         }
 
