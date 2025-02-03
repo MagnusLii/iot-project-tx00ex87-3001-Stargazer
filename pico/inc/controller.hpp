@@ -6,6 +6,9 @@
 #include "commbridge.hpp"
 #include "compass.hpp"
 #include "gps.hpp"
+#include "stepper-motor.hpp"
+#include "convert.hpp"
+#include "planet_finder.hpp"
 
 // Maybe move this to another file
 struct Command {
@@ -22,12 +25,18 @@ class Controller {
         COMM_PROCESS,
         INSTR_PROCESS,
         MOTOR_CONTROL,
-        CAMERA_EXECUTE
+        MOTOR_WAIT,
+        MOTOR_HOLD,
+        MOTOR_OFF,
+        CAMERA_EXECUTE,
+
     };
 
   public:
-    Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
-               std::shared_ptr<CommBridge> commbridge, std::shared_ptr<std::queue<msg::Message>> msg_queue);
+    Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
+                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<StepperMotor> motor_horizontal,
+                       std::shared_ptr<StepperMotor> motor_vertical,
+                       std::shared_ptr<std::queue<msg::Message>> msg_queue);
 
     void run();
 
@@ -40,6 +49,7 @@ class Controller {
     void camera_execute();
 
   private:
+    msg::MessageType last_sent = msg::UNASSIGNED;
     bool initialized = false;
     State state; // TODO: How do we handle state changes that are external to the loop?
                  // Do we need timers?
@@ -53,8 +63,8 @@ class Controller {
     std::shared_ptr<GPS> gps;
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
-    // Motor 1
-    // Motor 2
+    std::shared_ptr<StepperMotor> motor_horizontal;
+    std::shared_ptr<StepperMotor> motor_vertical;
 
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };

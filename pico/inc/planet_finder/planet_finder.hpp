@@ -15,7 +15,7 @@
 
 
 enum Planets {
-    SUN,
+    SUN=1,
     MOON,
     MERCURY,
     VENUS,

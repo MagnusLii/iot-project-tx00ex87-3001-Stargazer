@@ -3,8 +3,13 @@
 #include "debug.hpp"
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
-                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), msg_queue(msg_queue) { state = COMM_READ; }
+                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<StepperMotor> motor_horizontal,
+                       std::shared_ptr<StepperMotor> motor_vertical,
+                       std::shared_ptr<std::queue<msg::Message>> msg_queue)
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), motor_horizontal(motor_horizontal),
+      motor_vertical(motor_vertical), msg_queue(msg_queue) {
+    state = COMM_READ;
+}
 
 void Controller::run() {
     if (!initialized) {
@@ -17,14 +22,14 @@ void Controller::run() {
             return;
         }
     }
-
-    int object_id = 1; // TODO: From somewhere
+    int object_id = 1; // TODO: remove this
     int image_id = 1;  // TODO: ^
 
     DEBUG("Starting main loop");
     while (true) {
         DEBUG("State: ", state);
         switch (state) {
+
             case COMM_READ:
                 if (commbridge->read_and_parse(1000, true) > 0) {
                     state = COMM_PROCESS;
@@ -88,6 +93,13 @@ void Controller::comm_process() {
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
                 DEBUG("Received response");
+                if (msg.content[0] == "1") {
+                    if (last_sent == msg::PICTURE) {
+                        state = MOTOR_OFF;
+                    }
+                } else {
+
+                }
                 break;
             case msg::DATETIME:
                 DEBUG("Received datetime");
@@ -115,8 +127,25 @@ void Controller::instr_process() {
     if (instr_msg_queue.size() > 0) {
         // TODO: Process instructions
         msg::Message instr = instr_msg_queue.front();
-        for (auto &val : instr.content) {
-            DEBUG(val);
+        bool add = true;
+        if (instr.content.size() == 3 && instr.type == msg::INSTRUCTIONS) {
+            int planet_num;
+            Planets planet;
+            if (str_to_int(instr.content[0], planet_num)) {
+                if (planet_num >= 1 && planet_num <= 9) planet = planet_num;
+                else add = false;
+            } else add = false;
+            int id;
+            if (!str_to_int(instr.content[1], id)) add = false;
+            int position;
+            if (str_to_int(instr.content[2], position)) {
+                if (position < 1 || position > 3) add = false;
+            } else add = false;
+
+            if (add) {
+                Celestial celestial(planet);
+                commands.push_back()
+            }
         }
         instr_msg_queue.pop();
     }
