@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/hardware/clock.cpp
+    src/hardware/sleep_functions.cpp
     src/devices/stepper-motor.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
@@ -32,6 +33,7 @@ add_executable(${PROJECT_NAME}_test
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
+    src/hardware/sleep_functions.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
