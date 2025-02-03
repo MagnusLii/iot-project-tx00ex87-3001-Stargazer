@@ -7,6 +7,13 @@
 #include "compass.hpp"
 #include "gps.hpp"
 
+// Maybe move this to another file
+struct Command {
+    uint64_t id;
+    Coordinates coords;  
+    datetime_t time;
+};
+
 class Controller {
   public:
     enum State {
@@ -39,11 +46,15 @@ class Controller {
                  // ...
     std::queue<msg::Message> instr_msg_queue;
 
+    std::vector<Command> commands;
+
 
     std::shared_ptr<Clock> clock;
     std::shared_ptr<GPS> gps;
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
+    // Motor 1
+    // Motor 2
 
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };
