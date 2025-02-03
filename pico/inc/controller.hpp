@@ -39,6 +39,7 @@ class Controller {
                  // ...
     std::queue<msg::Message> instr_msg_queue;
 
+
     std::shared_ptr<Clock> clock;
     std::shared_ptr<GPS> gps;
     std::shared_ptr<Compass> compass;

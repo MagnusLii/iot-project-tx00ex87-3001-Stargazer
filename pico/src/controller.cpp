@@ -4,7 +4,7 @@
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), msg_queue(msg_queue) {}
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), msg_queue(msg_queue) { state = COMM_READ; }
 
 void Controller::run() {
     if (!initialized) {
@@ -23,6 +23,7 @@ void Controller::run() {
 
     DEBUG("Starting main loop");
     while (true) {
+        DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 if (commbridge->read_and_parse(1000, true) > 0) {
@@ -44,6 +45,7 @@ void Controller::run() {
                 break;
             case SLEEP: // TODO: Go here after full round of nothing to do?
                 DEBUG("Sleeping");
+                sleep_ms(1000);
                 // TODO: Sleeping
                 break;
             default:
@@ -61,7 +63,7 @@ bool Controller::init() {
 
     gps->set_mode(GPS::Mode::FULL_ON);
     commbridge->send(msg::datetime_request());
-    compass->calibrate();
+    //compass->calibrate();
     // Motor calibration
     while (!result && attempts < 9) {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }

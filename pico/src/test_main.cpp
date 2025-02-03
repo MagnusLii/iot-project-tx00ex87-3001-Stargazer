@@ -11,6 +11,8 @@ int main() {
     std::shared_ptr<StepperMotor> mh = std::make_shared<StepperMotor>(pins1);
     std::shared_ptr<StepperMotor> mv = std::make_shared<StepperMotor>(pins2);
     MotorControl mctrl(mh, mv, opto_horizontal, opto_vertical);
+    sleep_ms(500);
+    DEBUG("Boot");
 
     Celestial moon(SATURN);
     datetime_t date;
