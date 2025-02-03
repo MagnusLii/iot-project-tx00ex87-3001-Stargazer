@@ -47,6 +47,16 @@ Prefix values:<br>
 `<9>` = Send server ip/domain + (port) to ESP<br>
 `<10>` = Api token from Pico to ESP<br>
 
+Diagnostics values:<br>
+GPS status?<br>
+Compass readings Status?<br>
+Pico core temp?<br>
+Watchdog reboot status?<br>
+Motor calibration status?<br>
+ESP to Uart comm status<br>
+Reboot messages<br>
+
+
 Stuff to send:
 
 -   Datetime (Pico requests, ESP responds)<br>
