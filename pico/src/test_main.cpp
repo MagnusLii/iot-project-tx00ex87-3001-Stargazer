@@ -35,17 +35,6 @@ int main() {
     mctrl.calibrate();
     while (mctrl.isCalibrating()) ;
 
-    Command command;
-    command.time.year = 1000;
-    while (true)  {
-        command = moon.next_trace();
-        if (command.time.year != -1) {
-            mctrl.turn_to_coordinates(command.coords);
-            std::cout <<"alt actual " << command.coords.altitude * 180 / M_PI << " azi actual " << command.coords.azimuth * 180 / M_PI << std::endl;
-            while (mctrl.isRunning()) ;
-        }
-
-    }
     return 0;
 }
 

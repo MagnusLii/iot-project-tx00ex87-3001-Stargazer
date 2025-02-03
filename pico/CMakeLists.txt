@@ -58,6 +58,7 @@ target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
 
+
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 pico_generate_pio_header(${PROJECT_NAME}_test ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 
@@ -120,7 +121,7 @@ target_link_libraries(${PROJECT_NAME}_test
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
     target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
-    target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
+    # target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
 # Enable usb output, disable uart output

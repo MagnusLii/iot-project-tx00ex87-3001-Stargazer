@@ -32,11 +32,6 @@ enum Interest_point {
     DESCENDING
 };
 
-// struct Coordinates {
-//     double latitude;
-//     double longitude;
-//     bool status;
-// };
 
 struct rect_coordinates {
     double x;
