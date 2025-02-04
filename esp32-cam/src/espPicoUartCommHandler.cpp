@@ -20,7 +20,6 @@ EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_
 
     ESP_ERROR_CHECK(uart_param_config(this->uart_num, &this->uart_config));
     ESP_ERROR_CHECK(uart_set_pin(this->uart_num, 1, 3, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-
     ESP_ERROR_CHECK(uart_driver_install(this->uart_num, UART_RING_BUFFER_SIZE, UART_RING_BUFFER_SIZE, EVENT_QUEUE_SIZE,
                                         &this->uart_event_queue, 0));
 }
@@ -51,7 +50,7 @@ void EspPicoCommHandler::set_waiting_for_response(bool status) { this->waitingFo
 
 bool EspPicoCommHandler::get_waiting_for_response() { return this->waitingForResponse; }
 
-int EspPicoCommHandler::send_msg_and_wait_for_response(const char* data, const size_t len) {
+int EspPicoCommHandler::send_msg_and_wait_for_response(const char *data, const size_t len) {
     int retries = 0;
     this->set_waiting_for_response(true);
     while (this->get_waiting_for_response() && retries < RETRIES) {
