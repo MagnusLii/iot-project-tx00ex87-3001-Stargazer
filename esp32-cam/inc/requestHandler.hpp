@@ -39,7 +39,8 @@ enum class RequestHandlerReturnCode {
     SOCKET_CONNECT_FAIL,
     SOCKET_SEND_FAIL,
     SOCKET_TIMEOUT_FAIL,
-    FAILED_MUTEX_AQUISITION
+    FAILED_MUTEX_AQUISITION,
+    INVALID_ARGUMENT,
 };
 
 class RequestHandler {
@@ -59,6 +60,7 @@ class RequestHandler {
     QueueHandle_t getWebSrvResponseQueue();
 
     RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage* response);
+    RequestHandlerReturnCode sendRequest(std::string request, QueueMessage* response);
 
     int parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size);
 

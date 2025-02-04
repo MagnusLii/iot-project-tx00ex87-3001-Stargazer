@@ -53,6 +53,16 @@ RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::strin
 
 RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                                 std::string base64_image_data) {
+    if (requestPtr == nullptr) {
+        DEBUG("Error: requestPtr is null");
+        return RequestHandlerReturnCode::INVALID_ARGUMENT;
+    }
+
+    if (base64_image_data.empty()) {
+        DEBUG("Error: base64_image_data is empty");
+        return RequestHandlerReturnCode::INVALID_ARGUMENT;
+    }
+
     *requestPtr = "POST "
                   "/api/upload?token=" +
                   this->webServerToken +
@@ -69,8 +79,13 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
                   "\r\n"
                   "{"
                   "\"token\":\"" +
-                  this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + ",\"image\":\"" +
+                  this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"image\":\"" +
                   base64_image_data + "\"" + "}\r\n";
+
+    if (requestPtr->empty()) {
+        DEBUG("Error: Request string is empty after construction");
+        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+    }
 
     return RequestHandlerReturnCode::SUCCESS;
 }
@@ -147,7 +162,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     addrinfo *dns_lookup_results = nullptr;
     in_addr *ip_address = nullptr;
     int socket_descriptor = 0;
-    int read_result = 0;
     char receive_buffer[BUFFER_SIZE];
     const addrinfo hints = {
         .ai_flags = 0,              // Default settings for the DNS lookup
@@ -214,50 +228,165 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     }
     DEBUG("... set socket receiving timeout success");
 
-    // read response
-    int len = recv(socket_descriptor, receive_buffer, BUFFER_SIZE - 1, 0);
-    receive_buffer[len] = '\0'; // Null-terminate the response
+    int total_len = 0;
+    for (int attempt = 0; attempt < RETRIES; attempt++) {
+        int len = recv(socket_descriptor, receive_buffer + total_len, BUFFER_SIZE - 1 - total_len, 0);
 
-    // // Read the server's response in a loop
-    // int iterator = 0;
-    // do {
-    //     read_result = read(socket_descriptor, receive_buffer, sizeof(receive_buffer) - 1);
-    //     for (iterator = 0; iterator < read_result; iterator++) {
-    //         putchar(receive_buffer[iterator]);
-    //     }
-    // } while (read_result > 0);
-    // receive_buffer[iterator] = '\0'; // Null-terminate the response
-
-    DEBUG("\n... done reading from socket. Last read return=", read_result, " errno=", errno);
-    DEBUG(receive_buffer, "\n");
-    close(socket_descriptor);
-
-    // Send the response to a message queue
-    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE); // Copy response to queue message
-    response->str_buffer[BUFFER_SIZE - 1] = '\0';               // Ensure null termination
-
-    // Set the request type for the response
-    switch (request.requestType) {
-        case RequestType::GET_COMMANDS:
-            response->requestType = RequestType::API_COMMAND;
+        if (len > 0) {
+            total_len += len;
+            if (total_len >= BUFFER_SIZE - 1) break;
+        } else if (len == 0) {
+            // Connection closed by the server
+            DEBUG("Connection closed by peer.\n");
             break;
-
-        case RequestType::POST_IMAGE:
-            response->requestType = RequestType::API_UPLOAD;
-            break;
-
-        case RequestType::POST_DIAGNOSTICS:
-            response->requestType = RequestType::API_DIAGNOSTICS;
-            break;
-
-        default:
-            DEBUG("Unknown request type received");
-            break;
+        } else {
+            if (errno == EAGAIN) {
+                vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
+                continue; // Retry the read
+            } else {
+                DEBUG("Socket error: errno=", errno, "\n");
+                break;
+            }
+        }
     }
 
-    DEBUG("\n\n\n\n\nResponse: ", response->str_buffer);
+    receive_buffer[total_len] = '\0';
+    DEBUG("Final response: ", receive_buffer);
+    close(socket_descriptor);
 
-    parseResponseIntoJson(response, len); // Parse the response into json
+    if (total_len == 0) {
+        DEBUG("Failed to receive any data from the server");
+        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+    }
+
+    // Send the response to a message queue
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+    DEBUG("Response: ", response->str_buffer);
+
+    parseResponseIntoJson(response, total_len); // Parse the response into json
+
+    // Unlock mutex
+    xSemaphoreGive(this->requestMutex);
+
+    return RequestHandlerReturnCode::SUCCESS;
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
+    // Lock mutex
+    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
+        DEBUG("Failed to take request mutex");
+        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
+    }
+
+    addrinfo *dns_lookup_results = nullptr;
+    in_addr *ip_address = nullptr;
+    int socket_descriptor = 0;
+    char receive_buffer[BUFFER_SIZE];
+    const addrinfo hints = {
+        .ai_flags = 0,              // Default settings for the DNS lookup
+        .ai_family = AF_INET,       // Use IPv4
+        .ai_socktype = SOCK_STREAM, // Use TCP
+        .ai_protocol = 0,           // Any protocol
+        .ai_addrlen = 0,            // Default
+        .ai_addr = nullptr,         // Default
+        .ai_canonname = nullptr,    // Default
+        .ai_next = nullptr          // Default
+    };
+    timeval receiving_timeout;
+    receiving_timeout.tv_sec = 5;  // Timeout for receiving data in seconds
+    receiving_timeout.tv_usec = 0; // Timeout in microseconds
+
+    // Perform DNS lookup for the server
+    int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
+    if (err != 0 || dns_lookup_results == nullptr) {
+        DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
+        vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
+        return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
+    }
+
+    // Extract and print resolved IP address
+    ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
+    DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
+
+    // Create a TCP socket
+    socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
+    if (socket_descriptor < 0) {
+        DEBUG("... Failed to allocate socket.");
+        freeaddrinfo(dns_lookup_results); // Cleanup DNS results
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
+    }
+    DEBUG("... allocated socket");
+
+    // Establish a connection with the server
+    if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
+        DEBUG("... socket connect failed errno=", errno);
+        close(socket_descriptor);
+        freeaddrinfo(dns_lookup_results);
+        vTaskDelay(5000 / portTICK_PERIOD_MS); // Retry delay
+        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
+    }
+    DEBUG("... connected");
+
+    // Send the request data to the server
+    freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
+    if (write(socket_descriptor, request.c_str(), request.length()) < 0) {
+        DEBUG("... socket send failed\n");
+        close(socket_descriptor);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
+    }
+    DEBUG("... socket send success");
+
+    // Set a timeout for receiving data from the server
+    if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
+        DEBUG("... failed to set socket receiving timeout");
+        close(socket_descriptor);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
+    }
+    DEBUG("... set socket receiving timeout success");
+
+    int total_len = 0;
+    for (int attempt = 0; attempt < RETRIES; attempt++) {
+        int len = recv(socket_descriptor, receive_buffer + total_len, BUFFER_SIZE - 1 - total_len, 0);
+
+        if (len > 0) {
+            total_len += len;
+            if (total_len >= BUFFER_SIZE - 1) break;
+        } else if (len == 0) {
+            // Connection closed by the server
+            DEBUG("Connection closed by peer.\n");
+            break;
+        } else {
+            if (errno == EAGAIN) {
+                vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
+                continue; // Retry the read
+            } else {
+                DEBUG("Socket error: errno=", errno, "\n");
+                break;
+            }
+        }
+    }
+
+    receive_buffer[total_len] = '\0';
+    DEBUG("Final response: ", receive_buffer);
+    close(socket_descriptor);
+
+    if (total_len == 0) {
+        DEBUG("Failed to receive any data from the server");
+        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+    }
+
+    // Send the response to a message queue
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+    DEBUG("Response: ", response->str_buffer);
+
+    parseResponseIntoJson(response, total_len); // Parse the response into json
 
     // Unlock mutex
     xSemaphoreGive(this->requestMutex);
