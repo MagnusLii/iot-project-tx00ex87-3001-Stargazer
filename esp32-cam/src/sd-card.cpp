@@ -234,12 +234,14 @@ int SDcardHandler::write_file(const char *filename, const uint8_t *data, const s
 }
 
 int SDcardHandler::read_file(const char *filename, std::string &read_data_storage) {
+    DEBUG("Reading file: ", filename);
     if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
         DEBUG("Failed to acquire mutex");
         return 1;
     }
 
     std::string full_filename_str = this->mount_point + "/" + filename;
+    DEBUG("Opening file ", full_filename_str.c_str());
     FILE *file = fopen(full_filename_str.c_str(), "rb");  // "rb" for binary-safe reading
     if (!file) {
         DEBUG("Failed to open file for reading");
@@ -247,11 +249,13 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
         xSemaphoreGive(file_mutex);
         return 2;
     }
+    DEBUG("File opened successfully");
 
     fseek(file, 0, SEEK_END);
     size_t file_size = ftell(file);
     rewind(file);
 
+    DEBUG("File size: ", file_size);
     char *read_buffer = new char[file_size];
     size_t read_size = fread(read_buffer, 1, file_size, file);
     if (read_size != file_size) {
@@ -262,11 +266,13 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
         return 3;
     }
 
-    data.assign(read_buffer, read_size);
+    DEBUG("Read size: ", read_size);
+    read_data_storage.assign(read_buffer, read_size);
     delete[] read_buffer;
-
     fclose(file);
     xSemaphoreGive(file_mutex);
+
+    DEBUG("Exiting read_file");
     return 0;
 }
 
@@ -324,7 +330,7 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     }
 
     base64_buffer[actual_base64_len] = '\0';
-    base64_data.assign((char *)base64_buffer);
+    read_data_storage.assign((char *)base64_buffer);
     delete[] base64_buffer;
 
     fclose(file);
