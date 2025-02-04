@@ -8,12 +8,25 @@
 int JsonParser::parse(const std::string &json, std::map<std::string, std::string> *result) {
     if (!result) return 1; // Null pointer
     result->clear();
+    
     size_t pos = 0;
+    skipWhitespace(json, pos);
+
+    // Check for empty JSON
+    if (pos < json.length() && json[pos] == '{') {
+        pos++;
+        skipWhitespace(json, pos);
+        if (pos < json.length() && json[pos] == '}') {
+            return 5; // Empty JSON
+        }
+    }
+
     while (pos < json.length()) {
         skipWhitespace(json, pos);
+        if (pos >= json.length()) break;
         if (json[pos] == '"') {
             std::string key;
-            if (parseString(json, pos, &key) != 0) return -2; // Error in parsing
+            if (parseString(json, pos, &key) != 0) return 2; // Error in parsing
             skipWhitespace(json, pos);
 
             // Expect ":" after the key
@@ -24,7 +37,7 @@ int JsonParser::parse(const std::string &json, std::map<std::string, std::string
             skipWhitespace(json, pos);
 
             std::string value;
-            if (parseValue(json, pos, &value) != 0) return -4; // Error in parsing
+            if (parseValue(json, pos, &value) != 0) return 4; // Error in parsing
             (*result)[key] = value;
         } else {
             pos++;
