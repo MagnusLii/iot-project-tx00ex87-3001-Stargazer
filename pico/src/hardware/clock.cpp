@@ -1,8 +1,13 @@
 #include "clock.hpp"
 
 #include "debug.hpp"
+#include <hardware/rtc.h>
+
+
+static Clock* clock_inst = nullptr;
 
 Clock::Clock() {
+    clock_inst = this;
     rtc_init();
 }
 
@@ -55,3 +60,13 @@ datetime_t Clock::get_datetime() {
 bool Clock::is_synced() {
     return synced;
 }
+
+void alarm_handler() {
+    clock_inst->alarm_wakeup = true;
+}
+
+void Clock::add_alarm(datetime_t datetime) {
+    rtc_set_alarm(&datetime, &alarm_handler);
+    rtc_enable_alarm();
+}
+
