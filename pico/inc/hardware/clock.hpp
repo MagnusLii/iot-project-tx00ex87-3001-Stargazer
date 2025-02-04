@@ -17,6 +17,8 @@ class Clock {
     datetime_t get_datetime();
     bool is_synced();
     void add_alarm(datetime_t datetime);
+    bool is_alarm_ringing();
+    void clear_alarm();
 
   private:
     friend void alarm_handler();

@@ -62,11 +62,19 @@ bool Clock::is_synced() {
 }
 
 void alarm_handler() {
+    DEBUG("ALARM RINGING");
     clock_inst->alarm_wakeup = true;
 }
 
 void Clock::add_alarm(datetime_t datetime) {
     rtc_set_alarm(&datetime, &alarm_handler);
-    rtc_enable_alarm();
 }
 
+bool Clock::is_alarm_ringing() {
+    return alarm_wakeup;
+}
+
+void Clock::clear_alarm() {
+    rtc_disable_alarm();
+    alarm_wakeup = false;
+}
