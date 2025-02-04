@@ -7,6 +7,7 @@ int convert_to_message(std::string &str, Message &msg) {
     if (size_t pos = str.find_last_of(','); pos == std::string::npos) {
         return 1;
     } else {
+        if (str.back() == ';') { str.pop_back(); }
         std::string crc_str = str.substr(pos + 1);
         str.erase(pos);
 
@@ -94,9 +95,7 @@ Message response(bool ack) {
 
 Message datetime_request() { return Message{.type = DATETIME, .content = {"1"}}; }
 
-Message datetime_response(int datetime) {
-    return Message{.type = DATETIME, .content = {std::to_string(datetime)}};
-}
+Message datetime_response(int datetime) { return Message{.type = DATETIME, .content = {std::to_string(datetime)}}; }
 
 Message esp_init(bool success) {
     if (success) {
@@ -107,7 +106,8 @@ Message esp_init(bool success) {
 }
 
 Message instructions(int object_id, int image_id, int position_id) {
-    return Message{.type = INSTRUCTIONS, .content = {std::to_string(object_id), std::to_string(image_id), std::to_string(position_id)}};
+    return Message{.type = INSTRUCTIONS,
+                   .content = {std::to_string(object_id), std::to_string(image_id), std::to_string(position_id)}};
 }
 
 Message instructions(const std::string object_id, const std::string image_id, const std::string position_id) {
@@ -115,7 +115,8 @@ Message instructions(const std::string object_id, const std::string image_id, co
 }
 
 Message cmd_status(int image_id, int status, int datetime) {
-    return Message{.type = CMD_STATUS, .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
+    return Message{.type = CMD_STATUS,
+                   .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
 
@@ -127,16 +128,10 @@ Message diagnostics(int status, const std::string diagnostic) {
     return Message{.type = DIAGNOSTICS, .content = {std::to_string(status), diagnostic}};
 }
 
-Message wifi(std::string ssid, std::string password) {
-    return Message{.type = WIFI, .content = {ssid, password}};
-}
+Message wifi(std::string ssid, std::string password) { return Message{.type = WIFI, .content = {ssid, password}}; }
 
-Message server(std::string server_addr) {
-    return Message{.type = SERVER, .content = {server_addr}};
-}
+Message server(std::string server_addr) { return Message{.type = SERVER, .content = {server_addr}}; }
 
-Message api(std::string api_token) {
-    return Message{.type = API, .content = {api_token}};
-}
+Message api(std::string api_token) { return Message{.type = API, .content = {api_token}}; }
 
 } // namespace msg
