@@ -7,6 +7,9 @@
 // Settings file write and read test.
 // #define WRITE_READ_SETTINGS_TEST
 
+// Make uart msg string with CRC
+// #define UART_MSG_CRC
+
 // Enables production code
 #define PRODUCTION_CODE
 
@@ -56,6 +59,19 @@ void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
+#ifdef UART_MSG_CRC
+    // msg::Message msg = msg::picture(1, 1);
+    // msg::Message msg = msg::response(true);
+    // msg::Message msg = msg::datetime_request();
+    msg::Message msg = msg::instructions(2, 1, 1);
+    std::string str;
+
+    msg::convert_to_string(msg, str);
+    DEBUG("Message string: ", str.c_str());
+    int return_code = msg::convert_to_message(str, msg);
+    DEBUG("Return code: ", return_code);
+#endif
+
 #ifdef WRITE_READ_SETTINGS_TEST
     int retries = 0;
     std::vector<std::string> settings = {"WIFI_SSID", "WIFI_PASSWORD", "WEB_PATH", "WEB_PORT"};
@@ -77,7 +93,7 @@ void app_main(void) {
 #ifdef UART_DEMO
     EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
 
-    Message msg = datetime_response();
+    msg::Message msg = msg::datetime_response();
     std::string string;
     convert_to_string(msg, string);
 
