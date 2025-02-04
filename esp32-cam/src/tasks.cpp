@@ -107,8 +107,8 @@ void init_task(void *pvParameters) {
 
     auto handlers = std::make_shared<Handlers>();
 
-    EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
-    WirelessHandler wirelessHandler;
+    // EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
+    // WirelessHandler wirelessHandler;
     handlers->wirelessHandler = std::make_shared<WirelessHandler>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
@@ -119,6 +119,7 @@ void init_task(void *pvParameters) {
         sdcardHandler->mount_sd_card("/sdcard");
     }
     handlers->sdcardHandler = sdcardHandler;
+    DEBUG("SD card mounted");
 
     // TODO: clear the sd card if needed
     // TODO: read settings from sd card
@@ -126,7 +127,8 @@ void init_task(void *pvParameters) {
     // Initialize Wi-Fi
     handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
     while (!handlers->wirelessHandler->isConnected()) {
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        DEBUG("Failed to connect to Wi-Fi. Retrying in 10 seconds...");
+        vTaskDelay(pdMS_TO_TICKS(10000));
         handlers->wirelessHandler->disconnect();
         handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
     }
@@ -159,7 +161,7 @@ void init_task(void *pvParameters) {
     }
 
     // Create tasks
-    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 8192, handlers.get(), TaskPriorities::HIGH,
+    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 16384, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
@@ -170,7 +172,7 @@ void init_task(void *pvParameters) {
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
-    espPicoCommHandler.send_data(msg_str.c_str(), msg_str.length());
+    handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
 
     // Initialize watchdog for tasks
 #ifdef WATCHDOG_MONITOR_IDLE_TASKS
@@ -262,15 +264,18 @@ void send_request_to_websrv_task(void *pvParameters) {
                         DEBUG("Failed to read image file");
                         break;
                     }
+                    DEBUG("Image data read from file");
 
                     // Create a POST request
+                    DEBUG("Creating POST request");
+                    DEBUG("Image ID: ", request.image_id);
+                    DEBUG("Image data size: ", file_data.size());
+                    DEBUG("Image data: ", file_data.c_str());
                     requestHandler->createImagePOSTRequest(&string, request.image_id, file_data);
-                    strncpy(request.str_buffer, string.c_str(), string.length());
-                    request.str_buffer[string.length()] = '\0';
-                    request.buffer_length = string.length();
 
                     // Send the request and enqueue the response
-                    requestHandler->sendRequest(request, &response);
+                    DEBUG("Sending POST request: ", string.c_str());
+                    requestHandler->sendRequest(string, &response);
 
                     // Clear variables
                     response.buffer_length = 0;
@@ -345,13 +350,20 @@ void handle_uart_data_task(void *pvParameters) {
     QueueMessage request;
 
     std::string string;
-    msg::Message msg;
+    msg::Message msg = msg::response(true);
+
+    std::string response_str;
+    convert_to_string(msg, response_str);
+
+
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
                           portMAX_DELAY) == pdTRUE) {
             string = uartReceivedData.buffer;
+            DEBUG("Received data: ", string.c_str());
             if (msg::convert_to_message(string, msg) == 0) {
+
                 switch (msg.type) {
                     case msg::MessageType::UNASSIGNED:
                         DEBUG("Unassigned message type received");
@@ -386,9 +398,10 @@ void handle_uart_data_task(void *pvParameters) {
                     case msg::MessageType::PICTURE:
                         // Send confirmation message
                         // TODO: maybe handle confirmation message in uart_read_task
-                        msg = msg::response(true);
-                        convert_to_string(msg, string);
-                        espPicoCommHandler->send_data(string.c_str(), string.length());
+                        espPicoCommHandler->send_data(response_str.c_str(), response_str.length());
+
+                        // Convert UartReceivedData to QueueMessage
+                        msg::convert_to_message(string, msg);
 
                         // Take picture and save to sd card
                         cameraHandler->create_image_filename(filepath);
@@ -406,6 +419,10 @@ void handle_uart_data_task(void *pvParameters) {
                         }
 
                         // store image/command id in request
+                        if(msg.content.size() < 2) {
+                            DEBUG("Invalid message content");
+                            break;
+                        }
                         request.image_id = std::stoi(msg.content[1]);
                         DEBUG("Image ID: ", request.image_id);
 
@@ -414,6 +431,12 @@ void handle_uart_data_task(void *pvParameters) {
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
+
+                        // Clear variables
+                        request.buffer_length = 0;
+                        request.imageFilename[0] = '\0';
+                        filepath.clear();
+                        string.clear();
                         break;
 
                     case msg::MessageType::DIAGNOSTICS:
