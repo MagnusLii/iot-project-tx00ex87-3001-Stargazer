@@ -7,7 +7,7 @@
 #include "requestHandler.hpp"
 #include <memory>
 
-#define UART_RING_BUFFER_SIZE  1024
+#define UART_RING_BUFFER_SIZE  512
 #define EVENT_QUEUE_SIZE       5
 #define LONGEST_COMMAND_LENGTH 100
 
