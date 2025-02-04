@@ -8,7 +8,12 @@
 int JsonParser::parse(const std::string &json, std::map<std::string, std::string> *result) {
     if (!result) return 1; // Null pointer
     result->clear();
-    
+
+    // Check for empty str
+    if (json.empty()) {
+        return 6; // Empty str
+    }
+
     size_t pos = 0;
     skipWhitespace(json, pos);
 
