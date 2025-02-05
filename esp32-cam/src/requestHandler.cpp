@@ -64,8 +64,7 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
     }
 
     *requestPtr = "POST "
-                  "/api/upload?token=" +
-                  this->webServerToken +
+                  "/api/upload"
                   " HTTP/1.0\r\n"
                   "Host: " +
                   this->webServer + ":" + this->webPort +
@@ -73,14 +72,27 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: keep-alive\r\n"
                   "Content-Type: application/json\r\n"
-                  "Content-Length: " +
-                  std::to_string(base64_image_data.length()) +
+                  "Content-Length: "
                   "\r\n"
-                  "\r\n"
-                  "{"
-                  "\"token\":\"" +
-                  this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"image\":\"" +
-                  base64_image_data + "\"" + "}\r\n";
+                  "\r\n";
+
+    std::string content = "{"
+                          "\"token\":\"" +
+                          this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"data\":\"" +
+                          base64_image_data + "\"" + "}\r\n";
+
+    size_t content_len_start = requestPtr->find("Content-Length: ");
+
+    DEBUG("Content: ", content.c_str());
+    DEBUG("content len: ", content.length());
+
+    std::string size_str = std::to_string(content.length());
+
+    requestPtr->insert(content_len_start + 16, size_str);
+
+    *requestPtr += content;
+
+    DEBUG("Request: ", requestPtr->c_str());
 
     if (requestPtr->empty()) {
         DEBUG("Error: Request string is empty after construction");
@@ -174,7 +186,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         .ai_next = nullptr          // Default
     };
     timeval receiving_timeout;
-    receiving_timeout.tv_sec = 5;  // Timeout for receiving data in seconds
+    receiving_timeout.tv_sec = 10; // Timeout for receiving data in seconds
     receiving_timeout.tv_usec = 0; // Timeout in microseconds
 
     // Perform DNS lookup for the server
@@ -332,7 +344,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
     // Send the request data to the server
     freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
-    if (write(socket_descriptor, request.c_str(), request.length()) < 0) {
+    DEBUG("Writing to socket len: ", request.length());
+    DEBUG("Writing to socket: ", request.c_str());
+    if (write(socket_descriptor, request.c_str(), request.length() + 1) < 0) {
         DEBUG("... socket send failed\n");
         close(socket_descriptor);
         vTaskDelay(5000 / portTICK_PERIOD_MS);

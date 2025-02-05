@@ -23,9 +23,9 @@ template <typename... Args> void print(const char *file, int line, Args... args)
 namespace dbg {
 template <typename... Args>
 void print(const char *file, int line, Args... args) {
-    char buffer[256];
+    char buffer[512];
     int offset = snprintf(buffer, sizeof(buffer), "[%s:%d] ", file, line);
-    if (offset < 0 || offset >= sizeof(buffer)) return; // sprintf errors
+    if (offset < 0 || offset >= sizeof(buffer)) return; // sprintf errors 
 
     auto append_to_buffer = [&buffer, &offset](auto arg) {
         if (offset < sizeof(buffer)) {
