@@ -129,9 +129,10 @@ int main() {
                     DEBUG("Unknown message type: ", msg.type);
                     break;
             }
-
-            queue->pop();
         }
+        // motor1.turnSteps(200);
+        // motor1.stop();
+        // motor2.stop();
 
         sleep_ms(5000);
 
