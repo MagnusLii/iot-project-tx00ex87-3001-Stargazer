@@ -18,5 +18,7 @@ struct azimuthal_coordinates {
 };
 
 struct Command {
-
+    uint64_t id;
+    azimuthal_coordinates coords;
+    datetime_t time;
 };
