@@ -12,8 +12,6 @@ int main() {
     date.day = 28;
     date.hour = 10;
     Coordinates coords(60.1699, 24.9384);
-    moon.fill_coordinate_table(date, coords);
-    moon.print_coordinate_table();
 
     while (true) ;
 }
