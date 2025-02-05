@@ -1,10 +1,5 @@
 #pragma once
-
-struct Command {
-    uint64_t id;
-    azimuthal_coordinates coords;
-    datetime_t time;
-};
+#include "pico/stdlib.h"
 
 struct Coordinates {
     double latitude;
