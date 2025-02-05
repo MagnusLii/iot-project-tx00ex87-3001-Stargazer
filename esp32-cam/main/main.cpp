@@ -60,10 +60,10 @@ void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(1000));
 
 #ifdef UART_MSG_CRC
-    // msg::Message msg = msg::picture(1, 1);
+    msg::Message msg = msg::picture(1, 1);
     // msg::Message msg = msg::response(true);
     // msg::Message msg = msg::datetime_request();
-    msg::Message msg = msg::instructions(2, 1, 1);
+    // msg::Message msg = msg::instructions(2, 1, 1);
     std::string str;
 
     msg::convert_to_string(msg, str);

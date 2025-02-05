@@ -92,7 +92,7 @@ bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filen
 bool read_file_with_retry_base64(SDcardHandler *sdcardHandler, const std::string &filename, std::string &file_data,
                                  int retries) {
     while (retries > 0) {
-        if (sdcardHandler->read_file(filename.c_str(), file_data) == 0) { return true; }
+        if (sdcardHandler->read_file_base64(filename.c_str(), file_data) == 0) { return true; }
         retries--;
     }
     return false;
@@ -216,6 +216,9 @@ void send_request_to_websrv_task(void *pvParameters) {
     SDcardHandler *sdcardHandler = handlers->sdcardHandler.get();
     std::string file_data;
 
+    // DEBUG variables
+    int counter = 0;
+
     while (true) {
         // Wait for a request to be available
         // TODO: add mutex
@@ -268,13 +271,11 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Create a POST request
                     DEBUG("Creating POST request");
-                    DEBUG("Image ID: ", request.image_id);
-                    DEBUG("Image data size: ", file_data.size());
-                    DEBUG("Image data: ", file_data.c_str());
                     requestHandler->createImagePOSTRequest(&string, request.image_id, file_data);
 
                     // Send the request and enqueue the response
-                    DEBUG("Sending POST request: ", string.c_str());
+                    DEBUG("Sending POST request: ");
+
                     requestHandler->sendRequest(string, &response);
 
                     // Clear variables
@@ -355,8 +356,6 @@ void handle_uart_data_task(void *pvParameters) {
     std::string response_str;
     convert_to_string(msg, response_str);
 
-
-
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
                           portMAX_DELAY) == pdTRUE) {
@@ -419,7 +418,7 @@ void handle_uart_data_task(void *pvParameters) {
                         }
 
                         // store image/command id in request
-                        if(msg.content.size() < 2) {
+                        if (msg.content.size() < 2) {
                             DEBUG("Invalid message content");
                             break;
                         }
