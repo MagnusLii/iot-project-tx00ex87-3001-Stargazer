@@ -4,9 +4,8 @@ version = "0.5.0"
 edition = "2021"
 
 [features]
-default = ["pw_hash", "tls"]
+default = ["pw_hash"]
 pw_hash = ["argon2", "password-hash"]
-tls = ["axum-server/tls-rustls", "axum-server/tokio-rustls"]
 
 [dependencies]
 argon2 = { version = "0.5.3", optional = true }
@@ -14,7 +13,7 @@ async-trait = "0.1.83"
 axum = { version = "0.7.9", features = ["macros"] }
 axum-login = "0.16.0"
 axum-messages = "0.7.0"
-axum-server = "0.7.1"
+axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 base64 = "0.22.1"
 chrono = "0.4.38"
 clap = { version = "4.5.23", features = ["derive"] }
