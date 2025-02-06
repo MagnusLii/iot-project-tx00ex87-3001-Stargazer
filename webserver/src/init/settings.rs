@@ -11,6 +11,7 @@ pub struct Settings {
     pub disable_https: bool,
     pub db_dir: String,
     pub assets_dir: String,
+    pub certs_dir: String,
 }
 
 impl Settings {
@@ -23,6 +24,7 @@ impl Settings {
         disable_https: Option<bool>,
         db_dir: Option<String>,
         assets_dir: Option<String>,
+        certs_dir: Option<String>,
     ) -> Result<Self, ConfigError> {
         let builder = Config::builder()
             .set_default("address", "127.0.0.1")?
@@ -33,6 +35,7 @@ impl Settings {
             .set_default("disable_https", false)?
             .set_default("db_dir", "db")?
             .set_default("assets_dir", "assets")?
+            .set_default("certs_dir", "certs")?
             .add_source(File::with_name("config").required(false))
             .set_override_option("address", address)?
             .set_override_option("port_http", port_http)?
@@ -41,7 +44,8 @@ impl Settings {
             .set_override_option("enable_http_api", enable_http_api)?
             .set_override_option("disable_https", disable_https)?
             .set_override_option("db_dir", db_dir)?
-            .set_override_option("assets_dir", assets_dir)?;
+            .set_override_option("assets_dir", assets_dir)?
+            .set_override_option("certs_dir", certs_dir)?;
 
         let config = builder.build()?;
 
@@ -58,6 +62,7 @@ impl Settings {
             disable_https: config.get("disable_https")?,
             db_dir: config.get("db_dir")?,
             assets_dir: config.get("assets_dir")?,
+            certs_dir: config.get("certs_dir")?,
         })
     }
 
@@ -76,5 +81,6 @@ impl Settings {
         }
         println!("DB Dir: {}", self.db_dir);
         println!("Assets Dir: {}", self.assets_dir);
+        println!("Certs Dir: {}", self.certs_dir);
     }
 }
