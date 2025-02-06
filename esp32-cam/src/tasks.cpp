@@ -166,8 +166,7 @@ void init_task(void *pvParameters) {
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
-    DEBUG("Initialization complete. Deleting init task.");
-
+    
     // Send ESP initialized message to Pico
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
@@ -191,6 +190,7 @@ void init_task(void *pvParameters) {
     }
 #endif
 
+    DEBUG("Initialization complete. Deleting init task.");
     vTaskDelete(NULL);
 }
 
@@ -304,10 +304,10 @@ void uart_read_task(void *pvParameters) {
     DEBUG("uart_read_task started");
     Handlers *handlers = (Handlers *)pvParameters;
     EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
-    uart_event_t event;
+    uart_event_t uart_event;
 
-    char read_data[UART_RING_BUFFER_SIZE];
-    size_t read_data_len;
+    char data_read_from_uart[UART_RING_BUFFER_SIZE];
+    size_t uart_databuffer_len;
     UartReceivedData uartReceivedData;
     std::string string;
     msg::Message msg;
@@ -315,20 +315,20 @@ void uart_read_task(void *pvParameters) {
     int return_code;
 
     while (true) {
-        if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
+        if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&uart_event, portMAX_DELAY)) {
 
-            switch (event.type) {
+            switch (uart_event.type) {
                 case UART_DATA:
-                    read_data_len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)read_data,
-                                                    (sizeof(read_data) - 1), pdMS_TO_TICKS(10));
-                    if (read_data_len == -1) {
+                    uart_databuffer_len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)data_read_from_uart,
+                                                    (sizeof(data_read_from_uart) - 1), pdMS_TO_TICKS(10));
+                    if (uart_databuffer_len == -1) {
                         DEBUG("Failed to read data from UART");
                         break;
                     }
-                    read_data[read_data_len] = '\0'; // Null-terminate the received string
+                    data_read_from_uart[uart_databuffer_len] = '\0'; // Null-terminate the received string
 
                     // Extract message from buffer
-                    return_code = extract_msg_from_uart_buffer(read_data, &read_data_len, &uartReceivedData);
+                    return_code = extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     while (return_code == 0) {
                         // Check we're waiting for a response
                         if (espPicoCommHandler->get_waiting_for_response()) {
@@ -336,20 +336,17 @@ void uart_read_task(void *pvParameters) {
                         }
                         // enqueue extracted message
                         else {
-                            uartReceivedData.len = read_data_len;
-                            uartReceivedData.buffer[read_data_len] = '\0'; // Null-terminate the received string
                             if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
                                                    &uartReceivedData, 0, RETRIES) == false) {
                                 DEBUG("Failed to enqueue received data");
                             }
                         }
-                        extract_msg_from_uart_buffer(read_data, &read_data_len, &uartReceivedData);
+                        extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     }
-
                     break;
 
                 default:
-                    DEBUG("Unknown event type received");
+                    DEBUG("Unknown uart_event type received");
                     uart_flush_input(espPicoCommHandler->get_uart_num());
                     xQueueReset(espPicoCommHandler->get_uart_event_queue_handle());
                     break;
@@ -357,7 +354,7 @@ void uart_read_task(void *pvParameters) {
         }
     }
 
-    free(read_data); // should never reach here
+    free(data_read_from_uart); // should never reach here
 }
 
 void handle_uart_data_task(void *pvParameters) {
