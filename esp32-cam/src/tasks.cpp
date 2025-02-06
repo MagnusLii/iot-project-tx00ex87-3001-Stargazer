@@ -306,28 +306,46 @@ void uart_read_task(void *pvParameters) {
     EspPicoCommHandler *espPicoCommHandler = handlers->espPicoCommHandler.get();
     uart_event_t event;
 
+    char read_data[UART_RING_BUFFER_SIZE];
+    size_t read_data_len;
     UartReceivedData uartReceivedData;
     std::string string;
     msg::Message msg;
+
+    int return_code;
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&event, portMAX_DELAY)) {
 
             switch (event.type) {
                 case UART_DATA:
-                    uartReceivedData.len =
-                        uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)uartReceivedData.buffer,
-                                        sizeof(uartReceivedData.buffer), pdMS_TO_TICKS(10));
-                    uartReceivedData.buffer[uartReceivedData.len] = '\0'; // Null-terminate the received string
-
-                    if (espPicoCommHandler->get_waiting_for_response()) {
-                        espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
-                    } else {
-                        if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
-                                               &uartReceivedData, 0, RETRIES) == false) {
-                            DEBUG("Failed to enqueue received data");
-                        }
+                    read_data_len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)read_data,
+                                                    (sizeof(read_data) - 1), pdMS_TO_TICKS(10));
+                    if (read_data_len == -1) {
+                        DEBUG("Failed to read data from UART");
+                        break;
                     }
+                    read_data[read_data_len] = '\0'; // Null-terminate the received string
+
+                    // Extract message from buffer
+                    return_code = extract_msg_from_uart_buffer(read_data, &read_data_len, &uartReceivedData);
+                    while (return_code == 0) {
+                        // Check we're waiting for a response
+                        if (espPicoCommHandler->get_waiting_for_response()) {
+                            espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
+                        }
+                        // enqueue extracted message
+                        else {
+                            uartReceivedData.len = read_data_len;
+                            uartReceivedData.buffer[read_data_len] = '\0'; // Null-terminate the received string
+                            if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
+                                                   &uartReceivedData, 0, RETRIES) == false) {
+                                DEBUG("Failed to enqueue received data");
+                            }
+                        }
+                        extract_msg_from_uart_buffer(read_data, &read_data_len, &uartReceivedData);
+                    }
+
                     break;
 
                 default:
@@ -338,6 +356,8 @@ void uart_read_task(void *pvParameters) {
             }
         }
     }
+
+    free(read_data); // should never reach here
 }
 
 void handle_uart_data_task(void *pvParameters) {
@@ -366,10 +386,12 @@ void handle_uart_data_task(void *pvParameters) {
                 switch (msg.type) {
                     case msg::MessageType::UNASSIGNED:
                         DEBUG("Unassigned message type received");
+                        string.clear();
                         break;
 
                     case msg::MessageType::RESPONSE:
                         DEBUG("Response message not filtered before reaching handle_uart_data_task");
+                        string.clear();
                         break;
 
                     case msg::MessageType::DATETIME:
@@ -388,10 +410,12 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::ESP_INIT: // Should not be sent by Pico
                         DEBUG("ESP_INIT message sent by Pico");
+                        string.clear();
                         break;
 
                     case msg::MessageType::INSTRUCTIONS: // Should not be sent by Pico
                         DEBUG("INSTRUCTIONS message sent by Pico");
+                        string.clear();
                         break;
 
                     case msg::MessageType::PICTURE:
