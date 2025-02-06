@@ -82,3 +82,57 @@ void EspPicoCommHandler::check_if_confirmation_msg(const UartReceivedData &recei
         }
     }
 }
+
+int find_first_char_position(const char *data_buffer, const size_t data_buffer_len, const char target) {
+    if (data_buffer == nullptr || data_buffer_len == 0) {
+        return -1; // Invalid array
+    }
+
+    for (size_t i = 0; i < data_buffer; ++i) {
+        if (data_buffer[i] == target) {
+            return static_cast<int>(i); // Return position if found
+        }
+    }
+
+    return -2; // char not found
+}
+
+int extract_msg_from_uart_buffer(char *data_buffer, size_t *data_buffer_len, UartReceivedData *extracted_msg) {
+    int start_pos = find_first_char_position(data_buffer, LONGEST_COMMAND_LENGTH, '#');
+    if (start_pos < 0) {
+        return -1; // No message found
+    }
+
+    int end_pos = find_first_char_position(data_buffer, LONGEST_COMMAND_LENGTH, ';');
+    if (end_pos < 0) {
+        return -2; // No end of message found
+    }
+
+    if (start_pos >= end_pos) {
+        return -3; // Start position is after end position
+    }
+
+    // Extract the message from the buffer
+    int msg_length = end_pos - start_pos + 1;
+    if (msg_length > LONGEST_COMMAND_LENGTH) {
+        return -3; // Message too long
+    }
+
+    // Copy the message to extracted_msg_buffer
+    strncpy(extracted_msg->buffer, data_buffer + start_pos, msg_length);
+    extracted_msg->buffer[msg_length] = '\0'; // Null terminate the string
+    extracted_msg->len = msg_length;
+
+    // remove the message from the buffer
+    int chars_to_remove = end_pos - start_pos + 1;
+    int index = start_pos;
+    while (index < *data_buffer_len - chars_to_remove) {
+        data_buffer[index] = data_buffer[index + chars_to_remove];
+        index++;
+    }
+    data_buffer[index] = '\0';
+
+    // Update the data buffer length
+    *data_buffer_len -= chars_to_remove;
+    return 0; // Success
+}
