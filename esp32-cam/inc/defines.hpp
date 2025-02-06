@@ -23,7 +23,7 @@
 #endif
 
 #ifndef TAKS_WATCHDOG_TIMEOUT
-#define TASK_WATCHDOG_TIMEOUT 30000 // HTTP requests can take a while if the connection faces issues
+#define TASK_WATCHDOG_TIMEOUT 60000 // HTTP requests can take a while if the connection faces issues
 #endif
 
 #ifndef RETRY_DELAY_MS
