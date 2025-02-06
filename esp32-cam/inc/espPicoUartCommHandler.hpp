@@ -55,4 +55,7 @@ class EspPicoCommHandler {
     bool waitingForResponse = false;
 };
 
+int find_first_char_position(const char *data_buffer, const size_t data_buffer_len, const char target);
+int extract_msg_from_uart_buffer(char *data_buffer, size_t *data_buffer_len, UartReceivedData *extracted_msg);
+
 #endif
