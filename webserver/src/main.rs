@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use webserver::{app::App, init::settings::Settings, init::setup::setup};
 
@@ -29,6 +31,9 @@ struct Args {
     /// Assets directory
     #[arg(long)]
     assets_dir: Option<String>,
+    /// Certificate directory
+    #[arg(long)]
+    certs_dir: Option<String>,
 }
 
 #[tokio::main]
@@ -49,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if args.disable_https { Some(true) } else { None },
         args.db_dir,
         args.assets_dir,
+        args.certs_dir,
     )
     .unwrap_or_else(|e| panic!("Error during settings initialization: {}", e));
     settings.print();
@@ -62,6 +68,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let certs_path = PathBuf::from(settings.certs_dir);
+
     let http_address = format!("{}:{}", &settings.address, settings.port_http);
     let https_address = format!("{}:{}", &settings.address, settings.port_https);
     let user_db_path = format!("{}/users.db", settings.db_dir);
@@ -74,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.user_db.clone(),
                 resources.api_db.clone(),
                 resources.image_dir.clone(),
+                certs_path.clone(),
                 false,
             ));
         } else if !http && http_api {
@@ -82,21 +91,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.user_db.clone(),
                 resources.api_db.clone(),
                 resources.image_dir.clone(),
+                certs_path.clone(),
                 true,
             ));
         }
         let secure = if https { true } else { false };
-        App::new(resources.user_db, resources.api_db, resources.image_dir)
-            .await?
-            .serve(
-                if secure {
-                    &https_address
-                } else {
-                    &http_address
-                },
-                secure,
-            )
-            .await
+        App::new(
+            resources.user_db,
+            resources.api_db,
+            resources.image_dir,
+            certs_path,
+        )
+        .await?
+        .serve(
+            if secure {
+                &https_address
+            } else {
+                &http_address
+            },
+            secure,
+        )
+        .await
     } else {
         panic!("Error during setup. Exiting..");
     }
@@ -107,10 +122,11 @@ async fn alt_server(
     user_db: sqlx::SqlitePool,
     api_db: sqlx::SqlitePool,
     image_dir: webserver::web::images::ImageDirectory,
+    certs_dir: PathBuf,
     api_only: bool,
 ) {
     let alt_server;
-    match App::new(user_db, api_db, image_dir).await {
+    match App::new(user_db, api_db, image_dir, certs_dir).await {
         Ok(app) => alt_server = app,
         Err(e) => {
             println!("Alternate (HTTP) server exited with error: {}", e);
