@@ -21,30 +21,28 @@ template <typename... Args> void print(const char *file, int line, Args... args)
 #include <type_traits>
 
 namespace dbg {
-template <typename... Args>
-void print(const char *file, int line, Args... args) {
+template <typename... Args> void print(const char *file, int line, Args... args) {
     char buffer[512];
     int offset = snprintf(buffer, sizeof(buffer), "[%s:%d] ", file, line);
-    if (offset < 0 || offset >= sizeof(buffer)) return; // sprintf errors 
+    if (offset < 0 || offset >= sizeof(buffer)) return; // sprintf errors
 
     auto append_to_buffer = [&buffer, &offset](auto arg) {
         if (offset < sizeof(buffer)) {
             if constexpr (std::is_integral_v<decltype(arg)>) {
-                // Check if the argument is long
-                if constexpr (std::is_same_v<decltype(arg), long int>) {
-                    // Long integers
-                    int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%ld ", arg);
-                    offset += (written > 0) ? written : 0;
+                int written;
+                if constexpr (std::is_same_v<decltype(arg), long long int> || std::is_same_v<decltype(arg), unsigned long long int>) {
+                    written = snprintf(buffer + offset, sizeof(buffer) - offset, "%lld ", static_cast<long long int>(arg));
+                } else if constexpr (std::is_same_v<decltype(arg), long int>) {
+                    written = snprintf(buffer + offset, sizeof(buffer) - offset, "%ld ", static_cast<long int>(arg));
                 } else {
-                    // Regular integers
-                    int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%d ", arg);
-                    offset += (written > 0) ? written : 0;
+                    written = snprintf(buffer + offset, sizeof(buffer) - offset, "%d ", static_cast<int>(arg));
                 }
+                offset += (written > 0) ? written : 0;
             } else if constexpr (std::is_floating_point_v<decltype(arg)>) {
                 // Floats
                 int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%.2f ", arg);
                 offset += (written > 0) ? written : 0;
-            } else if constexpr (std::is_same_v<decltype(arg), const char*> || std::is_same_v<decltype(arg), char*>) {
+            } else if constexpr (std::is_same_v<decltype(arg), const char *> || std::is_same_v<decltype(arg), char *>) {
                 // Strings
                 int written = snprintf(buffer + offset, sizeof(buffer) - offset, "%s ", arg);
                 offset += (written > 0) ? written : 0;
