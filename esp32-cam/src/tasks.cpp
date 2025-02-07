@@ -61,17 +61,6 @@ void get_request_timer_callback(TimerHandle_t timer) {
     DEBUG("GET request sent");
 }
 
-// does same as get_request_timer_callback but as a task
-// TODO: remove if still unused during production
-void get_request_timer_task(void *pvParameters) {
-    RequestHandler *requestHandler = (RequestHandler *)pvParameters;
-    while (true) {
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getUserInstructionsGETRequestptr(), 0);
-        DEBUG("GET request sent");
-    }
-}
-
 bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t ticks_to_wait, int retries) {
     while (retries > 0) {
         if (xQueueSend(queue, item, ticks_to_wait) == pdTRUE) { return true; }
@@ -110,28 +99,35 @@ void init_task(void *pvParameters) {
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcardHandler
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    while (sdcardHandler->get_sd_card_status() != ESP_OK) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        sdcardHandler->mount_sd_card("/sdcard");
+    handlers->sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
+    if (handlers->sdcardHandler->get_sd_card_status() != ESP_OK) {
+        DEBUG("Failed to initialize SD card");
+        esp_restart();
     }
-    handlers->sdcardHandler = sdcardHandler;
-    DEBUG("SD card mounted");
-
-    // Initialize camera
-    auto cameraHandler =
-        std::make_shared<CameraHandler>(sdcardHandler, handlers->requestHandler->getWebSrvRequestQueue());
-    handlers->cameraHandler = cameraHandler;
 
     // TODO: clear the sd card if needed
+    uint32_t free_space = handlers->sdcardHandler->get_sdcard_free_space();
+    if (free_space == 0) {
+        esp_restart();
+    } else if (free_space < 100000) {
+        DEBUG("SD card storage getting low. Backup and clear the SD card.");
+        // TODO: Add diagnostics?
+    }
+#ifdef ENABLE_CLEARING_SD_CARD
+    else if (handlers->sdcardHandler->get_sdcard_free_space() < 10000) {
+        DEBUG("SD card almost full. Clearing the SD card.");
+        handlers->sdcardHandler->clear_sdcard();
+    }
+#endif
+
     // TODO: read settings from sd card
 
     // Initialize Wi-Fi
     handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
     while (!handlers->wirelessHandler->isConnected() && retries < RETRIES) {
-        DEBUG("Failed to connect to Wi-Fi. Retrying in 10 seconds...");
-        vTaskDelay(pdMS_TO_TICKS(10000));
-        handlers->wirelessHandler->disconnect();
+        DEBUG("Failed to connect to Wi-Fi. Retrying in 3 seconds...");
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        handlers->wirelessHandler->deinit();
         handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
     }
     retries = 0;
@@ -145,6 +141,11 @@ void init_task(void *pvParameters) {
     // Initialize request handler
     handlers->requestHandler = std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN,
                                                                 handlers->wirelessHandler, handlers->sdcardHandler);
+
+    // Initialize camera
+    auto cameraHandler =
+        std::make_shared<CameraHandler>(handlers->sdcardHandler, handlers->requestHandler->getWebSrvRequestQueue());
+    handlers->cameraHandler = cameraHandler;
 
     // Set timezone
     set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
@@ -217,9 +218,6 @@ void send_request_to_websrv_task(void *pvParameters) {
 
     SDcardHandler *sdcardHandler = handlers->sdcardHandler.get();
     std::string file_data;
-
-    // DEBUG variables
-    int counter = 0;
 
     while (true) {
         // Wait for a request to be available

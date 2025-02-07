@@ -16,6 +16,9 @@
 // Enables monitoring of idle tasks on both cores
 #define WATCHDOG_MONITOR_IDLE_TASKS
 
+// Enables clearing the SD card when space is low
+// #define ENABLE_CLEARING_SD_CARD
+
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
