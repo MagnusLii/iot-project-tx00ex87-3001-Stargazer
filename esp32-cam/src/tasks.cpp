@@ -106,9 +106,6 @@ void init_task(void *pvParameters) {
     int retries = 0;
 
     auto handlers = std::make_shared<Handlers>();
-
-    // EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
-    // WirelessHandler wirelessHandler;
     handlers->wirelessHandler = std::make_shared<WirelessHandler>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
@@ -121,37 +118,43 @@ void init_task(void *pvParameters) {
     handlers->sdcardHandler = sdcardHandler;
     DEBUG("SD card mounted");
 
+    // Initialize camera
+    auto cameraHandler =
+        std::make_shared<CameraHandler>(sdcardHandler, handlers->requestHandler->getWebSrvRequestQueue());
+    handlers->cameraHandler = cameraHandler;
+
     // TODO: clear the sd card if needed
     // TODO: read settings from sd card
 
     // Initialize Wi-Fi
     handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
-    while (!handlers->wirelessHandler->isConnected()) {
+    while (!handlers->wirelessHandler->isConnected() && retries < RETRIES) {
         DEBUG("Failed to connect to Wi-Fi. Retrying in 10 seconds...");
         vTaskDelay(pdMS_TO_TICKS(10000));
         handlers->wirelessHandler->disconnect();
         handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
     }
+    retries = 0;
+
+    if (!handlers->wirelessHandler->isConnected()) {
+        // TODO: Request new settings from pico
+    }
+
     DEBUG("Connected to Wi-Fi");
 
     // Initialize request handler
-    auto requestHandler = std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN, handlers->wirelessHandler,
-                                                           handlers->sdcardHandler);
-    handlers->requestHandler = requestHandler;
-
-    // Initialize camera
-    auto cameraHandler = std::make_shared<CameraHandler>(sdcardHandler, requestHandler->getWebSrvRequestQueue());
-    handlers->cameraHandler = cameraHandler;
+    handlers->requestHandler = std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN,
+                                                                handlers->wirelessHandler, handlers->sdcardHandler);
 
     // Set timezone
     set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
 
     // Create a timer to fetch user instructions from the web server
     TimerHandle_t getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
-                                                 requestHandler.get(), get_request_timer_callback);
+                                                 handlers->requestHandler.get(), get_request_timer_callback);
     while (getRequestTimer == NULL && retries < RETRIES) {
         getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
-                                       requestHandler.get(), get_request_timer_callback);
+                                       handlers->requestHandler.get(), get_request_timer_callback);
         retries++;
     }
     if (getRequestTimer != NULL) {
@@ -166,7 +169,6 @@ void init_task(void *pvParameters) {
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
-    
     // Send ESP initialized message to Pico
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
@@ -319,8 +321,9 @@ void uart_read_task(void *pvParameters) {
 
             switch (uart_event.type) {
                 case UART_DATA:
-                    uart_databuffer_len = uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)data_read_from_uart,
-                                                    (sizeof(data_read_from_uart) - 1), pdMS_TO_TICKS(10));
+                    uart_databuffer_len =
+                        uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)data_read_from_uart,
+                                        (sizeof(data_read_from_uart) - 1), pdMS_TO_TICKS(10));
                     if (uart_databuffer_len == -1) {
                         DEBUG("Failed to read data from UART");
                         break;
@@ -328,7 +331,8 @@ void uart_read_task(void *pvParameters) {
                     data_read_from_uart[uart_databuffer_len] = '\0'; // Null-terminate the received string
 
                     // Extract message from buffer
-                    return_code = extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
+                    return_code =
+                        extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     while (return_code == 0) {
                         // Check we're waiting for a response
                         if (espPicoCommHandler->get_waiting_for_response()) {

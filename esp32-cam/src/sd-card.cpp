@@ -234,7 +234,6 @@ int SDcardHandler::write_file(const char *filename, const uint8_t *data, const s
 }
 
 int SDcardHandler::read_file(const char *filename, std::string &read_data_storage) {
-    DEBUG("Reading file: ", filename);
     if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
         DEBUG("Failed to acquire mutex");
         return 1;
