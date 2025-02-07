@@ -88,7 +88,7 @@ int find_first_char_position(const char *data_buffer, const size_t data_buffer_l
         return -1; // Invalid array
     }
 
-    for (size_t i = 0; i < data_buffer; ++i) {
+    for (size_t i = 0; i < *data_buffer; ++i) {
         if (data_buffer[i] == target) {
             return static_cast<int>(i); // Return position if found
         }
