@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 #include "debug.hpp"
 #include "timesync-lib.hpp"
+#include "defines.hpp"
 
 
 void initialize_sntp() {
@@ -85,35 +86,51 @@ timeSyncLibReturnCodes set_tz(const char* timezone) {
 
 // FI daylight saving / winter time.
 timeSyncLibReturnCodes set_timezone_to_eet() {
-    DEBUG("Setting timezone to EET");
-    if(setenv("TZ", "UTC-2", 1)) {
-        tzset();
-        DEBUG("Timezone set");
-        return timeSyncLibReturnCodes::SUCCESS;
+    int attempts = 0;
+    while (attempts < RETRIES) {
+        DEBUG("Setting timezone to EET, attempt ", attempts + 1);
+        if (setenv("TZ", "UTC-2", 1) == 0) {
+            tzset();
+            DEBUG("Timezone set");
+            return timeSyncLibReturnCodes::SUCCESS;
+        }
+        DEBUG("Failed to set timezone on attempt ", attempts + 1);
+        attempts++;
     }
-    DEBUG("Failed to set timezone");
+    DEBUG("Failed to set timezone after ", RETRIES, " attempts");
     return timeSyncLibReturnCodes::SET_TIME_ERROR;
 }
 
 // FI summer time.
 timeSyncLibReturnCodes set_timezone_to_eest() {
-    DEBUG("Setting timezone to EEST");
-    if (setenv("TZ", "UTC-3", 1)){
-        tzset();
-        DEBUG("Timezone set");
-        return timeSyncLibReturnCodes::SUCCESS;
+    int attempts = 0;
+    while (attempts < RETRIES) {
+        DEBUG("Setting timezone to EEST, attempt ", attempts + 1);
+        if (setenv("TZ", "UTC-3", 1) == 0) {
+            tzset();
+            DEBUG("Timezone set");
+            return timeSyncLibReturnCodes::SUCCESS;
+        }
+        DEBUG("Failed to set timezone on attempt ", attempts + 1);
+        attempts++;
     }
-    DEBUG("Failed to set timezone");
+    DEBUG("Failed to set timezone after ", RETRIES, " attempts");
     return timeSyncLibReturnCodes::SET_TIME_ERROR;
 }
 
 timeSyncLibReturnCodes set_timezone_general(const char* timezone) {
-    if(setenv("TZ", timezone, 1)) {
-        tzset();
-        DEBUG("Timezone set");
-        return timeSyncLibReturnCodes::SUCCESS;
+    int attempts = 0;
+    while (attempts < RETRIES) {
+        DEBUG("Setting timezone to ", timezone, " attempt ", attempts + 1);
+        if (setenv("TZ", timezone, 1) == 0) {
+            tzset();
+            DEBUG("Timezone set");
+            return timeSyncLibReturnCodes::SUCCESS;
+        }
+        DEBUG("Failed to set timezone on attempt ", attempts + 1);
+        attempts++;
     }
-    DEBUG("Failed to set timezone");
+    DEBUG("Failed to set timezone after ", RETRIES, " attempts");
     return timeSyncLibReturnCodes::SET_TIME_ERROR;
 }
 
