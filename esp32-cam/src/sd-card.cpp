@@ -5,10 +5,10 @@
 #include "driver/sdmmc_defs.h"
 #include "driver/sdmmc_host.h"
 #include "esp_vfs_fat.h"
+#include "mbedtls/base64.h"
 #include "sdmmc_cmd.h"
 #include <string.h>
 #include <string>
-#include "mbedtls/base64.h"
 
 /**
  * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
@@ -36,10 +36,11 @@ SDcardHandler::SDcardHandler(std::string mount_point_arg, int max_open_files, in
             return;
         }
         DEBUG("SD card mount failed, attempt ", i + 1);
+        this->unmount_sdcard();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    DEBUG("Failed to mount SD card after retries, error: ", esp_err_to_name(sd_card_status));
+    DEBUG("Failed to mount SD card after ", RETRIES, " retries, error: ", esp_err_to_name(sd_card_status));
     this->sd_card_status = ESP_FAIL;
     return;
 }
@@ -77,7 +78,6 @@ esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open
                                                      .allocation_unit_size = 16 * 1024,
                                                      .disk_status_check_enable = false,
                                                      .use_one_fat = false};
-    sdmmc_card_t *card;
 
     const char *mount_point = mount_point_arg.c_str();
     this->mount_point = mount_point_arg;
@@ -91,7 +91,7 @@ esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open
     gpio_set_pull_mode((gpio_num_t)D2, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode((gpio_num_t)D3, GPIO_PULLUP_ONLY);
 
-    return esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
+    return esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &this->esp_sdcard);
 }
 
 /**
@@ -241,7 +241,7 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
 
     std::string full_filename_str = this->mount_point + "/" + filename;
     DEBUG("Opening file ", full_filename_str.c_str());
-    FILE *file = fopen(full_filename_str.c_str(), "rb");  // "rb" for binary-safe reading
+    FILE *file = fopen(full_filename_str.c_str(), "rb"); // "rb" for binary-safe reading
     if (!file) {
         DEBUG("Failed to open file for reading");
         perror("File open error");
@@ -282,7 +282,7 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     }
 
     std::string full_filename_str = this->mount_point + "/" + filename;
-    FILE *file = fopen(full_filename_str.c_str(), "rb");  // "rb" for binary-safe reading
+    FILE *file = fopen(full_filename_str.c_str(), "rb"); // "rb" for binary-safe reading
     if (!file) {
         DEBUG("Failed to open file for reading");
         perror("File open error");
@@ -317,7 +317,7 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
 
     size_t actual_base64_len;
     int ret = mbedtls_base64_encode(base64_buffer, base64_len + 1, &actual_base64_len,
-                                     (const unsigned char *)read_buffer, read_size);
+                                    (const unsigned char *)read_buffer, read_size);
     delete[] read_buffer;
 
     if (ret != 0) {
@@ -336,8 +336,6 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     xSemaphoreGive(file_mutex);
     return 0; // Success
 }
-
-
 
 /**
  * @brief Adds a CRC value to the given data string.
@@ -551,4 +549,57 @@ int SDcardHandler::read_setting(const Settings settingID, std::string &value) {
 
     value = settings[(int)settingID];
     return 0; // Success
+}
+
+uint32_t SDcardHandler::get_sdcard_free_space() {
+    FATFS *fs;
+    DWORD free_clusters, total_clusters;
+    uint32_t sector_size = this->esp_sdcard->csd.sector_size;
+
+    // Get the filesystem information
+    if (f_getfree("0:", &free_clusters, &fs) == FR_OK) {
+        total_clusters = fs->n_fatent - 2;
+        uint32_t free_sectors = free_clusters * fs->csize;
+        uint32_t total_sectors = total_clusters * fs->csize;
+
+        DEBUG("Total space: ", (total_sectors * sector_size / 1024), " KB");
+        DEBUG("Free space: ", (free_sectors * sector_size / 1024), " KB");
+        return free_sectors * sector_size;
+    } else {
+        DEBUG("Failed to get filesystem information");
+        return 0;
+    }
+}
+
+esp_err_t SDcardHandler::unmount_sdcard() {
+    if (this->esp_sdcard == nullptr) {
+        DEBUG("SD card already unmounted or not initialized");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = esp_vfs_fat_sdcard_unmount("/sdcard", this->esp_sdcard);
+    if (err == ESP_OK) {
+        DEBUG("SD card unmounted successfully");
+    } else {
+        DEBUG("Failed to unmount SD card: ", esp_err_to_name(err));
+    }
+    return err;
+}
+
+
+esp_err_t SDcardHandler::clear_sdcard() {
+    esp_err_t ret;
+
+    // Unmount SD card
+    this->unmount_sdcard();
+
+    // Format SD card (this will clear everything)
+    ret = esp_vfs_fat_sdcard_format(this->mount_point.c_str(), this->esp_sdcard);
+    if (ret != ESP_OK) {
+        DEBUG("Failed to format SD card. Error: ", esp_err_to_name(ret));
+        return ret;
+    }
+
+    DEBUG("SD card formatted and cleared");
+    return ESP_OK;
 }

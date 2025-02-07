@@ -6,6 +6,7 @@
 #include "freertos/semphr.h"
 #include <string>
 #include <vector>
+#include "sdmmc_cmd.h"
 
 enum class Settings {
     WIFI_SSID,
@@ -39,11 +40,15 @@ class SDcardHandler {
     int read_all_settings(std::vector<std::string> settings);
     int save_setting(const Settings settingID, const std::string &value);
     int read_setting(const Settings settingID, std::string &value);
+    uint32_t get_sdcard_free_space();
+    esp_err_t unmount_sdcard();
+    esp_err_t clear_sdcard();
 
   private:
     std::string mount_point;
     esp_err_t sd_card_status;
     SemaphoreHandle_t file_mutex;
+    sdmmc_card_t *esp_sdcard;
 };
 
 #endif
