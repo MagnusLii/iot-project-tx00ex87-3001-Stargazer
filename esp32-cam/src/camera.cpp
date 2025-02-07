@@ -28,10 +28,11 @@
  * @note This constructor initializes the camera with the provided settings, mounts the SD card,
  * and handles errors during the camera initialization process.
  */
-CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN, int RESET, int XCLK,
-               int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2, int D1, int D0, int VSYNC, int HREF,
-               int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER, ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT,
-               framesize_t FRAME_SIZE, int jpeg_quality, int fb_count) {
+CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN,
+                             int RESET, int XCLK, int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2,
+                             int D1, int D0, int VSYNC, int HREF, int PCLK, int XCLK_FREQ, ledc_timer_t LEDC_TIMER,
+                             ledc_channel_t LEDC_CHANNEL, pixformat_t PIXEL_FORMAT, framesize_t FRAME_SIZE,
+                             int jpeg_quality, int fb_count) {
     DEBUG("CameraHandler constructor called\n");
 
     this->sdcardHandler = sdcardPtr;
@@ -65,12 +66,40 @@ CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHand
     this->camera_config.jpeg_quality = jpeg_quality;
     this->camera_config.fb_count = fb_count;
 
-    DEBUG("Initializing camera\n");
+    DEBUG("Initializing camera");
     esp_err_t err = esp_camera_init(&camera_config);
-    DEBUG("CameraHandler initialized\n");
     if (err != ESP_OK) {
-        DEBUG("CameraHandler init failed with error: ", err);
-        // TODO: Handle error
+        DEBUG("CameraHandler init failed with error: %d", err);
+
+        // Handle specific error codes.
+        switch (err) {
+            case ESP_ERR_NO_MEM:
+                DEBUG("Error: Insufficient memory for camera initialization.");
+                break;
+            case ESP_ERR_INVALID_ARG:
+                DEBUG("Error: Invalid camera configuration.");
+                break;
+            case ESP_ERR_INVALID_STATE:
+                DEBUG("Error: Camera already initialized or in invalid state.");
+                break;
+            case ESP_ERR_NOT_FOUND:
+                DEBUG("Error: Camera sensor not found.");
+                break;
+            default:
+                DEBUG("Error: Unknown error occurred.");
+                break;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        DEBUG("Retrying camera initialization...\n");
+        err = esp_camera_init(&camera_config);
+        // Restart if it fails again as it's usually unrecoverable.
+        if (err != ESP_OK) {
+            DEBUG("Camera re-initialization failed. Restarting...");
+            esp_restart();
+        }
+    } else {
+        DEBUG("CameraHandler initialized successfully");
     }
 }
 
