@@ -42,10 +42,10 @@ Prefix values:<br>
 `<4>` = ESP informs Pico of image to take.<br>
 `<5>` = Command/Picture status from Pico to ESP<br>
 `<6>` = Pico instructs ESP to take image<br>
-`<7>` = Diagnostics data from pico.             `$<7>,<status (int)>,<msg (string)>,<CRC>;`<br>
-`<8>` = WiFi information from Pico to ESP       `$<8>,<SSID (string)>,<password (string)>,<CRC>;`<br>
-`<9>` = Send server ip/domain + (port) to ESP   `$<9>,<IP/domain (string)>,<port (int)>,<CRC>;` #if port = 0, port is unused<br>
-`<10>` = Api token from Pico to ESP             `$<10>,<Token (string)>,<CRC>;`<br>
+`<7>` = Diagnostics data from pico.         
+`<8>` = WiFi information from Pico to ESP       
+`<9>` = Send server ip/domain + (port) to ESP   
+`<10>` = Api token from Pico to ESP             
 
 Diagnostics values:<br>
 GPS status?<br>
@@ -82,3 +82,9 @@ Stuff to send:
 -   Diagnostics data from pico.<br>
     `$<6>,<TBD>,...,<CRC>;`<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
+
+
+-   `$<7>,<status (int)>,<msg (string)>,<CRC>;`<br>
+-   `$<8>,<SSID (string)>,<password (string)>,<CRC>;`<br>
+-   `$<9>,<IP/domain (string)>,<port (int)>,<CRC>;` #if port = 0, port is unused<br>
+-   `$<10>,<Token (string)>,<CRC>;`<br>
