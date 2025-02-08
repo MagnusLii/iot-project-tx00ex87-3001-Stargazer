@@ -110,20 +110,21 @@ Message instructions(int object_id, int image_id, int position_id) {
     return Message{.type = INSTRUCTIONS, .content = {std::to_string(object_id), std::to_string(image_id), std::to_string(position_id)}};
 }
 
+Message instructions(const std::string object_id, const std::string image_id, const std::string position_id) {
+    return Message{.type = INSTRUCTIONS, .content = {object_id, image_id, position_id}};
+}
+
 Message cmd_status(int image_id, int status, int datetime) {
     return Message{.type = CMD_STATUS, .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
-Message instructions(const std::string celestial_obj_id, const std::string instruction_identifier_id, const std::string image_position_id) {
-    return Message{.type = INSTRUCTIONS, .content = {celestial_obj_id, instruction_identifier_id, image_position_id}};
-}
 
 Message picture(int object_id, int image_id) { // NOTE: Do we actually need to send the object id back to the ESP?
     return Message{.type = PICTURE, .content = {std::to_string(object_id), std::to_string(image_id)}};
 }
 
-Message diagnostics(/* diagnostics */) {
-    return Message{.type = DIAGNOSTICS, .content = {/* diagnostics example */ "TBD"}};
+Message diagnostics(int status, const std::string diagnostic) {
+    return Message{.type = DIAGNOSTICS, .content = {std::to_string(status), diagnostic}};
 }
 
 Message wifi(std::string ssid, std::string password) {
