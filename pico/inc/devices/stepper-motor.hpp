@@ -6,6 +6,7 @@
 #include "hardware/pio.h"
 #include <vector>
 #include <algorithm>
+#include <cmath>
 
 #define NPINS 4
 #define RPM_MAX 15.
@@ -14,23 +15,33 @@
 #define CLOCKWISE true
 #define ANTICLOCKWISE false
 
+enum Axis {
+  UNDEFINED,
+  HORIZONTAL,
+  VERTICAL
+};
+
+int modulo(int x, int y);
+
 
 class StepperMotor {
   friend void raw_calibration_handler(void);
   public:
-    StepperMotor(const std::vector<uint> &stepper_pins, int optoforkpin=-1, bool horizontal=true);
+    StepperMotor(const std::vector<uint> &stepper_pins, int optoforkpin=-1, Axis axis=UNDEFINED);
 
     void init(PIO pio, float rpm, bool clockwise);
 
-    void set_calibration_pointer(bool horizontal);
+    void set_calibration_pointer(Axis axis);
     void calibrate(void);
 
     void turnSteps(uint16_t steps);
+    void turn_to(double radians);
     void turnOneRevolution();
     void setSpeed(float rpm);
     void stop();
     void setDirection(bool clockwise);
 
+    double get_position(void);
     uint8_t getCurrentStep() const;
     bool isRunning() const;
     bool isCalibrated() const;
@@ -46,7 +57,7 @@ class StepperMotor {
     void morph_pio_pin_definitions(void);
     void pins_init();
     int read_steps_left(void);
-    void calibration_handler(void);
+    void calibration_handler(bool rise);
 
     std::vector<uint> pins;    // Stepper motor pins
     int optoForkPin;          // Pin for opto fork sensor, for now unused
@@ -62,6 +73,7 @@ class StepperMotor {
     uint64_t stepMemory;       // Tracks recent step movements
     bool stepperCalibrated;    // Whether the stepper is calibrated
     bool stepperCalibrating;   // Whether calibration is in progress
+    Axis axis;
 };
 
 #endif // STEPPER_MOTOR_H

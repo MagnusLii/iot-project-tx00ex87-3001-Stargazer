@@ -41,11 +41,15 @@
 int main() {
     stdio_init_all();
     std::vector<uint> pins1{2, 3, 6, 13};
-    std::vector<uint> pins2{17,18,19,20};
-    StepperMotor mh(pins1, 28);
+    std::vector<uint> pins2{16,17,18,19};
+    StepperMotor mh(pins1, 14, HORIZONTAL);
+    StepperMotor mv(pins2, 28, VERTICAL);
     mh.init(pio0, 2, true);
+    mv.init(pio1, 15, true);
+    // mh.calibrate();
+    mv.calibrate();
+    while (true)  {
 
-    mh.calibrate();
-    while (true) ;
+    }
 }
 
