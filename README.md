@@ -84,6 +84,7 @@ Stuff to send:
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.<br>
 
 
+-   `$<5>,<command id (int)>,<status id (int))>, <time(int)>,<CRC>;`<br>
 -   `$<7>,<status (int)>,<msg (string)>,<CRC>;`<br>
 -   `$<8>,<SSID (string)>,<password (string)>,<CRC>;`<br>
 -   `$<9>,<IP/domain (string)>,<port (int)>,<CRC>;` #if port = 0, port is unused<br>
