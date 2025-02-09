@@ -41,6 +41,8 @@ enum class RequestHandlerReturnCode {
     SOCKET_TIMEOUT_FAIL,
     FAILED_MUTEX_AQUISITION,
     INVALID_ARGUMENT,
+    INVALID_NUM_OF_ARGS,
+    FAILED_TO_CREATE_REQUEST,
 };
 
 class RequestHandler {
@@ -52,6 +54,7 @@ class RequestHandler {
     RequestHandlerReturnCode createDiagnosticsPOSTRequest(std::string *requestPtr);
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
     RequestHandlerReturnCode createUserInstructionsGETRequest(std::string *requestPtr);
+    RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...);
     QueueMessage *getUserInstructionsGETRequestptr();
 
     const char *getWebServerCString();
