@@ -1,8 +1,8 @@
 use crate::{err::Error, SharedState};
 use axum::{
-    extract::{Json, Query, State},
+    extract::{rejection::JsonRejection, Json, Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
@@ -40,17 +40,31 @@ async fn delete_key(db: &SqlitePool, id: i64) {
 }
 
 #[derive(Deserialize)]
-pub struct NewKeyQuery {
+pub struct NewKeyJson {
     name: String,
 }
 
 pub async fn new_key(
     State(state): State<SharedState>,
-    Json(name): Json<NewKeyQuery>,
+    payload: Result<Json<NewKeyJson>, JsonRejection>,
 ) -> impl IntoResponse {
-    let key = create_key(&state.db, name.name).await;
+    match payload {
+        Ok(Json(json)) => {
+            if json.name.is_empty() {
+                return (StatusCode::BAD_REQUEST, "Error: missing name".to_string());
+            }
 
-    (StatusCode::OK, Html(key))
+            let key = create_key(&state.db, json.name).await;
+            (StatusCode::OK, key)
+        }
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error: issue parsing request".to_string(),
+            )
+        }
+    }
 }
 
 #[derive(Deserialize)]

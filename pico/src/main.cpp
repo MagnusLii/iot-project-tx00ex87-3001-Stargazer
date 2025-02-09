@@ -21,10 +21,10 @@ int main() {
     // uint stepperPins[] = {2, 3, 6, 13};
     std::vector<uint> stepperPins{2, 3, 6, 13};
     // std::vector<uint> stepperPins2{18, 19, 20, 21};
-    std::vector<uint> optoforks(0);
+    uint optofork(0);
 
     PIO pio = pio0;
-    StepperMotor motor(stepperPins, optoforks);
+    StepperMotor motor(stepperPins, optofork);
     // StepperMotor motor2(stepperPins2, optoforks);
     
     motor.init(pio, 2, true);

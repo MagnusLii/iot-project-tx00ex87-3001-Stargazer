@@ -47,10 +47,19 @@ impl Backend {
         Ok(())
     }
 
-    pub async fn get_users(&self) -> Result<Vec<User>, Error> {
-        let users = sqlx::query_as("SELECT * FROM users")
-            .fetch_all(&self.db)
-            .await?;
+    pub async fn get_users(&self, privileged: Option<bool>) -> Result<Vec<User>, Error> {
+        let users: Vec<User>;
+
+        if let Some(privileged) = privileged {
+            users = sqlx::query_as("SELECT * FROM users WHERE superuser = ?")
+                .bind(privileged)
+                .fetch_all(&self.db)
+                .await?;
+        } else {
+            users = sqlx::query_as("SELECT * FROM users")
+                .fetch_all(&self.db)
+                .await?;
+        }
 
         Ok(users)
     }
@@ -66,8 +75,14 @@ impl Backend {
     }
 
     pub async fn change_password(&self, id: i64, password: String) -> Result<(), Error> {
+        #[cfg(feature = "pw_hash")]
+        let pw = password::generate_phc_string(&password)?;
+
+        #[cfg(not(feature = "pw_hash"))]
+        let pw = password;
+
         sqlx::query("UPDATE users SET password = ? WHERE id = ?")
-            .bind(password)
+            .bind(pw)
             .bind(id)
             .execute(&self.db)
             .await?;

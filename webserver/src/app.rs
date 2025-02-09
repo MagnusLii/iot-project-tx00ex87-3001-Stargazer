@@ -91,6 +91,7 @@ impl App {
             .route(
                 "/api/upload",
                 post(api::upload::upload_image).layer(DefaultBodyLimit::max(262_144_000)),
+                //post(api::upload::print_request),
             )
             .route("/api/command", get(api::commands::fetch_command))
             .route("/api/command", post(api::commands::respond_command))
@@ -100,7 +101,7 @@ impl App {
             .nest_service("/assets", ServeDir::new("assets"))
             .fallback(routes::unknown_route);
 
-        let listener = TcpListener::bind(address).await.unwrap();
+        let listener = TcpListener::bind(address).await?;
 
         println!("Listening on: http://{}", address);
 

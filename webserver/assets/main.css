@@ -319,6 +319,7 @@ body {
 #command-table {
     border-collapse: collapse;
     border-spacing: 0;
+    border: 1px solid var(--color-3);
 }
 
 #command-table th {
@@ -337,7 +338,18 @@ body {
     background-color: var(--color-3);
 }
 
+.command-cancel td {
+    padding: 0;
+}
+
+.command-cancel button {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
 #pagination {
+    margin-top: 8px;
     display: flex;
     justify-content: center;
 }
@@ -361,13 +373,46 @@ body {
 
 /* KEY MANAGEMENT */
 
-#ro-key input {
-    width: 500px
+#gen-key .row {
+    width: 100%;
+    margin: 8px auto;
+}
+
+#ro-key {
+    width: 265px;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+#api-key-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid var(--color-3);
+    margin: auto;
+}
+
+#api-key-table th {
+    background-color: var(--color-3);
+    height: 40px;
+}
+
+#api-key-table th, td {
+    padding: 8px;
+}
+
+#api-key-table td {
+    width: auto;
+}
+
+#api-key-table button {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
 }
 
 /* GALLERY */
 
-.gallery-container {
+#gallery-container {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -378,14 +423,36 @@ body {
     justify-content: space-between;
 }
 
+#gallery-column.right {
+    text-align: right;
+}
 
+@media only screen and (max-width: 768px) {
+    #gallery-column.right {
+        text-align: left;
+    }
+}
 
-.photo {
+#gallery-container .photo {
     border: 1px solid #ddd;
     border-radius: 15px;
-    padding: 5px;
-    width: 300px;
-    margin: 50px;
+    width: 23%;
+    margin: 1%;
+}
+
+#gallery-container.view-grid-small .photo {
+    width: 10.5%;
+    margin: 1%;
+}
+
+#gallery-container.view-grid-large .photo {
+    width: 48%;
+    margin: 1%;
+}
+
+#gallery-container.view-grid-full .photo {
+    width: 98%;
+    margin: 1%;
 }
 
 .photo:hover {
@@ -406,11 +473,16 @@ body {
     padding-top: 80px;
 }
 
-.modal-content {
+#image-modal-image {
     margin: auto;
     display: block;
-    width: 80%;
-    max-width: 1500px;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+#image-modal-caption {
+    padding: 10px 0;
+    text-align: center;
 }
 
 .close {
@@ -425,3 +497,15 @@ body {
 }
 
 /* USERS */
+
+#input-user .row {
+    padding: 5px 0;
+}
+
+#feedback-user-message {
+    min-height: 30px;
+}
+
+#users button {
+    margin-left: 10px
+}

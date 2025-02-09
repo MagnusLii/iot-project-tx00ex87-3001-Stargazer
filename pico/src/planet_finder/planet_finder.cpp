@@ -99,29 +99,10 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-// Sun::Sun(double J2000_day) : oe(J2000_day, SUN) {
-// }
-
-// double Sun::mean_longitude(void) {
-//     return normalize_radians(oe.M + oe.w);
-// }
-
-// ecliptic_coordinates Sun::get_ecliptic_coordinates(void) {
-//     double E = eccentric_anomaly(oe.e, oe.M);
-//     rect_coordinates xy = to_rectangular_coordinates(oe.a, oe.e, E);
-//     double v = true_anomaly(xy);
-//     double r = distance(xy);
-//     ecliptic_coordinates result;
-//     result.lon = v + oe.w;
-//     result.distance = r;
-//     result.lat = 0;
-//     return result;
-// }
-
 
 Celestial::Celestial(Planets planet) : planet(planet) {}
 
-azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const Coordinates observer_coordinates) {
+azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
     orbital_elements oe(J2000, planet);
     orbital_elements sun(J2000, SUN);
@@ -195,29 +176,71 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date, const C
 }
 
 
-void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
-    coordinate_table.clear();
-    date.min = 0;
-    for (int i=0; i<24; i++) {
-        azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
-        coordinate_table.push_back(coord);
-        datetime_increment_hour(date);
-    }
-}
+// void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
+//     table_start_date = date;
+//     for (int i=0; i<TABLE_LEN; i++) {
+//         azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
+//         coordinate_table[i] = coord;
+//         datetime_increment_hour(date);
+//     }
+//     table_stop_date = date;
+// }
 
 
-void Celestial::print_coordinate_table(void) {
-    for (auto coord : coordinate_table) {
+void Celestial::print_coordinates(datetime_t start_date, int hours) {
+    std::cout << (int)start_date.year << ", " << (int)start_date.month << ", " << (int)start_date.day << ", " << (int)start_date.hour << ", " << (int)start_date.min << std::endl;
+
+    for (int i=0; i<hours; i++) {
+        azimuthal_coordinates coord = get_coordinates(start_date);
         std::cout << coord.altitude << ", " << coord.azimuth << std::endl;
+        datetime_increment_hour(start_date);
     }
     std::cout << "end" << std::endl;
 }
 
-datetime_t Celestial::get_interest_point_time(void) {
-    // note: coordinate table needs to be filled with desired day
-    datetime_t date;
+datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+    datetime_t date = get_zenith_time(start_date);
 
+    
     return date;
+}
+
+datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
+    datetime_t iter_date = start_date;
+    datetime_t result_date{0};
+    azimuthal_coordinates last = get_coordinates(iter_date);
+    datetime_increment_hour(iter_date);
+    azimuthal_coordinates current = get_coordinates(iter_date);
+    datetime_increment_hour(iter_date);
+    azimuthal_coordinates next = get_coordinates(iter_date);
+    bool done = false;
+    bool error = false;
+    int i = 0;
+    while (!done) {
+        if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
+            done = true;
+        }
+        if (i >= 48) { // two days
+            done = true;
+            error = true;
+        }
+        i++;
+        if (!done) {
+            result_date = iter_date;
+            datetime_increment_hour(iter_date);
+            last = current;
+            current = next;
+            next = get_coordinates(iter_date);
+        }
+    }
+    if (error) { // -1 year means no date could be found in 2 days
+        result_date.year = -1;
+    }
+    return result_date;
+}
+
+void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
+    this->observer_coordinates = observer_coordinates;
 }
 
 
