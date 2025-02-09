@@ -1,3 +1,5 @@
+// TESTING DEFINES
+
 // Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
 // #define RESERVE_UART0_FOR_PICO_COMM
 
@@ -9,6 +11,12 @@
 
 // Make uart msg string with CRC
 // #define UART_MSG_CRC
+
+// Generic POST request test
+// #define GENERIC_POST_REQUEST_TEST
+
+
+// PRODUCTION DEFINES
 
 // Enables production code
 #define PRODUCTION_CODE
@@ -101,6 +109,17 @@ void app_main(void) {
     convert_to_string(msg, string);
 
 #endif
+
+#ifdef GENERIC_POST_REQUEST_TEST
+    std::shared_ptr<WirelessHandler> wirelessHandler = std::make_shared<WirelessHandler>();
+    std::shared_ptr<SDcardHandler> sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
+    RequestHandler requestHandler("webserver", "webport", "webtoken", wirelessHandler, sdcardHandler);
+
+    std::string request;
+    requestHandler.createGenericPOSTRequest(&request, "/api/command", 4, "command", "1", "value", "3");
+    DEBUG("Request: ", request.c_str());
+#endif
+
 
 #ifdef PRODUCTION_CODE
     xTaskCreate(init_task, "init-task", 8192, NULL, TaskPriorities::HIGH, NULL);
