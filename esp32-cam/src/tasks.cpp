@@ -316,7 +316,6 @@ void uart_read_task(void *pvParameters) {
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&uart_event, portMAX_DELAY)) {
-
             switch (uart_event.type) {
                 case UART_DATA:
                     uart_databuffer_len =
@@ -440,12 +439,7 @@ void handle_uart_data_task(void *pvParameters) {
                             break;
                         }
 
-                        // store image/command id in request
-                        if (msg.content.size() < 2) {
-                            DEBUG("Invalid message content");
-                            break;
-                        }
-                        request.image_id = std::stoi(msg.content[1]);
+                        request.image_id = std::stoi(msg.content[0]); // TODO:change when message format is updated.
                         DEBUG("Image ID: ", request.image_id);
 
                         // Enqueue the request
@@ -462,9 +456,15 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::DIAGNOSTICS:
-                        // TODO: Gather diagnostics data
-                        // TODO: enqueue post req
+                        request.requestType = RequestType::POST_DIAGNOSTICS;
+                        strncpy(request.str_buffer, string.c_str(), string.size());
+                        request.str_buffer[string.size()] = '\0';
+                        request.buffer_length = string.size();
 
+                        if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
+                                               RETRIES) == false) {
+                            DEBUG("Failed to enqueue POST_IMAGE request");
+                        }
                         break;
                     default:
                         DEBUG("Unknown message type received");
