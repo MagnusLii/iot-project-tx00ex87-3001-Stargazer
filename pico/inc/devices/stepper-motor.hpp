@@ -58,6 +58,7 @@ class StepperMotor {
     void pins_init();
     int read_steps_left(void);
     void calibration_handler(bool rise);
+    int radians_to_steps(double radians);
 
     std::vector<uint> pins;    // Stepper motor pins
     int optoForkPin;          // Pin for opto fork sensor, for now unused

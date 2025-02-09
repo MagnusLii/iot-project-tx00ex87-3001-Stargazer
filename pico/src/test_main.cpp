@@ -48,6 +48,9 @@ int main() {
     mv.init(pio1, 15, true);
     // mh.calibrate();
     mv.calibrate();
+    while (!mv.isCalibrated()) ;
+    mv.turn_to(M_PI / 2);
+    mv.turn_to(- M_PI / 2);
     while (true)  {
 
     }

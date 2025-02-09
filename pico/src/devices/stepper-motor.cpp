@@ -148,8 +148,17 @@ void StepperMotor::turnSteps(uint16_t steps) {
     stepMemory = (stepMemory << 16) | stepsToAdd;
 }
 
-void turn_to(double radians) {
 
+// this will stop the motor and turn to an angle instantly
+void StepperMotor::turn_to(double radians) {
+    stop();
+    double current = get_position();
+    double distance = radians - current;
+    if (distance < 0)
+        setDirection(ANTICLOCKWISE);
+    else
+        setDirection(CLOCKWISE);
+    turnSteps(radians_to_steps(fabs(distance)));
 }
 
 void StepperMotor::turnOneRevolution() {
@@ -229,7 +238,11 @@ void StepperMotor::setDirection(bool clockwise) {
 }
 
 double StepperMotor::get_position(void) {
-    return (stepCounter * 2 * M_PI) / stepMax;
+    return ((double)stepCounter * 2.0 * M_PI) / (double)stepMax;
+}
+
+int StepperMotor::radians_to_steps(double radians) {
+    return (int)round((radians * (double)stepMax) / (2.0 * M_PI));
 }
 
 uint8_t StepperMotor::getCurrentStep() const {
@@ -292,10 +305,12 @@ void StepperMotor::calibrate(void) {
     turnSteps(6000);
 }
 
-static int stage = 0;
 void StepperMotor::calibration_handler(bool rise) {
     if (rise) {
-        stop();
-        stepCounter = 0;
+        if (!isCalibrated()) {
+            stop();
+            stepCounter = 0;
+            stepperCalibrated = true;
+        }
     }
 }
