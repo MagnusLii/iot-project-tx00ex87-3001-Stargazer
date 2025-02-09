@@ -9,6 +9,7 @@
 #include "debug.hpp"
 #include "date_utils.hpp"
 #include "gps.hpp"
+#include "structs.hpp"
 
 #define TABLE_LEN 24
 
@@ -69,10 +70,10 @@ struct ecliptic_coordinates {
     }
 };
 
-struct azimuthal_coordinates {
-    double azimuth;
-    double altitude;
-};
+// struct azimuthal_coordinates {
+//     double azimuth;
+//     double altitude;
+// };
 
 
 struct orbital_elements {
@@ -94,13 +95,16 @@ class Celestial {
         void print_coordinates(const datetime_t start_date, int hours);
         datetime_t get_interest_point_time(Interest_point point,const datetime_t &start_date);
         void set_observer_coordinates(const Coordinates observer_coordinates);
+        void start_trace(datetime_t start_datetime, int hours);
+        Command next_trace(void);
     private:
         datetime_t get_zenith_time(const datetime_t &start_date);
         Planets planet;
         Coordinates observer_coordinates;
+        datetime_t trace_date;
+        int trace_hours;
         // azimuthal_coordinates coordinate_table[TABLE_LEN];
-        datetime_t table_start_date;
-        datetime_t table_stop_date;
+
 };
 
 

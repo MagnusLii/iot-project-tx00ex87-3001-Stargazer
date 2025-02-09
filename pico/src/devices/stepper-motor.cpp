@@ -294,7 +294,7 @@ void StepperMotor::calibrate(void) {
     if (isCalibrating()) return;
     if (!optoForkPin) return;
     if (axis == UNDEFINED) return;
-    setSpeed(10);
+    setSpeed(2);
     stepperCalibrating = true;
     stepperCalibrated = false;
 

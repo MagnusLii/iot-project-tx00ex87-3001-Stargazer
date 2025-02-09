@@ -45,13 +45,33 @@ int main() {
     StepperMotor mh(pins1, 14, HORIZONTAL);
     StepperMotor mv(pins2, 28, VERTICAL);
     mh.init(pio0, 2, true);
-    mv.init(pio1, 15, true);
-    // mh.calibrate();
+    mv.init(pio1, 2, true);
+    // mh.turnSteps(3000);
+    Celestial moon(MOON);
+    datetime_t date;
+    date.year = 2025;
+    date.month = 2;
+    date.day = 2;
+    date.hour = 20;
+    date.min = 0;
+    Coordinates coords(60.1699, 24.9384);
+    moon.set_observer_coordinates(coords);
+    mh.calibrate();
     mv.calibrate();
     while (!mv.isCalibrated()) ;
-    mv.turn_to(M_PI / 2);
-    mv.turn_to(- M_PI / 2);
+    while (mh.isCalibrating()) ;
+    moon.start_trace(date, 10);
+
+    Command command;
+    command.time.year = 1000;
     while (true)  {
+        if (command.time.year != -1) {
+            command = moon.next_trace();
+            mv.turn_to(command.coords.altitude);
+            mh.turn_to(command.coords.azimuth);
+            while (mv.isRunning()) ;
+            while (mv.isRunning()) ;
+        }
 
     }
 }

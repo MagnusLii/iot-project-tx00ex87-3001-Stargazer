@@ -100,7 +100,7 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
 }
 
 
-Celestial::Celestial(Planets planet) : planet(planet) {}
+Celestial::Celestial(Planets planet) : planet(planet), trace_hours(0) {}
 
 azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
@@ -241,6 +241,25 @@ datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
 
 void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
     this->observer_coordinates = observer_coordinates;
+}
+
+void Celestial::start_trace(datetime_t start_datetime, int hours) {
+    trace_date = start_datetime;
+    trace_hours = hours;
+}
+
+
+Command Celestial::next_trace(void) {
+    Command result;
+    if (trace_hours <= 0) {
+        result.time.year = -1; // this indicates error maybe
+        return result;
+    }
+    result.coords = get_coordinates(trace_date);
+    result.time = trace_date;
+    datetime_increment_hour(trace_date);
+    trace_hours--;
+    return result;
 }
 
 

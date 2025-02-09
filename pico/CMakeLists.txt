@@ -47,7 +47,7 @@ add_library(convert ${COMMON_DIR}/src/convert.cpp
 
 add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c src/devices/gps.cpp src/hardware/uart/PicoUart.cpp)
 target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
-target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc inc/hardware/uart)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc inc inc/hardware/uart)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
