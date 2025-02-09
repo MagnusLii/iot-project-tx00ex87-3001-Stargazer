@@ -26,12 +26,6 @@ void raw_calibration_handler(void) {
     }
 }
 
-// #define _arg(x) (x)
-// #define _remainder(x, y) (_arg(x) % _arg(y))
-// #define _lessthan(x) (_arg(x) < 0)
-// #define _ternary(x, y) (_lessthan(_remainder(x, y)) ? _arg(y) : 0)
-// #define modulo(x, y) (_remainder(x, y) + _ternary(x, y))
-
 int modulo(int x, int y) {
     int rem = x % y;
     return rem + ((rem < 0) ? y : 0);
