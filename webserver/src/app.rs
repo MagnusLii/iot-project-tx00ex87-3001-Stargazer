@@ -156,8 +156,11 @@ impl App {
                 .serve(router.into_make_service())
                 .await?;
         } else {
-            let tls_config =
-                RustlsConfig::from_pem_file("/certs/cert.pem", "/certs/key.pem").await?;
+            let tls_config = RustlsConfig::from_pem_file(
+                &self.certs_dir.join("server.crt").to_str().unwrap(),
+                &self.certs_dir.join("server.key").to_str().unwrap(),
+            )
+            .await?;
 
             let listener = TcpListener::bind(address)?;
 
