@@ -41,9 +41,6 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
     this->getUserInsturctionsRequest.buffer_length = getRequest.length();
     this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
-
-    DEBUG("getUserInsturctionsRequest.str_buffer: ", this->getUserInsturctionsRequest.str_buffer);
-    DEBUG("getUserInsturctionsRequest.requestType: ", (int)this->getUserInsturctionsRequest.requestType);
 }
 
 RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::string *requestPtr) {
@@ -122,6 +119,52 @@ RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::s
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: keep-alive\r\n"
                   "\r\n";
+    return RequestHandlerReturnCode::SUCCESS;
+}
+
+// The function reads all variable arguments as const char*, no \" is added to the values so should be added by the caller if meant to be included as strings in the JSON.
+RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...) {
+    if (requestPtr == nullptr) {
+        DEBUG("Error: requestPtr is null");
+        return RequestHandlerReturnCode::INVALID_ARGUMENT;
+    }
+
+    if (numOfVariableArgs % 2 != 0) {
+        DEBUG("Error: Number of arguments is not divisible by 2");
+        return RequestHandlerReturnCode::INVALID_NUM_OF_ARGS;
+    }
+
+    va_list args;
+    va_start(args, numOfVariableArgs);
+
+    std::string content = "{";
+    for (int i = 0; i < numOfVariableArgs; i += 2) {
+        const char *key = va_arg(args, const char *);
+        const char *value = va_arg(args, const char *);
+        content += std::string(key) + ":" + std::string(value);
+        if (i < numOfVariableArgs - 2) {
+            content += ",";
+        }
+    }
+    content += "}";
+
+    va_end(args);
+
+    *requestPtr = "POST " + std::string(endpoint) + " HTTP/1.0\r\n"
+                  "Host: " + this->webServer + ":" + this->webPort + "\r\n"
+                  "User-Agent: esp-idf/1.0 esp32\r\n"
+                  "Connection: keep-alive\r\n"
+                  "Content-Type: application/json\r\n"
+                  "Content-Length: " + std::to_string(content.length()) + "\r\n"
+                  "\r\n" + content;
+
+    DEBUG("Request: ", requestPtr->c_str());
+
+    if (requestPtr->empty()) {
+        DEBUG("Error: Request string is empty after construction");
+        return RequestHandlerReturnCode::FAILED_TO_CREATE_REQUEST;
+    }
+
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -223,7 +266,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
 
     // Send the request data to the server
     freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
-    if (write(socket_descriptor, request.str_buffer, strlen(request.str_buffer)) < 0) {
+    if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
         DEBUG("... socket send failed\n");
         close(socket_descriptor);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
