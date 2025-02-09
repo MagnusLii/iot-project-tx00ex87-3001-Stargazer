@@ -1,7 +1,9 @@
-use std::path::PathBuf;
-
 use clap::Parser;
-use webserver::{app::App, init::settings::Settings, init::setup::setup};
+use sqlx::SqlitePool;
+use std::path::PathBuf;
+use webserver::{
+    app::App, init::settings::Settings, init::setup::setup, web::images::ImageDirectory,
+};
 
 /// Stargazer webserver
 #[derive(Parser, Debug)]
@@ -39,7 +41,6 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    dbg!(&args);
 
     let settings = Settings::new(
         args.address,
@@ -68,15 +69,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let certs_path = PathBuf::from(settings.certs_dir);
-
     let http_address = format!("{}:{}", &settings.address, settings.port_http);
     let https_address = format!("{}:{}", &settings.address, settings.port_https);
     let user_db_path = format!("{}/users.db", settings.db_dir);
     let api_db_path = format!("{}/api.db", settings.db_dir);
+    let certs_path = PathBuf::from(settings.certs_dir);
 
     if let Ok(resources) = setup(&user_db_path, &api_db_path, &settings.assets_dir).await {
-        if http && https {
+        let (pri_address, api_only) = if http && https {
             tokio::spawn(alt_server(
                 http_address.clone(),
                 resources.user_db.clone(),
@@ -85,33 +85,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 certs_path.clone(),
                 false,
             ));
-        } else if !http && http_api {
-            tokio::spawn(alt_server(
-                http_address.clone(),
-                resources.user_db.clone(),
-                resources.api_db.clone(),
-                resources.image_dir.clone(),
-                certs_path.clone(),
-                true,
-            ));
-        }
-        let secure = if https { true } else { false };
-        App::new(
+            (https_address, false)
+        } else if !http && https {
+            if http_api {
+                tokio::spawn(alt_server(
+                    http_address.clone(),
+                    resources.user_db.clone(),
+                    resources.api_db.clone(),
+                    resources.image_dir.clone(),
+                    certs_path.clone(),
+                    true,
+                ));
+            }
+            (https_address, false)
+        } else if http && !https {
+            (http_address, false)
+        } else {
+            (http_address, true)
+        };
+
+        let pri_server = App::new(
             resources.user_db,
             resources.api_db,
             resources.image_dir,
             certs_path,
         )
-        .await?
-        .serve(
-            if secure {
-                &https_address
-            } else {
-                &http_address
-            },
-            secure,
-        )
-        .await
+        .await?;
+
+        if api_only {
+            pri_server.serve_api_only(&pri_address, false).await
+        } else {
+            pri_server.serve(&pri_address, true).await
+        }
     } else {
         panic!("Error during setup. Exiting..");
     }
@@ -119,9 +124,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn alt_server(
     address: String,
-    user_db: sqlx::SqlitePool,
-    api_db: sqlx::SqlitePool,
-    image_dir: webserver::web::images::ImageDirectory,
+    user_db: SqlitePool,
+    api_db: SqlitePool,
+    image_dir: ImageDirectory,
     certs_dir: PathBuf,
     api_only: bool,
 ) {

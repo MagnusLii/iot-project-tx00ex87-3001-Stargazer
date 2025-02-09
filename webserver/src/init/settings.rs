@@ -54,11 +54,7 @@ impl Settings {
             port_http: config.get("port_http")?,
             port_https: config.get("port_https")?,
             disable_http: config.get("disable_http")?,
-            enable_http_api: if config.get("disable_http")? {
-                config.get("enable_http_api")?
-            } else {
-                true
-            },
+            enable_http_api: config.get("enable_http_api")?,
             disable_https: config.get("disable_https")?,
             db_dir: config.get("db_dir")?,
             assets_dir: config.get("assets_dir")?,
@@ -74,10 +70,14 @@ impl Settings {
         } else if self.enable_http_api {
             println!("HTTP API Only Enabled");
             println!("HTTP Port: {}", self.port_http);
+        } else {
+            println!("HTTP Disabled");
         }
         if !self.disable_https {
             println!("HTTPS Enabled");
             println!("HTTPS Port: {}", self.port_https);
+        } else {
+            println!("HTTPS Disabled");
         }
         println!("DB Dir: {}", self.db_dir);
         println!("Assets Dir: {}", self.assets_dir);
