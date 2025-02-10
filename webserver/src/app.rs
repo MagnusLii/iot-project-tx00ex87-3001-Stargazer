@@ -22,7 +22,7 @@ use axum_login::{
 use axum_messages::MessagesManagerLayer;
 use axum_server::tls_rustls::RustlsConfig;
 use sqlx::SqlitePool;
-use std::{net::TcpListener, path::PathBuf};
+use std::net::TcpListener;
 use time::Duration;
 use tower_http::services::ServeDir;
 
@@ -31,7 +31,7 @@ pub struct App {
     session_store: MemoryStore,
     key: Key,
     backend: Backend,
-    certs_dir: PathBuf,
+    tls_config: Option<RustlsConfig>,
 }
 
 impl App {
@@ -39,7 +39,7 @@ impl App {
         user_db: SqlitePool,
         api_db: SqlitePool,
         image_dir: ImageDirectory,
-        certs_dir: PathBuf,
+        tls_config: Option<RustlsConfig>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let session_store = MemoryStore::default();
         let key = Key::generate();
@@ -54,7 +54,7 @@ impl App {
             session_store,
             key,
             backend,
-            certs_dir,
+            tls_config,
         })
     }
 
@@ -113,11 +113,11 @@ impl App {
                 .serve(router.into_make_service())
                 .await?;
         } else {
-            let tls_config = RustlsConfig::from_pem_file(
-                &self.certs_dir.join("server.crt").to_str().unwrap(),
-                &self.certs_dir.join("server.key").to_str().unwrap(),
-            )
-            .await?;
+            let tls_config = if let Some(tls_config) = self.tls_config {
+                tls_config
+            } else {
+                return Err("TLS config missing".into());
+            };
 
             let listener = TcpListener::bind(address)?;
 
@@ -156,11 +156,11 @@ impl App {
                 .serve(router.into_make_service())
                 .await?;
         } else {
-            let tls_config = RustlsConfig::from_pem_file(
-                &self.certs_dir.join("server.crt").to_str().unwrap(),
-                &self.certs_dir.join("server.key").to_str().unwrap(),
-            )
-            .await?;
+            let tls_config = if let Some(tls_config) = self.tls_config {
+                tls_config
+            } else {
+                return Err("TLS config missing".into());
+            };
 
             let listener = TcpListener::bind(address)?;
 

@@ -2,6 +2,7 @@ use crate::{
     api, auth,
     web::images::{self, ImageDirectory},
 };
+use axum_server::tls_rustls::RustlsConfig;
 use sqlx::SqlitePool;
 use std::{env, path::Path};
 use tokio::{fs, io};
@@ -10,16 +11,20 @@ pub struct Resources {
     pub user_db: SqlitePool,
     pub api_db: SqlitePool,
     pub image_dir: ImageDirectory,
+    pub tls_config: Option<RustlsConfig>,
 }
 
 pub async fn setup(
     user_db_path: &str,
     api_db_path: &str,
     assets_dir_path: &str,
+    certs_dir_path: &str,
+    tls: bool,
 ) -> Result<Resources, Box<dyn std::error::Error>> {
     let user_db: SqlitePool;
     let api_db: SqlitePool;
     let image_dir: ImageDirectory;
+    let tls_config: Option<RustlsConfig>;
 
     match setup_user_database(user_db_path).await {
         Ok(db) => user_db = db,
@@ -55,10 +60,20 @@ pub async fn setup(
         Err(e) => panic!("Error setting up file dirs: {}", e),
     };
 
+    if tls {
+        tls_config = match setup_tls_config(certs_dir_path).await {
+            Ok(tls_config) => Some(tls_config),
+            Err(e) => panic!("Error setting up TLS config: {}", e),
+        };
+    } else {
+        tls_config = None;
+    }
+
     Ok(Resources {
         user_db,
         api_db,
         image_dir,
+        tls_config,
     })
 }
 
@@ -129,4 +144,36 @@ pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
 
     fs::create_dir_all(assets_path.join("images")).await?;
     Ok(())
+}
+
+pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::Error> {
+    let crt_path = Path::new(certs_dir_path).join("server.crt");
+    match crt_path.try_exists() {
+        Ok(exists) => {
+            if !exists {
+                panic!(
+                    "Server certificate (server.crt) not found in directory: {}",
+                    certs_dir_path
+                )
+            }
+        }
+        Err(e) => panic!("Error checking for server certificate: {}", e),
+    };
+
+    let key_path = Path::new(certs_dir_path).join("server.key");
+    match key_path.try_exists() {
+        Ok(exists) => {
+            if !exists {
+                panic!(
+                    "Server key (server.key) not found in directory: {}",
+                    certs_dir_path
+                )
+            }
+        }
+        Err(e) => panic!("Error checking for server key: {}", e),
+    };
+
+    let tls_config = RustlsConfig::from_pem_file(&crt_path, &key_path).await?;
+
+    Ok(tls_config)
 }

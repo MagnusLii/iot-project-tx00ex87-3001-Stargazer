@@ -32,7 +32,7 @@ impl Settings {
             .set_default("port_https", 8443)?
             .set_default("disable_http", false)?
             .set_default("enable_http_api", false)?
-            .set_default("disable_https", false)?
+            .set_default("disable_https", true)?
             .set_default("db_dir", "db")?
             .set_default("assets_dir", "assets")?
             .set_default("certs_dir", "certs")?

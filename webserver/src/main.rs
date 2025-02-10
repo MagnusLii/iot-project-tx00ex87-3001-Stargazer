@@ -1,6 +1,6 @@
+use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use sqlx::SqlitePool;
-use std::path::PathBuf;
 use webserver::{
     app::App, init::settings::Settings, init::setup::setup, web::images::ImageDirectory,
 };
@@ -73,81 +73,111 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let https_address = format!("{}:{}", &settings.address, settings.port_https);
     let user_db_path = format!("{}/users.db", settings.db_dir);
     let api_db_path = format!("{}/api.db", settings.db_dir);
-    let certs_path = PathBuf::from(settings.certs_dir);
 
-    if let Ok(resources) = setup(&user_db_path, &api_db_path, &settings.assets_dir).await {
-        let (pri_address, api_only) = if http && https {
-            tokio::spawn(alt_server(
-                http_address.clone(),
+    if let Ok(resources) = setup(
+        &user_db_path,
+        &api_db_path,
+        &settings.assets_dir,
+        &settings.certs_dir,
+        https,
+    )
+    .await
+    {
+        let (pri_address, sec_address, pri_api_only, sec_api_only, pri_secure) = if http && https {
+            (https_address, Some(http_address), false, false, true)
+        } else if !http && https {
+            if http_api {
+                (https_address, Some(http_address), false, true, true)
+            } else {
+                (https_address, None, false, false, true)
+            }
+        } else if http && !https {
+            (http_address, None, false, false, false)
+        } else {
+            (http_address, None, true, false, false)
+        };
+
+        if let Some(sec_address) = sec_address {
+            let sec_server = tokio::spawn(server(
+                sec_address,
                 resources.user_db.clone(),
                 resources.api_db.clone(),
                 resources.image_dir.clone(),
-                certs_path.clone(),
-                false,
+                resources.tls_config.clone(),
+                sec_api_only,
+                !pri_secure,
             ));
-            (https_address, false)
-        } else if !http && https {
-            if http_api {
-                tokio::spawn(alt_server(
-                    http_address.clone(),
-                    resources.user_db.clone(),
-                    resources.api_db.clone(),
-                    resources.image_dir.clone(),
-                    certs_path.clone(),
-                    true,
-                ));
+            let pri_server = tokio::spawn(server(
+                pri_address,
+                resources.user_db,
+                resources.api_db,
+                resources.image_dir,
+                resources.tls_config,
+                pri_api_only,
+                pri_secure,
+            ));
+
+            let (pri, sec) = tokio::join!(pri_server, sec_server);
+
+            if let Err(e) = pri {
+                println!("Primary server exited with error: {}", e);
             }
-            (https_address, false)
-        } else if http && !https {
-            (http_address, false)
-        } else {
-            (http_address, true)
-        };
 
-        let pri_server = App::new(
-            resources.user_db,
-            resources.api_db,
-            resources.image_dir,
-            certs_path,
-        )
-        .await?;
-
-        if api_only {
-            pri_server.serve_api_only(&pri_address, false).await
+            if let Err(e) = sec {
+                println!("Secondary server exited with error: {}", e);
+            }
         } else {
-            pri_server.serve(&pri_address, true).await
+            let srv = server(
+                pri_address,
+                resources.user_db,
+                resources.api_db,
+                resources.image_dir,
+                resources.tls_config,
+                pri_api_only,
+                pri_secure,
+            )
+            .await;
+
+            if let Err(e) = srv {
+                println!("Server exited with error: {}", e);
+            }
         }
+
+        Ok(())
     } else {
         panic!("Error during setup. Exiting..");
     }
 }
 
-async fn alt_server(
+async fn server(
     address: String,
     user_db: SqlitePool,
     api_db: SqlitePool,
     image_dir: ImageDirectory,
-    certs_dir: PathBuf,
+    tls_config: Option<RustlsConfig>,
     api_only: bool,
-) {
-    let alt_server;
-    match App::new(user_db, api_db, image_dir, certs_dir).await {
-        Ok(app) => alt_server = app,
+    https: bool,
+) -> Result<(), Box<dyn std::error::Error + Send>> {
+    let server: App;
+    match App::new(user_db, api_db, image_dir, tls_config).await {
+        Ok(app) => server = app,
         Err(e) => {
-            println!("Alternate (HTTP) server exited with error: {}", e);
-            return;
+            println!("Server exited before serving with error: {}", e);
+            return Ok(());
         }
     }
 
     if !api_only {
-        match alt_server.serve(&address, false).await {
-            Ok(_) => println!("Alternate (HTTP) server exited"),
-            Err(e) => println!("Alternate (HTTP) server exited with error: {}", e),
+        match server.serve(&address, https).await {
+            Ok(_) => println!("Server exited"),
+            Err(e) => println!("Server exited with error: {}", e),
         }
     } else {
-        match alt_server.serve_api_only(&address, false).await {
-            Ok(_) => println!("Alternate (HTTP API) server exited"),
-            Err(e) => println!("Alternate (HTTP API) server exited with error: {}", e),
+        match server.serve_api_only(&address, https).await {
+            Ok(_) => println!("Server exited"),
+            Err(e) => println!("Server exited with error: {}", e),
         }
     }
+
+    Ok(())
 }
