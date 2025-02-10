@@ -13,8 +13,8 @@
 // Conversion from raw value to microteslas (uT)
 #define TO_UT (100.0 / 1090.0)
 
-Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t *I2C_PORT_VAL)
-    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {}
+Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
+    : I2C_PORT(I2C_PORT_VAL),  SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {}
 
 // Initialize the compass
 void Compass::init() {
