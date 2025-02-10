@@ -104,9 +104,15 @@ esp_err_t WirelessHandler::init(void) {
 
 esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_password) {
     // this->init();
+    strncpy((char *)this->ssid, wifi_ssid, sizeof(this->ssid));
+    strncpy((char *)this->password, wifi_password, sizeof(this->password));
 
     DEBUG("Connecting to Wi-Fi network: ", wifi_ssid);
     xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+
+    // Initialize Wi-Fi driver if not already done
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t wifi_config = {};
     wifi_config.sta.threshold.authmode = WIFI_AUTHMODE;
@@ -114,8 +120,8 @@ esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_passw
     strncpy((char *)wifi_config.sta.ssid, wifi_ssid, sizeof(wifi_config.sta.ssid));
     strncpy((char *)wifi_config.sta.password, wifi_password, sizeof(wifi_config.sta.password));
 
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));          // default is WIFI_PS_MIN_MODEM
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM)); // default is WIFI_STORAGE_FLASH
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
@@ -129,10 +135,10 @@ esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_passw
         return ESP_OK;
     }
 
-    DEBUG("Failed to connect to Wi-Fi network");
     // TODO: handle error
 
     xSemaphoreGive(this->wifi_mutex);
+    DEBUG("Failed to connect to Wi-Fi network\n");
     return ESP_FAIL;
 }
 
@@ -249,3 +255,8 @@ bool WirelessHandler::isConnected(void) {
         return false;
     }
 }
+
+// void WirelessHandler::reconnect_timer_cb(TimerHandle_t xTimer) {
+//     DEBUG("Reconnect timer callback triggered\n");
+//     esp_wifi_connect();
+// }
