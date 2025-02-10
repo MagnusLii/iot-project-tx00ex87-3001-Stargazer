@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
+#include "planet_finder.hpp"
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -25,7 +26,8 @@ int modulo(int x, int y);
 
 
 class StepperMotor {
-  friend void raw_calibration_handler(void);
+  friend void raw_calibration_handler_horizontal(void);
+  friend void raw_calibration_handler_vertical(void);
   public:
     StepperMotor(const std::vector<uint> &stepper_pins, int optoforkpin=-1, Axis axis=UNDEFINED);
 

@@ -2,27 +2,31 @@
 #include "stepper.pio.h"
 #include "structs.hpp"
 
+
 static StepperMotor *stepper_horizontal;
 static StepperMotor *stepper_vertical;
-void raw_calibration_handler(void) {
-    int horizontal_opto=-1;
-    int vertical_opto=-1;
+
+void raw_calibration_handler_horizontal(void) {
+    int horizontal_opto = -1;
     if (stepper_horizontal) horizontal_opto = stepper_horizontal->optoForkPin;
-    if (stepper_vertical) vertical_opto = stepper_vertical->optoForkPin;
     if (gpio_get_irq_event_mask(horizontal_opto) & GPIO_IRQ_EDGE_RISE) {
         gpio_acknowledge_irq(horizontal_opto, GPIO_IRQ_EDGE_RISE);
         stepper_horizontal->calibration_handler(true);
     } else if (gpio_get_irq_event_mask(horizontal_opto) & GPIO_IRQ_EDGE_FALL) {
         gpio_acknowledge_irq(horizontal_opto, GPIO_IRQ_EDGE_FALL);
         stepper_horizontal->calibration_handler(false);
-    } else if (gpio_get_irq_event_mask(vertical_opto) & GPIO_IRQ_EDGE_RISE) {
+    }
+}
+
+void raw_calibration_handler_vertical(void) {
+    int vertical_opto=-1;
+    if (stepper_vertical) vertical_opto = stepper_vertical->optoForkPin;
+     if (gpio_get_irq_event_mask(vertical_opto) & GPIO_IRQ_EDGE_RISE) {
         gpio_acknowledge_irq(vertical_opto, GPIO_IRQ_EDGE_RISE);
         stepper_vertical->calibration_handler(true);
     } else if (gpio_get_irq_event_mask(vertical_opto) & GPIO_IRQ_EDGE_FALL) {
         gpio_acknowledge_irq(vertical_opto, GPIO_IRQ_EDGE_FALL);
         stepper_vertical->calibration_handler(false);
-    } else {
-    panic("Interrupt called without initializing any stepper motors (this shouldn't be possible)");
     }
 }
 
@@ -147,7 +151,14 @@ void StepperMotor::turnSteps(uint16_t steps) {
 void StepperMotor::turn_to(double radians) {
     stop();
     double current = get_position();
-    double distance = radians - current;
+    double normalized = normalize_radians(radians);
+    double distance = normalized - current;
+    if (distance < -M_PI) {
+        distance += 2 * M_PI;
+    }
+    if (distance > M_PI) {
+        distance -= 2 * M_PI;
+    }
     if (distance < 0)
         setDirection(ANTICLOCKWISE);
     else
@@ -291,8 +302,10 @@ void StepperMotor::calibrate(void) {
     setSpeed(2);
     stepperCalibrating = true;
     stepperCalibrated = false;
-
-    gpio_add_raw_irq_handler_with_order_priority(optoForkPin, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
+    if (axis == HORIZONTAL)
+        gpio_add_raw_irq_handler_with_order_priority(optoForkPin, raw_calibration_handler_horizontal, PICO_HIGHEST_IRQ_PRIORITY);
+    else
+        gpio_add_raw_irq_handler_with_order_priority(optoForkPin, raw_calibration_handler_vertical, PICO_HIGHEST_IRQ_PRIORITY);
     gpio_set_irq_enabled(optoForkPin, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
     if (!irq_is_enabled(IO_IRQ_BANK0)) irq_set_enabled(IO_IRQ_BANK0, true);
 
