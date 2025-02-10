@@ -5,14 +5,6 @@
 #include "message.hpp"
 
 EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_config) {
-#ifdef RESERVE_UART0_FOR_PICO_COMM
-    DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow for debug messages to be sent before disabling them
-    esp_log_level_set("*", ESP_LOG_NONE);
-    gpio_reset_pin(GPIO_NUM_0);
-    gpio_reset_pin(GPIO_NUM_3);
-#endif
-
     this->uart_num = uart_num;
     this->uart_config = uart_config;
     this->uart_event_queue = xQueueCreate(EVENT_QUEUE_SIZE, sizeof(uart_event_t));
@@ -84,9 +76,12 @@ void EspPicoCommHandler::check_if_confirmation_msg(const UartReceivedData &recei
 }
 
 int find_first_char_position(const char *data_buffer, const size_t data_buffer_len, const char target) {
+    DEBUG("buffer length: ", data_buffer_len);
     if (data_buffer == nullptr || data_buffer_len == 0) {
+        DEBUG("Invalid data buffer");
         return -1; // Invalid array
     }
+    DEBUG("Finding char: ", target);
 
     for (size_t i = 0; i < *data_buffer; ++i) {
         if (data_buffer[i] == target) {
@@ -94,28 +89,38 @@ int find_first_char_position(const char *data_buffer, const size_t data_buffer_l
         }
     }
 
+    DEBUG("Char not found");
     return -2; // char not found
 }
 
 int extract_msg_from_uart_buffer(char *data_buffer, size_t *data_buffer_len, UartReceivedData *extracted_msg) {
-    int start_pos = find_first_char_position(data_buffer, LONGEST_COMMAND_LENGTH, '#');
+    DEBUG("Extracting message from buffer: ", data_buffer);
+    DEBUG("Buffer length: ", *data_buffer_len);
+    int start_pos = find_first_char_position(data_buffer, *data_buffer_len, '$');
     if (start_pos < 0) {
+        DEBUG("No start of message found");
+        DEBUG("Start position: ", start_pos);
         return -1; // No message found
     }
 
-    int end_pos = find_first_char_position(data_buffer, LONGEST_COMMAND_LENGTH, ';');
+    int end_pos = find_first_char_position(data_buffer, *data_buffer_len, ';');
     if (end_pos < 0) {
+        DEBUG("No end of message found");
+        DEBUG("End position: ", end_pos);
         return -2; // No end of message found
     }
 
     if (start_pos >= end_pos) {
+        DEBUG("Start position is after end position");
+        DEBUG("Start position: ", start_pos, " End position: ", end_pos);
         return -3; // Start position is after end position
     }
 
     // Extract the message from the buffer
     int msg_length = end_pos - start_pos + 1;
     if (msg_length > LONGEST_COMMAND_LENGTH) {
-        return -3; // Message too long
+        DEBUG("Message too long");
+        return -4; // Message too long
     }
 
     // Copy the message to extracted_msg_buffer
@@ -134,5 +139,7 @@ int extract_msg_from_uart_buffer(char *data_buffer, size_t *data_buffer_len, Uar
 
     // Update the data buffer length
     *data_buffer_len -= chars_to_remove;
+    DEBUG("Buffer after extraction: ", data_buffer);
+    DEBUG("Buffer length after extraction: ", *data_buffer_len);
     return 0; // Success
 }
