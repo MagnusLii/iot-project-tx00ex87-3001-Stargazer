@@ -15,7 +15,6 @@
 // Generic POST request test
 // #define GENERIC_POST_REQUEST_TEST
 
-
 // PRODUCTION DEFINES
 
 // Enables production code
@@ -61,6 +60,7 @@
 #include "espPicoUartCommHandler.hpp"
 #include "message.hpp"
 
+
 #include "esp_task_wdt.h"
 
 extern "C" {
@@ -69,6 +69,14 @@ void app_main(void);
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+#ifdef RESERVE_UART0_FOR_PICO_COMM
+    DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow for debug messages to be sent before disabling them
+    esp_log_level_set("*", ESP_LOG_NONE);
+    gpio_reset_pin(GPIO_NUM_0);
+    gpio_reset_pin(GPIO_NUM_3);
+#endif
 
 #ifdef UART_MSG_CRC
     msg::Message msg = msg::picture(1, 1);
@@ -102,11 +110,15 @@ void app_main(void) {
 #endif
 
 #ifdef UART_DEMO
-    EspPicoCommHandler espPicoCommHandler(UART_NUM_0);
+#include "tasks.hpp"
+    Handlers handlers;
+    handlers.espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
-    msg::Message msg = msg::datetime_response();
-    std::string string;
-    convert_to_string(msg, string);
+    // msg::Message msg = msg::datetime_response();
+    // std::string string;
+    // convert_to_string(msg, string);
+
+    xTaskCreate(uart_read_task, "uart_read_task", 4096, &handlers, TaskPriorities::MEDIUM, NULL);
 
 #endif
 
@@ -120,14 +132,13 @@ void app_main(void) {
     DEBUG("Request: ", request.c_str());
 #endif
 
-
 #ifdef PRODUCTION_CODE
     xTaskCreate(init_task, "init-task", 8192, NULL, TaskPriorities::HIGH, NULL);
 #endif
 
     while (1) {
 #ifdef UART_DEMO
-        espPicoCommHandler.send_data(string.c_str(), string.length());
+        // espPicoCommHandler.send_data(string.c_str(), string.length());
 #endif
 
         vTaskDelay(pdMS_TO_TICKS(10000));
