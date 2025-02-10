@@ -29,7 +29,7 @@ timeSyncLibReturnCodes set_tz() {
 
     while (timeinfo.tm_year < (2020 - 1900) && ++retry < retry_count) {
         DEBUG("Waiting for system time to be set... ");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(2000));
         time(&now);
         localtime_r(&now, &timeinfo);
     }
@@ -64,7 +64,7 @@ timeSyncLibReturnCodes set_tz(const char* timezone) {
 
     while (timeinfo.tm_year < (2020 - 1900) && ++retry < retry_count) {
         DEBUG("Waiting for system time to be set... ");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(2000));
         time(&now);
         localtime_r(&now, &timeinfo);
     }

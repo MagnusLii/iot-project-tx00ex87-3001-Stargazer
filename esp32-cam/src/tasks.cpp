@@ -198,6 +198,7 @@ void init_task(void *pvParameters) {
 }
 
 // Sends requests to the web server
+// Requires RequestHandler, EspPicoCommHandler, and SDcardHandler to be initialized
 void send_request_to_websrv_task(void *pvParameters) {
     DEBUG("send_request_to_websrv_task started");
 
@@ -284,13 +285,20 @@ void send_request_to_websrv_task(void *pvParameters) {
                     file_data.clear();
                     string.clear();
                     break;
-                case RequestType::POST_DIAGNOSTICS:
-                    DEBUG("POST_DIAGNOSTICS request received");
-                    // Create a POST request
-                    // Add diagnostics data to the request
-                    // Send the request and enqueue the response
+
+                case RequestType::POST:
+                    DEBUG("Request type ", request.requestType, " received.");
+                    requestHandler->sendRequest(string, &response);
+
+                    if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
+                        DEBUG("Request failed");
+                        DEBUG("Request: ", string.c_str());
+                        DEBUG("Response: ", response.str_buffer);
+                    }
                     break;
+
                 default:
+                    // TODO: add error handling
                     DEBUG("Unknown request type received");
                     break;
             }
@@ -300,6 +308,7 @@ void send_request_to_websrv_task(void *pvParameters) {
 
 // Run on highest prio.
 // Reads uart and enqueues received buffer to queue.
+// Requires EspPicoCommHandler to be initialized
 void uart_read_task(void *pvParameters) {
     DEBUG("uart_read_task started");
     Handlers *handlers = (Handlers *)pvParameters;
@@ -358,6 +367,7 @@ void uart_read_task(void *pvParameters) {
     free(data_read_from_uart); // should never reach here
 }
 
+// Requires EspPicoCommHandler to be initialized
 void handle_uart_data_task(void *pvParameters) {
     DEBUG("handle_uart_data_task started");
     Handlers *handlers = (Handlers *)pvParameters;
@@ -416,6 +426,27 @@ void handle_uart_data_task(void *pvParameters) {
                         string.clear();
                         break;
 
+                    case msg::MessageType::CMD_STATUS:
+                        request.requestType = RequestType::POST;
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", 4, "\"id\"",
+                                                                           msg.content[0].c_str(), "\"status\"",
+                                                                           msg.content[1].c_str());
+                
+                        DEBUG("Command status message: ", string.c_str());
+
+                        if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
+                                               RETRIES) == false) {
+                            DEBUG("Failed to enqueue POST_IMAGE request");
+                        }
+
+                        // Clear variables
+                        request.buffer_length = 0;
+                        request.str_buffer[0] = '\0';
+                        string.clear();
+
+
+                        break;
+
                     case msg::MessageType::PICTURE:
                         // Send confirmation message
                         // TODO: maybe handle confirmation message in uart_read_task
@@ -456,15 +487,26 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::DIAGNOSTICS:
-                        request.requestType = RequestType::POST_DIAGNOSTICS;
+                        request.requestType = RequestType::POST;
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", 2, "\"status\"",
+                                                                           msg.content[0].c_str(), "\"message\"",
+                                                                           msg.content[1].c_str());
+
                         strncpy(request.str_buffer, string.c_str(), string.size());
                         request.str_buffer[string.size()] = '\0';
                         request.buffer_length = string.size();
+
+                        DEBUG("Diagnostics message: ", request.str_buffer);
 
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
+
+                        // Clear variables
+                        request.buffer_length = 0;
+                        request.str_buffer[0] = '\0';
+                        string.clear();
                         break;
                     default:
                         DEBUG("Unknown message type received");
@@ -488,6 +530,6 @@ void take_picture_and_save_to_sdcard_in_loop_task(void *pvParameters) {
         cameraHandler->create_image_filename(filepath);
         cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
 
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
