@@ -13,11 +13,8 @@
 enum class RequestType {
     GET_COMMANDS,
     POST_IMAGE,
-    POST_DIAGNOSTICS,
-    API_UPLOAD,
-    API_COMMAND,
-    API_DIAGNOSTICS,
-    API_TIME,
+    POST,
+    GET_TIME,
 };
 
 enum class WebServerResponseType {
@@ -43,6 +40,7 @@ enum class RequestHandlerReturnCode {
     INVALID_ARGUMENT,
     INVALID_NUM_OF_ARGS,
     FAILED_TO_CREATE_REQUEST,
+    NOT_CONNECTED,
 };
 
 class RequestHandler {
@@ -55,6 +53,7 @@ class RequestHandler {
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
     RequestHandlerReturnCode createUserInstructionsGETRequest(std::string *requestPtr);
     RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...);
+    int parseHttpReturnCode(const char *responseString);
     QueueMessage *getUserInstructionsGETRequestptr();
 
     const char *getWebServerCString();
