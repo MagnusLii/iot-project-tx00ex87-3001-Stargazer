@@ -79,10 +79,11 @@ void app_main(void) {
 #endif
 
 #ifdef UART_MSG_CRC
-    msg::Message msg = msg::picture(1, 1);
+    // msg::Message msg = msg::picture(1, 1);
     // msg::Message msg = msg::response(true);
     // msg::Message msg = msg::datetime_request();
     // msg::Message msg = msg::instructions(2, 1, 1);
+    msg::Message msg = msg::diagnostics(1, "\"test\"");
     std::string str;
 
     msg::convert_to_string(msg, str);
@@ -92,6 +93,7 @@ void app_main(void) {
 #endif
 
 #ifdef WRITE_READ_SETTINGS_TEST
+    // Increase main task stack size to avoid stack overflow (instructions in README)
     int retries = 0;
     std::vector<std::string> settings = {"WIFI_SSID", "WIFI_PASSWORD", "WEB_PATH", "WEB_PORT"};
     SDcardHandler sdcardHandler("/sdcard");
@@ -123,6 +125,7 @@ void app_main(void) {
 #endif
 
 #ifdef GENERIC_POST_REQUEST_TEST
+    // Increase main task stack size to avoid stack overflow (instructions in README)
     std::shared_ptr<WirelessHandler> wirelessHandler = std::make_shared<WirelessHandler>();
     std::shared_ptr<SDcardHandler> sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
     RequestHandler requestHandler("webserver", "webport", "webtoken", wirelessHandler, sdcardHandler);
