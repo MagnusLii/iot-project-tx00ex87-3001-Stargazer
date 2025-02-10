@@ -122,8 +122,10 @@ RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::s
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-// The function reads all variable arguments as const char*, no \" is added to the values so should be added by the caller if meant to be included as strings in the JSON.
-RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...) {
+// The function reads all variable arguments as const char*, no \" is added to the values so should be added by the
+// caller if meant to be included as strings in the JSON.
+RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
+                                                                  int numOfVariableArgs, ...) {
     if (requestPtr == nullptr) {
         DEBUG("Error: requestPtr is null");
         return RequestHandlerReturnCode::INVALID_ARGUMENT;
@@ -142,21 +144,25 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
         const char *key = va_arg(args, const char *);
         const char *value = va_arg(args, const char *);
         content += std::string(key) + ":" + std::string(value);
-        if (i < numOfVariableArgs - 2) {
-            content += ",";
-        }
+        if (i < numOfVariableArgs - 2) { content += ","; }
     }
     content += "}";
 
     va_end(args);
 
-    *requestPtr = "POST " + std::string(endpoint) + " HTTP/1.0\r\n"
-                  "Host: " + this->webServer + ":" + this->webPort + "\r\n"
+    *requestPtr = "POST " + std::string(endpoint) +
+                  " HTTP/1.0\r\n"
+                  "Host: " +
+                  this->webServer + ":" + this->webPort +
+                  "\r\n"
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: keep-alive\r\n"
                   "Content-Type: application/json\r\n"
-                  "Content-Length: " + std::to_string(content.length()) + "\r\n"
-                  "\r\n" + content;
+                  "Content-Length: " +
+                  std::to_string(content.length()) +
+                  "\r\n"
+                  "\r\n" +
+                  content;
 
     DEBUG("Request: ", requestPtr->c_str());
 
@@ -166,6 +172,41 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
     }
 
     return RequestHandlerReturnCode::SUCCESS;
+}
+
+/**
+ * Parses the HTTP response to extract the return code.
+ *
+ * @param response - A C-style string containing the HTTP response.
+ *
+ * @return int - The HTTP return code. Returns -1 if the return code could not be parsed.
+ */
+int RequestHandler::parseHttpReturnCode(const char *responseString) {
+    if (responseString == nullptr) {
+        DEBUG("Error: response is null");
+        return -1;
+    }
+
+    const char *status_line_end = strstr(responseString, "\r\n");
+    if (status_line_end == nullptr) {
+        DEBUG("Error: Could not find end of status line");
+        return -1;
+    }
+
+    std::string status_line(responseString, status_line_end - responseString);
+    size_t code_start = status_line.find(' ') + 1;
+    size_t code_end = status_line.find(' ', code_start);
+
+    if (code_start == std::string::npos || code_end == std::string::npos) {
+        DEBUG("Error: Could not parse return code from status line");
+        return -1;
+    }
+
+    std::string code_str = status_line.substr(code_start, code_end - code_start);
+    int return_code = std::stoi(code_str);
+
+    DEBUG("Parsed HTTP return code: ", return_code);
+    return return_code;
 }
 
 /**
@@ -208,6 +249,11 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
+    if (this->wirelessHandler->isConnected() == false) {
+        DEBUG("Wireless is not connected");
+        return RequestHandlerReturnCode::NOT_CONNECTED;
+    }
+
     // Lock mutex
     if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
         DEBUG("Failed to take request mutex");
@@ -236,7 +282,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
     if (err != 0 || dns_lookup_results == nullptr) {
         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
@@ -249,7 +295,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     if (socket_descriptor < 0) {
         DEBUG("... Failed to allocate socket.");
         freeaddrinfo(dns_lookup_results); // Cleanup DNS results
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
     DEBUG("... allocated socket");
@@ -259,7 +305,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         DEBUG("... socket connect failed errno=", errno);
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
-        vTaskDelay(5000 / portTICK_PERIOD_MS); // Retry delay
+        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("... connected");
@@ -269,7 +315,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
         DEBUG("... socket send failed\n");
         close(socket_descriptor);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("... socket send success");
@@ -278,7 +324,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
         DEBUG("... failed to set socket receiving timeout");
         close(socket_descriptor);
-        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(4000));
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
     DEBUG("... set socket receiving timeout success");
@@ -329,6 +375,11 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
 }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
+    if (this->wirelessHandler->isConnected() == false) {
+        DEBUG("Wireless is not connected");
+        return RequestHandlerReturnCode::NOT_CONNECTED;
+    }
+
     // Lock mutex
     if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
         DEBUG("Failed to take request mutex");
@@ -357,7 +408,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
     if (err != 0 || dns_lookup_results == nullptr) {
         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Retry delay
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
@@ -370,7 +421,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     if (socket_descriptor < 0) {
         DEBUG("... Failed to allocate socket.");
         freeaddrinfo(dns_lookup_results); // Cleanup DNS results
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
     DEBUG("... allocated socket");
@@ -380,19 +431,17 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
         DEBUG("... socket connect failed errno=", errno);
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
-        vTaskDelay(5000 / portTICK_PERIOD_MS); // Retry delay
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Retry delay
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("... connected");
 
     // Send the request data to the server
     freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
-    DEBUG("Writing to socket len: ", request.length());
-    DEBUG("Writing to socket: ", request.c_str());
     if (write(socket_descriptor, request.c_str(), request.length() + 1) < 0) {
         DEBUG("... socket send failed\n");
         close(socket_descriptor);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("... socket send success");
@@ -401,7 +450,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
         DEBUG("... failed to set socket receiving timeout");
         close(socket_descriptor);
-        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(4000));
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
     DEBUG("... set socket receiving timeout success");
