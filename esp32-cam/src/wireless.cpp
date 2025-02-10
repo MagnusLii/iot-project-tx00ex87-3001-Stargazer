@@ -23,11 +23,17 @@ WirelessHandler::WirelessHandler(const char* ssid, const char* password, int wif
     this->netif = NULL;
     this->s_wifi_event_group = NULL;
 
+    this->wifi_mutex = xSemaphoreCreateMutex();
+
     this->init();
 }
 
 esp_err_t WirelessHandler::init(void) {
+    DEBUG("Initializing Wi-Fi");
+    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+
     // Initialize Non-Volatile Storage
+    DEBUG("Initializing NVS");
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -37,30 +43,42 @@ esp_err_t WirelessHandler::init(void) {
     this->s_wifi_event_group = xEventGroupCreate();
 
     ret = esp_netif_init();
+    DEBUG("Wi-Fi netif initialized");
     if (ret != ESP_OK) {
         DEBUG("Failed to initialize netif: ", esp_err_to_name(ret));
         // TODO: handle error
+
+        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
     ret = esp_event_loop_create_default();
+    DEBUG("Wi-Fi event loop created");
     if (ret != ESP_OK) {
         DEBUG("Failed to create event loop: ", esp_err_to_name(ret));
         // TODO: handle error
+
+        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
     ret = esp_wifi_set_default_wifi_sta_handlers();
+    DEBUG("Wi-Fi default STA handlers set");
     if (ret != ESP_OK) {
         DEBUG("Failed to set default Wi-Fi STA handlers: ", esp_err_to_name(ret));
         // TODO: handle error
+
+        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
     this->netif = esp_netif_create_default_wifi_sta();
+    DEBUG("Wi-Fi default STA netif created");
     if (this->netif == NULL) {
-        DEBUG("Failed to create default Wi-Fi STA netif\n");
+        DEBUG("Failed to create default Wi-Fi STA netif");
         // TODO: handle error
+
+        xSemaphoreGive(this->wifi_mutex);
         return ESP_FAIL;
     }
 
@@ -79,11 +97,16 @@ esp_err_t WirelessHandler::init(void) {
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::wifi_event_cb_lambda, this, &this->wifi_event_handler));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::ip_event_cb_lambda, this, &this->ip_event_handler));
+
+    xSemaphoreGive(this->wifi_mutex);
     return ret;
 }
 
 esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_password) {
+    // this->init();
+
     DEBUG("Connecting to Wi-Fi network: ", wifi_ssid);
+    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
 
     wifi_config_t wifi_config = {};
     wifi_config.sta.threshold.authmode = WIFI_AUTHMODE;
@@ -102,27 +125,37 @@ esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_passw
     EventBits_t bits = xEventGroupWaitBits(this->s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
 
     if (bits & WIFI_CONNECTED_BIT) {
+        xSemaphoreGive(this->wifi_mutex);
         return ESP_OK;
     }
 
-    DEBUG("Failed to connect to Wi-Fi network\n");
+    DEBUG("Failed to connect to Wi-Fi network");
     // TODO: handle error
+
+    xSemaphoreGive(this->wifi_mutex);
     return ESP_FAIL;
 }
 
 esp_err_t WirelessHandler::disconnect(void) {
-    DEBUG("Disconnecting from Wi-Fi network\n");
+    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+    DEBUG("Disconnecting from Wi-Fi network");
     if (this->s_wifi_event_group) { vEventGroupDelete(this->s_wifi_event_group); }
     DEBUG("Wi-Fi network connection status: ", this->isConnected());
+    xSemaphoreGive(this->wifi_mutex);
     return esp_wifi_disconnect();
 }
 
 esp_err_t WirelessHandler::deinit(void) {
-    DEBUG("Deinitializing Wi-Fi\n");
+    DEBUG("Deinitializing Wi-Fi");
+    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+
+    DEBUG("Deinitializing Wi-Fi");
     esp_err_t ret = esp_wifi_stop();
     if (ret == ESP_ERR_WIFI_NOT_INIT) {
-        DEBUG("Wi-Fi not initialized\n");
+        DEBUG("Wi-Fi not initialized");
         // TODO: handle error
+
+        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
@@ -134,6 +167,8 @@ esp_err_t WirelessHandler::deinit(void) {
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, this->wifi_event_handler));
 
     DEBUG("Wi-Fi deinitialized\n");
+
+    xSemaphoreGive(this->wifi_mutex);
     return ESP_OK;
 }
 
@@ -159,7 +194,7 @@ void WirelessHandler::ip_event_cb(void *arg, esp_event_base_t event_base, int32_
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
             break;
         default:
-            DEBUG("IP event not handled\n");
+            DEBUG("IP event not handled");
             break;
     }
 }
@@ -169,37 +204,37 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
 
     switch (event_id) {
         case (WIFI_EVENT_WIFI_READY):
-            DEBUG("Wi-Fi ready\n");
+            DEBUG("Wi-Fi ready");
             break;
         case (WIFI_EVENT_SCAN_DONE):
-            DEBUG("Wi-Fi scan done\n");
+            DEBUG("Wi-Fi scan done");
             break;
         case (WIFI_EVENT_STA_START):
-            DEBUG("Wi-Fi started, connecting to AP...\n");
+            DEBUG("Wi-Fi started, connecting to AP...");
             esp_wifi_connect();
             break;
         case (WIFI_EVENT_STA_STOP):
-            DEBUG("Wi-Fi stopped\n");
+            DEBUG("Wi-Fi stopped");
             break;
         case (WIFI_EVENT_STA_CONNECTED):
-            DEBUG("Wi-Fi connected\n");
+            DEBUG("Wi-Fi connected");
             break;
         case (WIFI_EVENT_STA_DISCONNECTED):
-            DEBUG("Wi-Fi disconnected\n");
+            DEBUG("Wi-Fi disconnected");
             if (this->wifi_retry_count < this->WIFI_RETRY_ATTEMPTS) {
-                DEBUG("Retrying to connect to Wi-Fi network...\n");
+                DEBUG("Retrying to connect to Wi-Fi network...");
                 esp_wifi_connect();
                 this->wifi_retry_count++;
             } else {
-                DEBUG("Failed to connect to Wi-Fi network\n");
+                DEBUG("Failed to connect to Wi-Fi network");
                 xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
             }
             break;
         case (WIFI_EVENT_STA_AUTHMODE_CHANGE):
-            DEBUG("Wi-Fi authmode changed\n");
+            DEBUG("Wi-Fi authmode changed");
             break;
         default:
-            DEBUG("Wi-Fi event not handled\n");
+            DEBUG("Wi-Fi event not handled");
             break;
     }
 }
@@ -210,7 +245,7 @@ bool WirelessHandler::isConnected(void) {
     if (ret == ESP_OK) {
         return true;
     } else {
-        DEBUG("Wi-Fi not connected\n");
+        DEBUG("Wi-Fi not connected");
         return false;
     }
 }

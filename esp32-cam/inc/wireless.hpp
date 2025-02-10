@@ -43,6 +43,7 @@ class WirelessHandler {
         esp_event_handler_instance_t ip_event_handler;
         esp_event_handler_instance_t wifi_event_handler;
         EventGroupHandle_t s_wifi_event_group;
+        SemaphoreHandle_t wifi_mutex;
 };
 
 #endif
