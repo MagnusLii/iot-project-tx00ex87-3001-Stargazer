@@ -12,13 +12,38 @@
 #include <queue>
 #include <sstream>
 #include <vector>
+#include "sleep_functions.hpp"
 
 #include "debug.hpp"
+
+static bool awake;
+
+static void alarm_sleep_callback(uint alarm_id) {
+    printf("alarm woke us up\n");
+    uart_default_tx_wait_blocking();
+    awake = true;
+    hardware_alarm_set_callback(alarm_id, NULL);
+    hardware_alarm_unclaim(alarm_id);
+}
 
 int main() {
     stdio_init_all();
     sleep_ms(5000);
     DEBUG("Start\r\n");
+
+    awake = false;
+    if (sleep_goto_sleep_for(10000, &alarm_sleep_callback)) {
+        while(!awake)
+            DEBUG("bruh");
+    }
+
+    sleep_power_up();
+    DEBUG("Hello");
+
+    while(true) {
+
+    };
+    /*
     auto queue = std::make_shared<std::queue<msg::Message>>();
     auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
@@ -118,6 +143,6 @@ int main() {
                   ":", unsigned(now.min), ":", unsigned(now.sec));
         }
     }
-
+    */
     return 0;
 }
