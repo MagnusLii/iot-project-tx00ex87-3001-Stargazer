@@ -3,6 +3,20 @@
 
 #include "requestHandler.hpp"
 #include "espPicoUartCommHandler.hpp"
+#include "sd-card.hpp"
+#include "wireless.hpp"
+#include "camera.hpp"
+#include "requestHandler.hpp"
+#include "espPicoUartCommHandler.hpp"
+#include <memory>
+
+struct Handlers {
+    std::shared_ptr<WirelessHandler> wirelessHandler;
+    std::shared_ptr<SDcardHandler> sdcardHandler;
+    std::shared_ptr<RequestHandler> requestHandler;
+    std::shared_ptr<EspPicoCommHandler> espPicoCommHandler;
+    std::shared_ptr<CameraHandler> cameraHandler;
+};
 
 void get_request_timer_task(void *pvParameters);
 void get_request_timer_task(void *pvParameters);
