@@ -33,14 +33,6 @@
 
 #include "testMacros.hpp" // TODO: remove after testing
 
-struct Handlers {
-    std::shared_ptr<WirelessHandler> wirelessHandler;
-    std::shared_ptr<SDcardHandler> sdcardHandler;
-    std::shared_ptr<RequestHandler> requestHandler;
-    std::shared_ptr<EspPicoCommHandler> espPicoCommHandler;
-    std::shared_ptr<CameraHandler> cameraHandler;
-};
-
 // ----------------------------------------------------------
 // ----------------SUPPORTING-FUNCTIONS----------------------
 // ----------------------------------------------------------
@@ -127,8 +119,8 @@ void init_task(void *pvParameters) {
     while (!handlers->wirelessHandler->isConnected() && retries < RETRIES) {
         DEBUG("Failed to connect to Wi-Fi. Retrying in 3 seconds...");
         vTaskDelay(pdMS_TO_TICKS(3000));
-        handlers->wirelessHandler->deinit();
         handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
+        retries++;
     }
     retries = 0;
 
@@ -209,7 +201,7 @@ void send_request_to_websrv_task(void *pvParameters) {
 
     // Used for server communication
     QueueMessage request;
-    QueueMessage response;
+    QueueMessage response = {"\0", 0, "\0", 0, RequestType::UNDEFINED};
     std::map<std::string, std::string> parsed_results;
     std::string string;
 
@@ -291,7 +283,7 @@ void send_request_to_websrv_task(void *pvParameters) {
                     requestHandler->sendRequest(string, &response);
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
-                        DEBUG("Request failed");
+                        DEBUG("Request returned non-200 status code");
                         DEBUG("Request: ", string.c_str());
                         DEBUG("Response: ", response.str_buffer);
                     }
@@ -329,16 +321,17 @@ void uart_read_task(void *pvParameters) {
                 case UART_DATA:
                     uart_databuffer_len =
                         uart_read_bytes(espPicoCommHandler->get_uart_num(), (uint8_t *)data_read_from_uart,
-                                        (sizeof(data_read_from_uart) - 1), pdMS_TO_TICKS(10));
+                                        (sizeof(data_read_from_uart) - 1), pdMS_TO_TICKS(100));
                     if (uart_databuffer_len == -1) {
                         DEBUG("Failed to read data from UART");
                         break;
                     }
                     data_read_from_uart[uart_databuffer_len] = '\0'; // Null-terminate the received string
-
+                    DEBUG("Data read from UART: ", data_read_from_uart);
                     // Extract message from buffer
                     return_code =
                         extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
+                    DEBUG("Return code: ", return_code);
                     while (return_code == 0) {
                         // Check we're waiting for a response
                         if (espPicoCommHandler->get_waiting_for_response()) {
@@ -346,12 +339,13 @@ void uart_read_task(void *pvParameters) {
                         }
                         // enqueue extracted message
                         else {
+                            DEBUG("Enqueuing : ", uartReceivedData.buffer);
                             if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
                                                    &uartReceivedData, 0, RETRIES) == false) {
                                 DEBUG("Failed to enqueue received data");
                             }
                         }
-                        extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
+                        return_code = extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     }
                     break;
 
@@ -431,7 +425,7 @@ void handle_uart_data_task(void *pvParameters) {
                         handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", 4, "\"id\"",
                                                                            msg.content[0].c_str(), "\"status\"",
                                                                            msg.content[1].c_str());
-                
+
                         DEBUG("Command status message: ", string.c_str());
 
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
@@ -443,7 +437,6 @@ void handle_uart_data_task(void *pvParameters) {
                         request.buffer_length = 0;
                         request.str_buffer[0] = '\0';
                         string.clear();
-
 
                         break;
 
