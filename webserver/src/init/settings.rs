@@ -1,5 +1,6 @@
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -9,6 +10,7 @@ pub struct Settings {
     pub disable_http: bool,
     pub enable_http_api: bool,
     pub disable_https: bool,
+    pub enable_https_api: bool,
     pub db_dir: String,
     pub assets_dir: String,
     pub certs_dir: String,
@@ -22,6 +24,7 @@ impl Settings {
         disable_http: Option<bool>,
         enable_http_api: Option<bool>, // Only takes effect if disable_http is true
         disable_https: Option<bool>,
+        enable_https_api: Option<bool>, // Only takes effect if disable_https is true
         db_dir: Option<String>,
         assets_dir: Option<String>,
         certs_dir: Option<String>,
@@ -33,6 +36,7 @@ impl Settings {
             .set_default("disable_http", false)?
             .set_default("enable_http_api", false)?
             .set_default("disable_https", true)?
+            .set_default("enable_https_api", false)?
             .set_default("db_dir", "db")?
             .set_default("assets_dir", "assets")?
             .set_default("certs_dir", "certs")?
@@ -43,11 +47,23 @@ impl Settings {
             .set_override_option("disable_http", disable_http)?
             .set_override_option("enable_http_api", enable_http_api)?
             .set_override_option("disable_https", disable_https)?
+            .set_override_option("enable_https_api", enable_https_api)?
             .set_override_option("db_dir", db_dir)?
             .set_override_option("assets_dir", assets_dir)?
             .set_override_option("certs_dir", certs_dir)?;
 
         let config = builder.build()?;
+
+        let conf_address: String = config.get("address")?;
+
+        if let Err(_) = conf_address.parse::<Ipv4Addr>() {
+            if let Err(_) = conf_address.parse::<Ipv6Addr>() {
+                return Err(ConfigError::Message(format!(
+                    "Parsed an invalid address {}",
+                    conf_address
+                )));
+            }
+        }
 
         Ok(Settings {
             address: config.get("address")?,
@@ -56,6 +72,7 @@ impl Settings {
             disable_http: config.get("disable_http")?,
             enable_http_api: config.get("enable_http_api")?,
             disable_https: config.get("disable_https")?,
+            enable_https_api: config.get("enable_https_api")?,
             db_dir: config.get("db_dir")?,
             assets_dir: config.get("assets_dir")?,
             certs_dir: config.get("certs_dir")?,
@@ -75,6 +92,9 @@ impl Settings {
         }
         if !self.disable_https {
             println!("HTTPS Enabled");
+            println!("HTTPS Port: {}", self.port_https);
+        } else if self.enable_https_api {
+            println!("HTTPS API Only Enabled");
             println!("HTTPS Port: {}", self.port_https);
         } else {
             println!("HTTPS Disabled");

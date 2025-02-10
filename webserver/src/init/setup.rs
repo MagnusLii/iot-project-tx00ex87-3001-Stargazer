@@ -177,3 +177,35 @@ pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::
 
     Ok(tls_config)
 }
+
+pub async fn setup_server_details(
+    http_address: String,
+    https_address: String,
+    http: bool,
+    https: bool,
+    http_api: bool,
+    https_api: bool,
+) -> Result<(String, bool, bool, Option<String>, bool, bool), Box<dyn std::error::Error>> {
+    // TODO: Maybe this could be better. Enum value jump table?
+    if http && https {
+        Ok((https_address, false, true, Some(http_address), false, false))
+    } else if !http && https {
+        if http_api {
+            Ok((https_address, false, true, Some(http_address), true, false))
+        } else {
+            Ok((https_address, false, true, None, false, false))
+        }
+    } else if http && !https {
+        if https_api {
+            Ok((http_address, false, false, Some(https_address), true, true))
+        } else {
+            Ok((http_address, false, false, None, false, false))
+        }
+    } else if https_api && http_api {
+        Ok((https_address, true, true, Some(http_address), true, false))
+    } else if https_api {
+        Ok((https_address, true, true, None, false, false))
+    } else {
+        Ok((http_address, true, false, None, false, false))
+    }
+}

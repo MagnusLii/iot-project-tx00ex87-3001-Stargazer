@@ -2,7 +2,12 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use sqlx::SqlitePool;
 use webserver::{
-    app::App, init::settings::Settings, init::setup::setup, web::images::ImageDirectory,
+    app::App,
+    init::{
+        settings::Settings,
+        setup::{setup, setup_server_details},
+    },
+    web::images::ImageDirectory,
 };
 
 /// Stargazer webserver
@@ -21,12 +26,15 @@ struct Args {
     /// HTTP disable
     #[arg(long)]
     disable_http: bool,
-    /// HTTP allowed for API (Overrides disable_http)
+    /// HTTP enabled for API even if HTTP is otherwise disabled
     #[arg(long)]
     enable_http_api: bool,
     /// HTTPS disable
     #[arg(long)]
     disable_https: bool,
+    /// HTTPS enabled for API even if HTTPS is otherwise disabled
+    #[arg(long)]
+    enable_https_api: bool,
     /// Database directory
     #[arg(long)]
     db_dir: Option<String>,
@@ -53,19 +61,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None
         },
         if args.disable_https { Some(true) } else { None },
+        if args.enable_https_api {
+            Some(true)
+        } else {
+            None
+        },
         args.db_dir,
         args.assets_dir,
         args.certs_dir,
-    )
-    .unwrap_or_else(|e| panic!("Error during settings initialization: {}", e));
+    )?;
     settings.print();
 
     let http = !settings.disable_http;
     let http_api = settings.enable_http_api;
     let https = !settings.disable_https;
+    let https_api = settings.enable_https_api;
 
-    if !http && !http_api && !https {
-        println!("No protocols enabled. Exiting..");
+    if !http && !http_api && !https && !https_api {
+        println!("Nothing is enabled. Exiting..");
         return Ok(());
     }
 
@@ -79,23 +92,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &api_db_path,
         &settings.assets_dir,
         &settings.certs_dir,
-        https,
+        https || https_api,
     )
     .await
     {
-        let (pri_address, sec_address, pri_api_only, sec_api_only, pri_secure) = if http && https {
-            (https_address, Some(http_address), false, false, true)
-        } else if !http && https {
-            if http_api {
-                (https_address, Some(http_address), false, true, true)
-            } else {
-                (https_address, None, false, false, true)
-            }
-        } else if http && !https {
-            (http_address, None, false, false, false)
-        } else {
-            (http_address, None, true, false, false)
-        };
+        let (pri_address, pri_api_only, pri_secure, sec_address, sec_api_only, sec_secure) =
+            setup_server_details(
+                http_address,
+                https_address,
+                http,
+                https,
+                http_api,
+                https_api,
+            )
+            .await?;
 
         if let Some(sec_address) = sec_address {
             let sec_server = tokio::spawn(server(
@@ -105,7 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.image_dir.clone(),
                 resources.tls_config.clone(),
                 sec_api_only,
-                !pri_secure,
+                sec_secure,
             ));
             let pri_server = tokio::spawn(server(
                 pri_address,
@@ -157,25 +167,31 @@ async fn server(
     tls_config: Option<RustlsConfig>,
     api_only: bool,
     https: bool,
-) -> Result<(), Box<dyn std::error::Error + Send>> {
+) -> Result<(), &'static str> {
     let server: App;
     match App::new(user_db, api_db, image_dir, tls_config).await {
         Ok(app) => server = app,
         Err(e) => {
-            println!("Server exited before serving with error: {}", e);
-            return Ok(());
+            println!("Error during app initialization: {}", e);
+            return Err("Server exited before serving");
         }
     }
 
     if !api_only {
         match server.serve(&address, https).await {
             Ok(_) => println!("Server exited"),
-            Err(e) => println!("Server exited with error: {}", e),
+            Err(e) => {
+                println!("Error while serving: {}", e);
+                return Err("Server exited due to error");
+            }
         }
     } else {
         match server.serve_api_only(&address, https).await {
             Ok(_) => println!("Server exited"),
-            Err(e) => println!("Server exited with error: {}", e),
+            Err(e) => {
+                println!("Error while serving: {}", e);
+                return Err("Server exited due to error");
+            }
         }
     }
 
