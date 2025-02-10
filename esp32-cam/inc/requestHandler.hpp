@@ -11,6 +11,7 @@
 #define QUEUE_SIZE              3
 
 enum class RequestType {
+    UNDEFINED,
     GET_COMMANDS,
     POST_IMAGE,
     POST,
