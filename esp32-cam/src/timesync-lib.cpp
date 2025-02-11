@@ -54,17 +54,17 @@ timeSyncLibReturnCodes set_tz() {
     return timeSyncLibReturnCodes::SUCCESS;
 }
 
-timeSyncLibReturnCodes sync_time(u64_t timestamp_in_sec){
-    struct timeval tv = {timestamp_in_sec, 0};
+// timeSyncLibReturnCodes sync_time(uint64_t timestamp_in_sec){
+//     struct timeval tv = {timestamp_in_sec, 0};
 
-    if(settimeofday(&tv, NULL) == 0){
-        DEBUG("Time set to ", timestamp_in_sec);
-        return timeSyncLibReturnCodes::SUCCESS;
-    } else {
-        DEBUG("Failed to set time to ", timestamp_in_sec);
-        return timeSyncLibReturnCodes::SET_TIME_ERROR;
-    }
-}
+//     if(settimeofday(&tv, NULL) == 0){
+//         DEBUG("Time set to ", timestamp_in_sec);
+//         return timeSyncLibReturnCodes::SUCCESS;
+//     } else {
+//         DEBUG("Failed to set time to ", timestamp_in_sec);
+//         return timeSyncLibReturnCodes::SET_TIME_ERROR;
+//     }
+// }
 
 void set_timezone(const char *tz) {
     setenv("TZ", tz, 1);
