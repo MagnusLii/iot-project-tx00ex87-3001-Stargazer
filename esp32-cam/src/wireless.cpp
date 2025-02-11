@@ -104,8 +104,8 @@ esp_err_t WirelessHandler::init(void) {
 
 esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_password) {
     // this->init();
-    strncpy((char *)this->ssid, wifi_ssid, sizeof(this->ssid));
-    strncpy((char *)this->password, wifi_password, sizeof(this->password));
+    // strncpy((char *)this->ssid, wifi_ssid, sizeof(this->ssid));
+    // strncpy((char *)this->password, wifi_password, sizeof(this->password));
 
     DEBUG("Connecting to Wi-Fi network: ", wifi_ssid);
     xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);

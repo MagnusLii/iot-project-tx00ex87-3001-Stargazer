@@ -16,7 +16,11 @@ EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_
                                         &this->uart_event_queue, 0));
 }
 
-void EspPicoCommHandler::send_data(const char *data, const size_t len) { uart_write_bytes(this->uart_num, data, len); }
+void EspPicoCommHandler::send_data(const char *data, const size_t len) { 
+// char aa[10] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
+    uart_write_bytes(this->uart_num, data, len);
+    // uart_write_bytes(this->uart_num, aa, 10);
+     }
 
 // blocking
 int EspPicoCommHandler::receive_data(char *buffer, const size_t max_len) {
