@@ -162,9 +162,12 @@ void init_task(void *pvParameters) {
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
-    // Send ESP initialized message to Pico
+    // Set TZ.
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
+
+    // Send ESP initialized message to Pico
+    msg = msg::esp_init(true);
     convert_to_string(msg, msg_str);
     handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
 
@@ -345,7 +348,8 @@ void uart_read_task(void *pvParameters) {
                                 DEBUG("Failed to enqueue received data");
                             }
                         }
-                        return_code = extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
+                        return_code =
+                            extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     }
                     break;
 
@@ -373,10 +377,7 @@ void handle_uart_data_task(void *pvParameters) {
     QueueMessage request;
 
     std::string string;
-    msg::Message msg = msg::response(true);
-
-    std::string response_str;
-    convert_to_string(msg, response_str);
+    msg::Message msg;
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
@@ -442,8 +443,7 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::PICTURE:
                         // Send confirmation message
-                        // TODO: maybe handle confirmation message in uart_read_task
-                        espPicoCommHandler->send_data(response_str.c_str(), response_str.length());
+                        espPicoCommHandler->send_ACK_msg(true);
 
                         // Convert UartReceivedData to QueueMessage
                         msg::convert_to_message(string, msg);
@@ -480,6 +480,10 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::DIAGNOSTICS:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // Create POST request.
                         request.requestType = RequestType::POST;
                         handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", 2, "\"status\"",
                                                                            msg.content[0].c_str(), "\"message\"",
@@ -491,6 +495,7 @@ void handle_uart_data_task(void *pvParameters) {
 
                         DEBUG("Diagnostics message: ", request.str_buffer);
 
+                        // Enqueue the request
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
@@ -501,6 +506,19 @@ void handle_uart_data_task(void *pvParameters) {
                         request.str_buffer[0] = '\0';
                         string.clear();
                         break;
+
+                    case msg::MessageType::WIFI:
+                        // TODO:
+                        break;
+
+                    case msg::MessageType::SERVER:
+                        // TODO:
+                        break;
+
+                    case msg::MessageType::API:
+                        // TODO:
+                        break;
+
                     default:
                         DEBUG("Unknown message type received");
                         break;
