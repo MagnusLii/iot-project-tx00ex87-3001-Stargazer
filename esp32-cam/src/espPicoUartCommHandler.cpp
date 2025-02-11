@@ -75,6 +75,13 @@ void EspPicoCommHandler::check_if_confirmation_msg(const UartReceivedData &recei
     }
 }
 
+void EspPicoCommHandler::send_ACK_msg(const bool ack) {
+    msg::Message msg = msg::response(ack);
+    std::string string;
+    convert_to_string(msg, string);
+    this->send_data(string.c_str(), string.length());
+}
+
 int find_first_char_position(const char *data_buffer, const size_t data_buffer_len, const char target) {
     DEBUG("buffer length: ", data_buffer_len);
     if (data_buffer == nullptr || data_buffer_len == 0) {
