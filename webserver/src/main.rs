@@ -96,6 +96,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await
     {
+        //let _ = webserver::web::images::check_images(&resources.api_db, &resources.image_dir, true)
+        //    .await;
+
         let (pri_address, pri_api_only, pri_secure, sec_address, sec_api_only, sec_secure) =
             setup_server_details(
                 http_address,
@@ -129,12 +132,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let (pri, sec) = tokio::join!(pri_server, sec_server);
 
-            if let Err(e) = pri {
-                println!("Primary server exited with error: {}", e);
+            if let Err(e) = pri? {
+                println!("Primary server exited with: {}", e);
+            } else {
+                println!("Primary server exited");
             }
 
-            if let Err(e) = sec {
-                println!("Secondary server exited with error: {}", e);
+            if let Err(e) = sec? {
+                println!("Secondary server exited with: {}", e);
+            } else {
+                println!("Secondary server exited");
             }
         } else {
             let srv = server(
@@ -173,7 +180,7 @@ async fn server(
         Ok(app) => server = app,
         Err(e) => {
             println!("Error during app initialization: {}", e);
-            return Err("Server exited before serving");
+            return Err("Initialization error");
         }
     }
 
@@ -182,7 +189,7 @@ async fn server(
             Ok(_) => println!("Server exited"),
             Err(e) => {
                 println!("Error while serving: {}", e);
-                return Err("Server exited due to error");
+                return Err("Serve error");
             }
         }
     } else {
@@ -190,7 +197,7 @@ async fn server(
             Ok(_) => println!("Server exited"),
             Err(e) => {
                 println!("Error while serving: {}", e);
-                return Err("Server exited due to error");
+                return Err("Serve error");
             }
         }
     }
