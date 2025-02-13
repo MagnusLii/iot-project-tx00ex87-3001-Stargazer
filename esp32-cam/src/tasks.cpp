@@ -230,7 +230,6 @@ void send_request_to_websrv_task(void *pvParameters) {
                     DEBUG("Undefined request received");
                     break;
 
-
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
                     requestHandler->sendRequest(request, &response);
@@ -340,6 +339,7 @@ void send_request_to_websrv_task(void *pvParameters) {
 // Run on highest prio.
 // Reads uart and enqueues received buffer to queue.
 // Requires EspPicoCommHandler to be initialized
+// TODO: holy shit this is trash plz have time to rework...
 void uart_read_task(void *pvParameters) {
     DEBUG("uart_read_task started");
     Handlers *handlers = (Handlers *)pvParameters;
@@ -447,8 +447,31 @@ void handle_uart_data_task(void *pvParameters) {
                         }
                         break;
 
-                    case msg::MessageType::ESP_INIT: // Should not be sent by Pico
-                        DEBUG("ESP_INIT message sent by Pico");
+                    case msg::MessageType::ESP_INIT:
+                        DEBUG("ESP_INIT message received");
+                        // send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // send diagnostics message
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", 2, "\"status\"",
+                                                                           msg.content[0].c_str(), "\"message\"",
+                                                                           "\"Pico init status received\"");
+
+                        strncpy(request.str_buffer, string.c_str(), string.size());
+                        request.str_buffer[string.size()] = '\0';
+                        request.buffer_length = string.size();
+
+                        DEBUG("Diagnostics message: ", request.str_buffer);
+
+                        // Enqueue the request
+                        if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
+                                               RETRIES) == false) {
+                            DEBUG("Failed to enqueue POST_IMAGE request");
+                        }
+
+                        // Clear variables
+                        request.buffer_length = 0;
+                        request.str_buffer[0] = '\0';
                         string.clear();
                         break;
 
