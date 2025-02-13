@@ -3,10 +3,7 @@ use clap::Parser;
 use sqlx::SqlitePool;
 use webserver::{
     app::App,
-    init::{
-        settings::Settings,
-        setup::{setup, setup_server_details},
-    },
+    init::{settings::Settings, setup::setup},
     web::images::ImageDirectory,
 };
 
@@ -24,14 +21,20 @@ struct Args {
     #[arg(short = 's', long)]
     port_https: Option<u16>,
     /// HTTP disable
-    #[arg(long)]
+    #[arg(long, conflicts_with = "enable_http")]
     disable_http: bool,
+    /// HTTP enable
+    #[arg(long)]
+    enable_http: bool,
     /// HTTP enabled for API even if HTTP is otherwise disabled
     #[arg(long)]
     enable_http_api: bool,
     /// HTTPS disable
-    #[arg(long)]
+    #[arg(long, conflicts_with = "enable_https")]
     disable_https: bool,
+    /// HTTPS enable
+    #[arg(long)]
+    enable_https: bool,
     /// HTTPS enabled for API even if HTTPS is otherwise disabled
     #[arg(long)]
     enable_https_api: bool,
@@ -54,13 +57,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.address,
         args.port_http,
         args.port_https,
-        if args.disable_http { Some(true) } else { None },
+        if args.disable_http {
+            Some(false)
+        } else if args.enable_http {
+            Some(true)
+        } else {
+            None
+        },
         if args.enable_http_api {
             Some(true)
         } else {
             None
         },
-        if args.disable_https { Some(true) } else { None },
+        if args.disable_https {
+            Some(false)
+        } else if args.enable_https {
+            Some(true)
+        } else {
+            None
+        },
         if args.enable_https_api {
             Some(true)
         } else {
@@ -72,9 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     settings.print();
 
-    let http = !settings.disable_http;
+    let http = settings.enable_http;
     let http_api = settings.enable_http_api;
-    let https = !settings.disable_https;
+    let https = settings.enable_https;
     let https_api = settings.enable_https_api;
 
     if !http && !http_api && !https && !https_api {
@@ -82,8 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let http_address = format!("{}:{}", &settings.address, settings.port_http);
-    let https_address = format!("{}:{}", &settings.address, settings.port_https);
     let user_db_path = format!("{}/users.db", settings.db_dir);
     let api_db_path = format!("{}/api.db", settings.db_dir);
 
@@ -93,41 +106,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &settings.assets_dir,
         &settings.certs_dir,
         https || https_api,
+        &settings.address,
+        settings.port_http,
+        settings.port_https,
+        settings.get_mode(),
     )
     .await
     {
         //let _ = webserver::web::images::check_images(&resources.api_db, &resources.image_dir, true)
         //    .await;
 
-        let (pri_address, pri_api_only, pri_secure, sec_address, sec_api_only, sec_secure) =
-            setup_server_details(
-                http_address,
-                https_address,
-                http,
-                https,
-                http_api,
-                https_api,
-            )
-            .await?;
-
-        if let Some(sec_address) = sec_address {
+        if let Some(sec) = resources.secondary_server {
             let sec_server = tokio::spawn(server(
-                sec_address,
+                sec.address,
                 resources.user_db.clone(),
                 resources.api_db.clone(),
                 resources.image_dir.clone(),
                 resources.tls_config.clone(),
-                sec_api_only,
-                sec_secure,
+                sec.api_only,
+                sec.secure,
             ));
             let pri_server = tokio::spawn(server(
-                pri_address,
+                resources.primary_server.address,
                 resources.user_db,
                 resources.api_db,
                 resources.image_dir,
                 resources.tls_config,
-                pri_api_only,
-                pri_secure,
+                resources.primary_server.api_only,
+                resources.primary_server.secure,
             ));
 
             let (pri, sec) = tokio::join!(pri_server, sec_server);
@@ -145,13 +151,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         } else {
             let srv = server(
-                pri_address,
+                resources.primary_server.address,
                 resources.user_db,
                 resources.api_db,
                 resources.image_dir,
                 resources.tls_config,
-                pri_api_only,
-                pri_secure,
+                resources.primary_server.api_only,
+                resources.primary_server.secure,
             )
             .await;
 

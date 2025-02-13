@@ -1,15 +1,14 @@
 use config::{Config, ConfigError, File};
-use serde::Deserialize;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Settings {
     pub address: String,
     pub port_http: u16,
     pub port_https: u16,
-    pub disable_http: bool,
+    pub enable_http: bool,
     pub enable_http_api: bool,
-    pub disable_https: bool,
+    pub enable_https: bool,
     pub enable_https_api: bool,
     pub db_dir: String,
     pub assets_dir: String,
@@ -21,10 +20,10 @@ impl Settings {
         address: Option<String>,
         port_http: Option<u16>,
         port_https: Option<u16>,
-        disable_http: Option<bool>,
-        enable_http_api: Option<bool>, // Only takes effect if disable_http is true
-        disable_https: Option<bool>,
-        enable_https_api: Option<bool>, // Only takes effect if disable_https is true
+        enable_http: Option<bool>,
+        enable_http_api: Option<bool>, // Only takes effect if http is disabled
+        enable_https: Option<bool>,
+        enable_https_api: Option<bool>, // Only takes effect if https is disabled
         db_dir: Option<String>,
         assets_dir: Option<String>,
         certs_dir: Option<String>,
@@ -33,9 +32,9 @@ impl Settings {
             .set_default("address", "127.0.0.1")?
             .set_default("port_http", 8080)?
             .set_default("port_https", 8443)?
-            .set_default("disable_http", false)?
+            .set_default("enable_http", true)?
             .set_default("enable_http_api", false)?
-            .set_default("disable_https", true)?
+            .set_default("enable_https", false)?
             .set_default("enable_https_api", false)?
             .set_default("db_dir", "db")?
             .set_default("assets_dir", "assets")?
@@ -44,9 +43,9 @@ impl Settings {
             .set_override_option("address", address)?
             .set_override_option("port_http", port_http)?
             .set_override_option("port_https", port_https)?
-            .set_override_option("disable_http", disable_http)?
+            .set_override_option("enable_http", enable_http)?
             .set_override_option("enable_http_api", enable_http_api)?
-            .set_override_option("disable_https", disable_https)?
+            .set_override_option("enable_https", enable_https)?
             .set_override_option("enable_https_api", enable_https_api)?
             .set_override_option("db_dir", db_dir)?
             .set_override_option("assets_dir", assets_dir)?
@@ -69,9 +68,9 @@ impl Settings {
             address: config.get("address")?,
             port_http: config.get("port_http")?,
             port_https: config.get("port_https")?,
-            disable_http: config.get("disable_http")?,
+            enable_http: config.get("enable_http")?,
             enable_http_api: config.get("enable_http_api")?,
-            disable_https: config.get("disable_https")?,
+            enable_https: config.get("enable_https")?,
             enable_https_api: config.get("enable_https_api")?,
             db_dir: config.get("db_dir")?,
             assets_dir: config.get("assets_dir")?,
@@ -81,7 +80,7 @@ impl Settings {
 
     pub fn print(&self) {
         println!("Address: {}", self.address);
-        if !self.disable_http {
+        if self.enable_http {
             println!("HTTP Enabled");
             println!("HTTP Port: {}", self.port_http);
         } else if self.enable_http_api {
@@ -90,7 +89,7 @@ impl Settings {
         } else {
             println!("HTTP Disabled");
         }
-        if !self.disable_https {
+        if self.enable_https {
             println!("HTTPS Enabled");
             println!("HTTPS Port: {}", self.port_https);
         } else if self.enable_https_api {
@@ -102,5 +101,54 @@ impl Settings {
         println!("DB Dir: {}", self.db_dir);
         println!("Assets Dir: {}", self.assets_dir);
         println!("Certs Dir: {}", self.certs_dir);
+    }
+
+    pub fn get_mode(&self) -> Mode {
+        match (
+            self.enable_http,
+            self.enable_http_api,
+            self.enable_https,
+            self.enable_https_api,
+        ) {
+            (true, false | true, false, false) => Mode::Http,
+            (false, false, true, false | true) => Mode::Https,
+            (false, true, false, false) => Mode::HttpApi,
+            (false, false, false, true) => Mode::HttpsApi,
+            (true, false | true, false, true) => Mode::HttpPlusHttpsApi,
+            (false, true, true, false | true) => Mode::HttpsPlusHttpApi,
+            (true, false | true, true, false | true) => Mode::Both,
+            (false, true, false, true) => Mode::BothApi,
+            _ => Mode::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Mode {
+    None,
+    Http,
+    HttpApi,
+    Https,
+    HttpsApi,
+    HttpPlusHttpsApi,
+    HttpsPlusHttpApi,
+    Both,
+    BothApi,
+}
+
+impl From<u8> for Mode {
+    fn from(mode: u8) -> Self {
+        match mode {
+            0 => Mode::None,
+            1 => Mode::Http,
+            2 => Mode::HttpApi,
+            3 => Mode::Https,
+            4 => Mode::HttpsApi,
+            5 => Mode::HttpPlusHttpsApi,
+            6 => Mode::HttpsPlusHttpApi,
+            7 => Mode::Both,
+            8 => Mode::BothApi,
+            _ => Mode::None,
+        }
     }
 }

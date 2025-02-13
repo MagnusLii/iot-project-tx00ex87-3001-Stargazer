@@ -1,5 +1,6 @@
 use crate::{
     api, auth,
+    init::settings::Mode,
     web::images::{self, ImageDirectory},
 };
 use axum_server::tls_rustls::RustlsConfig;
@@ -12,6 +13,8 @@ pub struct Resources {
     pub api_db: SqlitePool,
     pub image_dir: ImageDirectory,
     pub tls_config: Option<RustlsConfig>,
+    pub primary_server: ServerDetails,
+    pub secondary_server: Option<ServerDetails>,
 }
 
 pub async fn setup(
@@ -20,6 +23,10 @@ pub async fn setup(
     assets_dir_path: &str,
     certs_dir_path: &str,
     tls: bool,
+    address: &str,
+    http_port: u16,
+    https_port: u16,
+    mode: Mode,
 ) -> Result<Resources, Box<dyn std::error::Error>> {
     let user_db: SqlitePool;
     let api_db: SqlitePool;
@@ -69,11 +76,20 @@ pub async fn setup(
         tls_config = None;
     }
 
+    let (primary_server, secondary_server) =
+        match setup_server_details(address, http_port, https_port, mode).await {
+            Ok((primary, secondary)) => (primary, secondary),
+            Err(e) => return Err(e),
+        };
+
+    println!("Setup complete.");
     Ok(Resources {
         user_db,
         api_db,
         image_dir,
         tls_config,
+        primary_server,
+        secondary_server,
     })
 }
 
@@ -178,34 +194,102 @@ pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::
     Ok(tls_config)
 }
 
-pub async fn setup_server_details(
-    http_address: String,
-    https_address: String,
-    http: bool,
-    https: bool,
-    http_api: bool,
-    https_api: bool,
-) -> Result<(String, bool, bool, Option<String>, bool, bool), Box<dyn std::error::Error>> {
-    // TODO: Maybe this could be better. Enum value jump table?
-    if http && https {
-        Ok((https_address, false, true, Some(http_address), false, false))
-    } else if !http && https {
-        if http_api {
-            Ok((https_address, false, true, Some(http_address), true, false))
-        } else {
-            Ok((https_address, false, true, None, false, false))
-        }
-    } else if http && !https {
-        if https_api {
-            Ok((http_address, false, false, Some(https_address), true, true))
-        } else {
-            Ok((http_address, false, false, None, false, false))
-        }
-    } else if https_api && http_api {
-        Ok((https_address, true, true, Some(http_address), true, false))
-    } else if https_api {
-        Ok((https_address, true, true, None, false, false))
-    } else {
-        Ok((http_address, true, false, None, false, false))
+pub struct ServerDetails {
+    pub address: String,
+    pub secure: bool,
+    pub api_only: bool,
+}
+
+async fn setup_server_details(
+    address: &str,
+    http_port: u16,
+    https_port: u16,
+    mode: Mode,
+) -> Result<(ServerDetails, Option<ServerDetails>), Box<dyn std::error::Error>> {
+    let http_address = format!("{}:{}", address, http_port);
+    let https_address = format!("{}:{}", address, https_port);
+
+    match mode {
+        Mode::Both => Ok((
+            ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: false,
+            },
+            Some(ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: false,
+            }),
+        )),
+        Mode::BothApi => Ok((
+            ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: true,
+            },
+            Some(ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: true,
+            }),
+        )),
+        Mode::HttpPlusHttpsApi => Ok((
+            ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: false,
+            },
+            Some(ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: true,
+            }),
+        )),
+        Mode::HttpsPlusHttpApi => Ok((
+            ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: false,
+            },
+            Some(ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: true,
+            }),
+        )),
+        Mode::Http => Ok((
+            ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: false,
+            },
+            None,
+        )),
+        Mode::HttpApi => Ok((
+            ServerDetails {
+                address: http_address,
+                secure: false,
+                api_only: true,
+            },
+            None,
+        )),
+        Mode::Https => Ok((
+            ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: false,
+            },
+            None,
+        )),
+        Mode::HttpsApi => Ok((
+            ServerDetails {
+                address: https_address,
+                secure: true,
+                api_only: true,
+            },
+            None,
+        )),
+        _ => Err("Invalid mode".into()),
     }
 }
