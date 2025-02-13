@@ -16,11 +16,7 @@ EspPicoCommHandler::EspPicoCommHandler(uart_port_t uart_num, uart_config_t uart_
                                         &this->uart_event_queue, 0));
 }
 
-void EspPicoCommHandler::send_data(const char *data, const size_t len) { 
-// char aa[10] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', '\0'};
-    uart_write_bytes(this->uart_num, data, len);
-    // uart_write_bytes(this->uart_num, aa, 10);
-     }
+void EspPicoCommHandler::send_data(const char *data, const size_t len) { uart_write_bytes(this->uart_num, data, len); }
 
 // blocking
 int EspPicoCommHandler::receive_data(char *buffer, const size_t max_len) {
@@ -47,10 +43,12 @@ void EspPicoCommHandler::set_waiting_for_response(bool status) { this->waitingFo
 bool EspPicoCommHandler::get_waiting_for_response() { return this->waitingForResponse; }
 
 int EspPicoCommHandler::send_msg_and_wait_for_response(const char *data, const size_t len) {
+    DEBUG("Sending message and waiting for response");
     int retries = 0;
     this->set_waiting_for_response(true);
     while (this->get_waiting_for_response() && retries < RETRIES) {
         vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
+        DEBUG("Sending message and waiting for response");
         this->send_data(data, len);
         retries++;
     }
