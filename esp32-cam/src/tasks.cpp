@@ -50,7 +50,21 @@
 void get_request_timer_callback(TimerHandle_t timer) {
     RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
     xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getUserInstructionsGETRequestptr(), 0);
-    DEBUG("GET request sent");
+    DEBUG("Userinstructions GET request sent");
+}
+
+void get_timestamp_timer_callback(TimerHandle_t timer) {
+    RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
+
+    if (requestHandler->getTimeSyncedStatus() == true) {
+        xTimerStop(timer, 0);
+        return;
+    }
+
+    xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getTimestampGETRequestptr(), 0);
+    DEBUG("Timestamp GET request sent");
+
+    xTimerStart(timer, pdMS_TO_TICKS(60000)); // Retry in 1 minute
 }
 
 bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t ticks_to_wait, int retries) {
@@ -99,9 +113,7 @@ void init_task(void *pvParameters) {
 
     // TODO: clear the sd card if needed
     uint32_t free_space = handlers->sdcardHandler->get_sdcard_free_space();
-    if (free_space == 0) {
-        esp_restart();
-    } else if (free_space < 100000) {
+    if (free_space < 100000) {
         DEBUG("SD card storage getting low. Backup and clear the SD card.");
         // TODO: Add diagnostics?
     }
@@ -109,6 +121,7 @@ void init_task(void *pvParameters) {
     else if (handlers->sdcardHandler->get_sdcard_free_space() < 10000) {
         DEBUG("SD card almost full. Clearing the SD card.");
         handlers->sdcardHandler->clear_sdcard();
+        // TODO: Add diagnostics msg
     }
 #endif
 
@@ -142,19 +155,15 @@ void init_task(void *pvParameters) {
     // Set timezone
     set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
 
-    // Create a timer to fetch user instructions from the web server
-    TimerHandle_t getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
-                                                 handlers->requestHandler.get(), get_request_timer_callback);
-    while (getRequestTimer == NULL && retries < RETRIES) {
-        getRequestTimer = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
-                                       handlers->requestHandler.get(), get_request_timer_callback);
-        retries++;
-    }
-    if (getRequestTimer != NULL) {
-        xTimerStart(getRequestTimer, 0);
-    } else {
-        DEBUG("Failed to create GET request timer");
-    }
+    // Create Timers
+    TimerHandle_t getRequestTmr = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
+                                               handlers->requestHandler.get(), get_request_timer_callback);
+    TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdFALSE,
+                                                 handlers->requestHandler.get(), get_timestamp_timer_callback);
+
+    //  Start timers
+    xTimerStart(getRequestTmr, GET_REQUEST_TIMER_PERIOD);
+    xTimerStart(getTimestampTmr, 0);
 
     // Create tasks
     xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 16384, handlers.get(), TaskPriorities::HIGH,
@@ -162,12 +171,9 @@ void init_task(void *pvParameters) {
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
-    // Set TZ.
+    // Send ESP initialized message to Pico
     msg::Message msg = msg::esp_init(true);
     std::string msg_str;
-
-    // Send ESP initialized message to Pico
-    msg = msg::esp_init(true);
     convert_to_string(msg, msg_str);
     handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
 
@@ -182,9 +188,9 @@ void init_task(void *pvParameters) {
 
     esp_err_t err = esp_task_wdt_init(&twdt_config);
     if (err == ESP_OK) {
-        printf("Task Watchdog initialized successfully for both cores.\n");
+        DEBUG("Task Watchdog initialized successfully for both cores.");
     } else {
-        printf("Failed to initialize Task Watchdog: %d\n", err);
+        DEBUG("Failed to initialize Task Watchdog: ", err);
     }
 #endif
 
@@ -220,6 +226,11 @@ void send_request_to_websrv_task(void *pvParameters) {
         // TODO: add mutex
         if (xQueueReceive(requestHandler->getWebSrvRequestQueue(), &request, portMAX_DELAY) == pdTRUE) {
             switch (request.requestType) {
+                case RequestType::UNDEFINED:
+                    DEBUG("Undefined request received");
+                    break;
+
+
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
                     requestHandler->sendRequest(request, &response);
@@ -290,6 +301,31 @@ void send_request_to_websrv_task(void *pvParameters) {
                         DEBUG("Request: ", string.c_str());
                         DEBUG("Response: ", response.str_buffer);
                     }
+                    break;
+
+                case RequestType::GET_TIME:
+                    DEBUG("GET_TIME request received");
+                    requestHandler->sendRequest(request, &response);
+
+                    if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
+                        DEBUG("Request returned non-200 status code");
+                        DEBUG("Request: ", string.c_str());
+                        DEBUG("Response: ", response.str_buffer);
+                    }
+
+                    // Parse the response
+                    if (sync_time(requestHandler->parseTimestamp(response.str_buffer)) !=
+                        timeSyncLibReturnCodes::SUCCESS) {
+                        // TODO: add error handling
+                        DEBUG("Failed to sync time");
+                    }
+
+                    // Set timezone
+                    set_tz();
+
+                    // Clear variables
+                    response.buffer_length = 0;
+                    response.str_buffer[0] = '\0';
                     break;
 
                 default:
