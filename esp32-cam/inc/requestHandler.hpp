@@ -52,10 +52,12 @@ class RequestHandler {
 
     RequestHandlerReturnCode createDiagnosticsPOSTRequest(std::string *requestPtr);
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
-    RequestHandlerReturnCode createUserInstructionsGETRequest(std::string *requestPtr);
+    void createUserInstructionsGETRequest(std::string *requestPtr);
+    void createTimestampGETRequest(std::string *requestPtr);
     RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...);
     int parseHttpReturnCode(const char *responseString);
     QueueMessage *getUserInstructionsGETRequestptr();
+    QueueMessage *getTimestampGETRequestptr();
 
     const char *getWebServerCString();
     const char *getWebPortCString();
@@ -66,7 +68,11 @@ class RequestHandler {
     RequestHandlerReturnCode sendRequest(std::string request, QueueMessage* response);
 
     int parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size);
+    int64_t parseTimestamp(const std::string& response);
 
+    bool getTimeSyncedStatus();
+    void setTimeSyncedStatus(bool status);
+    
   private:
     std::string webServer;
     std::string webPort;
@@ -81,6 +87,9 @@ class RequestHandler {
     SemaphoreHandle_t requestMutex;
 
     QueueMessage getUserInsturctionsRequest;
+    QueueMessage getTimestampRequest;
+
+    bool timeSynchronized = false;
 };
 
 #endif

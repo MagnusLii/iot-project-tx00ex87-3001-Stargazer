@@ -20,6 +20,7 @@
 #include "timesync-lib.hpp"
 #include "wireless.hpp"
 #include <memory>
+#include <sstream>
 #include <string.h>
 
 RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
@@ -41,6 +42,12 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
     this->getUserInsturctionsRequest.buffer_length = getRequest.length();
     this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
+
+    this->createTimestampGETRequest(&getRequest);
+    strncpy(this->getTimestampRequest.str_buffer, getRequest.c_str(), sizeof(this->getTimestampRequest.str_buffer) - 1);
+    this->getTimestampRequest.str_buffer[sizeof(this->getTimestampRequest.str_buffer) - 1] = '\0';
+    this->getTimestampRequest.buffer_length = getRequest.length();
+    this->getTimestampRequest.requestType = RequestType::GET_TIME;
 }
 
 RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::string *requestPtr) {
@@ -108,7 +115,7 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
  * @return RequestHandlerReturnCode - Indicates the result of the operation. Always returns SUCCESS
  *                                    since the request is successfully generated.
  */
-RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
+void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
                   "/api/command?token=" +
                   this->webServerToken +
@@ -119,7 +126,18 @@ RequestHandlerReturnCode RequestHandler::createUserInstructionsGETRequest(std::s
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: keep-alive\r\n"
                   "\r\n";
-    return RequestHandlerReturnCode::SUCCESS;
+}
+
+void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
+    *requestPtr = "GET "
+                  "/api/time"
+                  " HTTP/1.0\r\n"
+                  "Host: " +
+                  this->webServer + ":" + this->webPort +
+                  "\r\n"
+                  "User-Agent: esp-idf/1.0 esp32\r\n"
+                  "Connection: keep-alive\r\n"
+                  "\r\n";
 }
 
 // The function reads all variable arguments as const char*, no \" is added to the values so should be added by the
@@ -216,6 +234,8 @@ int RequestHandler::parseHttpReturnCode(const char *responseString) {
  */
 QueueMessage *RequestHandler::getUserInstructionsGETRequestptr() { return &this->getUserInsturctionsRequest; }
 
+QueueMessage *RequestHandler::getTimestampGETRequestptr() { return &this->getTimestampRequest; }
+
 /**
  * Retrieves the web server's address as a C-style string.
  *
@@ -255,6 +275,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     }
 
     // Lock mutex
+    DEBUG("Taking request mutex");
     if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
         DEBUG("Failed to take request mutex");
         return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
@@ -283,6 +304,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     if (err != 0 || dns_lookup_results == nullptr) {
         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
@@ -296,6 +320,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         DEBUG("... Failed to allocate socket.");
         freeaddrinfo(dns_lookup_results); // Cleanup DNS results
         vTaskDelay(pdMS_TO_TICKS(1000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
     DEBUG("... allocated socket");
@@ -306,6 +333,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(5000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("... connected");
@@ -313,9 +343,12 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     // Send the request data to the server
     freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
     if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
-        DEBUG("... socket send failed\n");
+        DEBUG("... socket send failed");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(5000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("... socket send success");
@@ -325,6 +358,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         DEBUG("... failed to set socket receiving timeout");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(4000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
     DEBUG("... set socket receiving timeout success");
@@ -338,25 +374,27 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
             if (total_len >= BUFFER_SIZE - 1) break;
         } else if (len == 0) {
             // Connection closed by the server
-            DEBUG("Connection closed by peer.\n");
+            DEBUG("Connection closed by peer.");
             break;
         } else {
             if (errno == EAGAIN) {
                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
                 continue; // Retry the read
             } else {
-                DEBUG("Socket error: errno=", errno, "\n");
+                DEBUG("Socket error: errno=", errno);
                 break;
             }
         }
     }
 
     receive_buffer[total_len] = '\0';
-    DEBUG("Final response: ", receive_buffer);
     close(socket_descriptor);
 
     if (total_len == 0) {
         DEBUG("Failed to receive any data from the server");
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
@@ -368,9 +406,8 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
 
     parseResponseIntoJson(response, total_len); // Parse the response into json
 
-    // Unlock mutex
-    xSemaphoreGive(this->requestMutex);
-
+    DEBUG("Unlocking request mutex");
+    xSemaphoreGive(this->requestMutex); // Unlock mutex
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -409,6 +446,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     if (err != 0 || dns_lookup_results == nullptr) {
         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
@@ -422,6 +462,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
         DEBUG("... Failed to allocate socket.");
         freeaddrinfo(dns_lookup_results); // Cleanup DNS results
         vTaskDelay(pdMS_TO_TICKS(1000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
     DEBUG("... allocated socket");
@@ -432,6 +475,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(5000)); // Retry delay
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("... connected");
@@ -439,9 +485,12 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     // Send the request data to the server
     freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
     if (write(socket_descriptor, request.c_str(), request.length() + 1) < 0) {
-        DEBUG("... socket send failed\n");
+        DEBUG("... socket send failed");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(5000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("... socket send success");
@@ -451,6 +500,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
         DEBUG("... failed to set socket receiving timeout");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(4000));
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
     DEBUG("... set socket receiving timeout success");
@@ -464,14 +516,14 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
             if (total_len >= BUFFER_SIZE - 1) break;
         } else if (len == 0) {
             // Connection closed by the server
-            DEBUG("Connection closed by peer.\n");
+            DEBUG("Connection closed by peer.");
             break;
         } else {
             if (errno == EAGAIN) {
                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
                 continue; // Retry the read
             } else {
-                DEBUG("Socket error: errno=", errno, "\n");
+                DEBUG("Socket error: errno=", errno);
                 break;
             }
         }
@@ -483,6 +535,9 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
     if (total_len == 0) {
         DEBUG("Failed to receive any data from the server");
+
+        DEBUG("Unlocking request mutex");
+        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
@@ -494,9 +549,8 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
     parseResponseIntoJson(response, total_len); // Parse the response into json
 
-    // Unlock mutex
-    xSemaphoreGive(this->requestMutex);
-
+    DEBUG("Unlocking request mutex");
+    xSemaphoreGive(this->requestMutex); // Unlock mutex
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -526,3 +580,25 @@ int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const in
 
     return 0;
 }
+
+int64_t RequestHandler::parseTimestamp(const std::string &response) {
+    DEBUG("Parsing timestamp from response: ", response.c_str());
+
+    // Find content field
+    std::string http_response = response;
+    size_t start_pos = http_response.find("\r\n\r\n");
+    if (start_pos == std::string::npos) {
+        DEBUG("Content field not found");
+        return -1; // "Content" field not found
+    }
+
+    std::string value = http_response.substr(start_pos + 4);
+
+    DEBUG("Timestamp: ", value.c_str());
+
+    return std::stoll(value);
+}
+
+bool RequestHandler::getTimeSyncedStatus() { return this->timeSynchronized; }
+
+void RequestHandler::setTimeSyncedStatus(bool status) { this->timeSynchronized = status; }
