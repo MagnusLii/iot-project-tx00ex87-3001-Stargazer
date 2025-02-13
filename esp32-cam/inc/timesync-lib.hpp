@@ -13,7 +13,7 @@ enum class timeSyncLibReturnCodes {
 
 void initialize_sntp();
 timeSyncLibReturnCodes set_tz();
-timeSyncLibReturnCodes sync_time(uint64_t timestamp_in_sec);
+timeSyncLibReturnCodes sync_time(int64_t timestamp_in_sec);
 void set_timezone(const char *tz);
 timeSyncLibReturnCodes set_timezone_to_eet();
 timeSyncLibReturnCodes set_timezone_to_eest();
