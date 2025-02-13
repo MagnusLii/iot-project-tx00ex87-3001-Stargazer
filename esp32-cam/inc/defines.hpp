@@ -29,3 +29,11 @@
 #ifndef RETRY_DELAY_MS
 #define RETRY_DELAY_MS 100
 #endif
+
+#ifndef ENQUEUE_REQUEST_RETRIES
+#define ENQUEUE_REQUEST_RETRIES 3
+#endif
+
+#ifndef QUEUE_SIZE
+#define QUEUE_SIZE 10
+#endif

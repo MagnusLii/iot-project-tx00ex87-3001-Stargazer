@@ -7,9 +7,6 @@
 #include <memory>
 #include <string>
 
-#define ENQUEUE_REQUEST_RETRIES 3
-#define QUEUE_SIZE              3
-
 enum class RequestType {
     UNDEFINED,
     GET_COMMANDS,
@@ -72,7 +69,7 @@ class RequestHandler {
 
     bool getTimeSyncedStatus();
     void setTimeSyncedStatus(bool status);
-    
+
   private:
     std::string webServer;
     std::string webPort;
