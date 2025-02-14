@@ -18,8 +18,6 @@ config.toml
 esp32-cam/inc/testMacros.hpp
 *idf_component.yml
 esp32-cam/test
-db
 target
-cargo.lock
 */ideas.txt
 certs
