@@ -7,11 +7,10 @@ use axum::{
 use serde::Deserialize;
 use sqlx::SqlitePool;
 
-// TODO: Exact fields still TBD
 #[derive(Deserialize)]
 pub struct DiagnosticsJson {
     token: String,
-    status: String,
+    status: i64,
     message: String,
 }
 
@@ -27,12 +26,12 @@ pub async fn send_diagnostics(
         "New diagnostic data: [{}] {}",
         payload.status, payload.message
     );
-    new_diagnostic(&state.db, &payload.token, &payload.status, &payload.message).await;
+    new_diagnostic(&state.db, &payload.token, payload.status, &payload.message).await;
 
     (StatusCode::OK, "Success\n")
 }
 
-async fn new_diagnostic(db: &SqlitePool, token: &str, status: &str, message: &str) {
+async fn new_diagnostic(db: &SqlitePool, token: &str, status: i64, message: &str) {
     sqlx::query("INSERT INTO diagnostics (token, status, message) VALUES (?, ?, ?)")
         .bind(token)
         .bind(status)

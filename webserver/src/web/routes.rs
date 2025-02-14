@@ -214,6 +214,7 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
 #[derive(Debug, Deserialize)]
 pub struct DiagnosticQuery {
     name: Option<String>,
+    page: Option<u32>,
 }
 
 pub async fn diagnostics(
@@ -222,14 +223,14 @@ pub async fn diagnostics(
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
 
-    let html_diagnostics = diagnostics::get_diagnostics(name.name, &state.db)
+    let html_diagnostics = diagnostics::get_diagnostics(name.name, name.page, &state.db)
         .await
         .unwrap()
         .iter()
         .map(|diagnostic| {
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-                diagnostic.name, diagnostic.status, diagnostic.message
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
             )
         })
         .collect::<Vec<String>>()
