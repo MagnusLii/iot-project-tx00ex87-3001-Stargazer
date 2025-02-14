@@ -1,4 +1,5 @@
 #include "requestHandler.hpp"
+#include "TLSWrapper.hpp"
 #include "debug.hpp"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -551,6 +552,114 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
     DEBUG("Unlocking request mutex");
     xSemaphoreGive(this->requestMutex); // Unlock mutex
+    return RequestHandlerReturnCode::SUCCESS;
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {
+    if (!this->wirelessHandler->isConnected()) {
+        DEBUG("Wireless is not connected");
+        return RequestHandlerReturnCode::NOT_CONNECTED;
+    }
+
+    DEBUG("Taking request mutex");
+    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
+        DEBUG("Failed to take request mutex");
+        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
+    }
+
+    TLSWrapper tls;
+    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
+        DEBUG("TLS connection failed");
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
+    }
+    DEBUG("TLS connection established");
+
+    // Send request
+    if (tls.send(request.str_buffer, request.buffer_length) < 0) {
+        DEBUG("TLS send failed");
+        tls.close();
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
+    }
+    DEBUG("TLS send success");
+
+    // Receive response
+    char receive_buffer[BUFFER_SIZE] = {0};
+    int total_len = tls.receive(receive_buffer, BUFFER_SIZE - 1);
+
+    tls.close();
+
+    if (total_len <= 0) {
+        DEBUG("TLS receive failed");
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+    }
+
+    receive_buffer[total_len] = '\0';
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+    DEBUG("Response: ", response->str_buffer);
+
+    parseResponseIntoJson(response, total_len);
+
+    DEBUG("Unlocking request mutex");
+    xSemaphoreGive(this->requestMutex);
+    return RequestHandlerReturnCode::SUCCESS;
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &request, QueueMessage *response) {
+    if (!this->wirelessHandler->isConnected()) {
+        DEBUG("Wireless is not connected");
+        return RequestHandlerReturnCode::NOT_CONNECTED;
+    }
+
+    DEBUG("Taking request mutex");
+    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
+        DEBUG("Failed to take request mutex");
+        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
+    }
+
+    TLSWrapper tls;
+    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
+        DEBUG("TLS connection failed");
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
+    }
+    DEBUG("TLS connection established");
+
+    // Send request
+    if (tls.send(request.c_str(), request.length()) < 0) {
+        DEBUG("TLS send failed");
+        tls.close();
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
+    }
+    DEBUG("TLS send success");
+
+    // Receive response
+    char receive_buffer[BUFFER_SIZE] = {0};
+    int total_len = tls.receive(receive_buffer, BUFFER_SIZE - 1);
+
+    tls.close();
+
+    if (total_len <= 0) {
+        DEBUG("TLS receive failed");
+        xSemaphoreGive(this->requestMutex);
+        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+    }
+
+    receive_buffer[total_len] = '\0';
+    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+    response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+    DEBUG("Response: ", response->str_buffer);
+
+    parseResponseIntoJson(response, total_len);
+
+    DEBUG("Unlocking request mutex");
+    xSemaphoreGive(this->requestMutex);
     return RequestHandlerReturnCode::SUCCESS;
 }
 

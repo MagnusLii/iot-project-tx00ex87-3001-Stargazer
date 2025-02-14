@@ -63,6 +63,8 @@ class RequestHandler {
 
     RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage* response);
     RequestHandlerReturnCode sendRequest(std::string request, QueueMessage* response);
+    RequestHandlerReturnCode sendRequestTLS(const QueueMessage request, QueueMessage *response);
+    RequestHandlerReturnCode sendRequestTLS(const std::string &request, QueueMessage *response);
 
     int parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size);
     int64_t parseTimestamp(const std::string& response);
