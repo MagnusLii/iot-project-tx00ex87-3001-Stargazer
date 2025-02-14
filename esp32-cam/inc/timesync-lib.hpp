@@ -8,7 +8,8 @@ enum class timeSyncLibReturnCodes {
     GENERAL_ERROR,
     GET_TIME_ERROR,
     SET_TIME_ERROR,
-    INCORRECT_BUFFER_SIZE
+    INCORRECT_BUFFER_SIZE,
+    INVALID_ARGUMENT,
 };
 
 void initialize_sntp();
