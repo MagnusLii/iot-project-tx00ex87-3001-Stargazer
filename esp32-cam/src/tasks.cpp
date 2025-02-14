@@ -310,6 +310,7 @@ void send_request_to_websrv_task(void *pvParameters) {
                         DEBUG("Request returned non-200 status code");
                         DEBUG("Request: ", string.c_str());
                         DEBUG("Response: ", response.str_buffer);
+                        break;
                     }
 
                     // Parse the response
@@ -317,14 +318,24 @@ void send_request_to_websrv_task(void *pvParameters) {
                         timeSyncLibReturnCodes::SUCCESS) {
                         // TODO: add error handling
                         DEBUG("Failed to sync time");
+                        break;
                     }
 
                     // Set timezone
                     set_tz();
 
+                    // Set time synced status
+                    requestHandler->setTimeSyncedStatus(true);
+
+                    // TODO: forward to pico?
+                    // uart_msg = msg::datetime_response(get_datetime());
+                    // convert_to_string(uart_msg, uart_msg_str);
+                    // espPicoCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
+
                     // Clear variables
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
+                    uart_msg_str.clear();
                     break;
 
                 default:
