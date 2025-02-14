@@ -190,6 +190,12 @@ pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::
     };
 
     let tls_config = RustlsConfig::from_pem_file(&crt_path, &key_path).await?;
+    let cs = tls_config
+        .get_inner()
+        .crypto_provider()
+        .cipher_suites
+        .clone();
+    println!("Cipher suites: {:#?}", cs);
 
     Ok(tls_config)
 }
