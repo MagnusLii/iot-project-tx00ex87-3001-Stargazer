@@ -30,11 +30,15 @@ timeSyncLibReturnCodes set_tz() {
         set_timezone_to_eet();
     }
     DEBUG("Timezone set");
-    print_local_time();
     return timeSyncLibReturnCodes::SUCCESS;
 }
 
 timeSyncLibReturnCodes sync_time(int64_t timestamp_in_sec) {
+    if (timestamp_in_sec < 0) {
+        DEBUG("Invalid timestamp: ", timestamp_in_sec);
+        return timeSyncLibReturnCodes::INVALID_ARGUMENT;
+    }
+
     struct timeval tv = {timestamp_in_sec, 0};
 
     if (settimeofday(&tv, NULL) == 0) {
