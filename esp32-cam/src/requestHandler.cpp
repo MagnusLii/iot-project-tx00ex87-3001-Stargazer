@@ -193,6 +193,93 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+// The function reads all variable arguments as const char*, no \" is added to the values so should be added by the
+// caller if meant to be included as strings in the JSON.
+RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
+                                                                  int numOfVariableArgs, ...) {
+    if (requestPtr == nullptr) {
+        DEBUG("Error: requestPtr is null");
+        return RequestHandlerReturnCode::INVALID_ARGUMENT;
+    }
+
+    if (numOfVariableArgs % 2 != 0) {
+        DEBUG("Error: Number of arguments is not divisible by 2");
+        return RequestHandlerReturnCode::INVALID_NUM_OF_ARGS;
+    }
+
+    va_list args;
+    va_start(args, numOfVariableArgs);
+
+    std::string content = "{";
+    for (int i = 0; i < numOfVariableArgs; i += 2) {
+        const char *key = va_arg(args, const char *);
+        const char *value = va_arg(args, const char *);
+        content += std::string(key) + ":" + std::string(value);
+        if (i < numOfVariableArgs - 2) { content += ","; }
+    }
+    content += "}";
+
+    va_end(args);
+
+    *requestPtr = "POST " + std::string(endpoint) +
+                  " HTTP/1.0\r\n"
+                  "Host: " +
+                  this->webServer + ":" + this->webPort +
+                  "\r\n"
+                  "User-Agent: esp-idf/1.0 esp32\r\n"
+                  "Connection: keep-alive\r\n"
+                  "Content-Type: application/json\r\n"
+                  "Content-Length: " +
+                  std::to_string(content.length()) +
+                  "\r\n"
+                  "\r\n" +
+                  content;
+
+    DEBUG("Request: ", requestPtr->c_str());
+
+    if (requestPtr->empty()) {
+        DEBUG("Error: Request string is empty after construction");
+        return RequestHandlerReturnCode::FAILED_TO_CREATE_REQUEST;
+    }
+
+    return RequestHandlerReturnCode::SUCCESS;
+}
+
+/**
+ * Parses the HTTP response to extract the return code.
+ *
+ * @param response - A C-style string containing the HTTP response.
+ *
+ * @return int - The HTTP return code. Returns -1 if the return code could not be parsed.
+ */
+int RequestHandler::parseHttpReturnCode(const char *responseString) {
+    if (responseString == nullptr) {
+        DEBUG("Error: response is null");
+        return -1;
+    }
+
+    const char *status_line_end = strstr(responseString, "\r\n");
+    if (status_line_end == nullptr) {
+        DEBUG("Error: Could not find end of status line");
+        return -1;
+    }
+
+    std::string status_line(responseString, status_line_end - responseString);
+    size_t code_start = status_line.find(' ') + 1;
+    size_t code_end = status_line.find(' ', code_start);
+
+    if (code_start == std::string::npos || code_end == std::string::npos) {
+        DEBUG("Error: Could not parse return code from status line");
+        return -1;
+    }
+
+    std::string code_str = status_line.substr(code_start, code_end - code_start);
+    int return_code = std::stoi(code_str);
+
+    DEBUG("Parsed HTTP return code: ", return_code);
+    return return_code;
+}
+
 /**
  * Parses the HTTP response to extract the return code.
  *
