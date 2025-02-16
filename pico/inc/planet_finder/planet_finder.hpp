@@ -93,12 +93,12 @@ class Celestial {
         azimuthal_coordinates get_coordinates(const datetime_t &date);
         // void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
         void print_coordinates(const datetime_t start_date, int hours);
-        datetime_t get_interest_point_time(Interest_point point,const datetime_t &start_date);
+        Command get_interest_point_time(Interest_point point,const datetime_t &start_date);
         void set_observer_coordinates(const Coordinates observer_coordinates);
         void start_trace(datetime_t start_datetime, int hours);
         Command next_trace(void);
     private:
-        datetime_t get_zenith_time(const datetime_t &start_date);
+        Command get_zenith_time(const datetime_t &start_date);
         Planets planet;
         Coordinates observer_coordinates;
         datetime_t trace_date;

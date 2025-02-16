@@ -198,14 +198,14 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
     std::cout << "end" << std::endl;
 }
 
-datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
-    datetime_t date = get_zenith_time(start_date);
+Command Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+    Command zenith = get_zenith_time(start_date);
+    if (point == ZENITH) return zenith;
 
-    
-    return date;
+    return zenith;
 }
 
-datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
+Command Celestial::get_zenith_time(const datetime_t &start_date) {
     datetime_t iter_date = start_date;
     datetime_t result_date{0};
     azimuthal_coordinates last = get_coordinates(iter_date);
@@ -236,7 +236,8 @@ datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
     if (error) { // -1 year means no date could be found in 2 days
         result_date.year = -1;
     }
-    return result_date;
+    Command result = {1, current, result_date};
+    return result;
 }
 
 void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
