@@ -21,6 +21,11 @@ class WirelessHandler {
         esp_err_t deinit(void);
         bool isConnected(void);
 
+        char* get_ssid();
+        char* get_password();
+        int set_ssid(const char* ssid, const size_t ssid_len);
+        int set_password(const char* password, const size_t password_len);
+
 
     private:
         static void ip_event_cb_lambda(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data){
@@ -35,8 +40,8 @@ class WirelessHandler {
         }
         void wifi_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);   
 
-        const char* ssid;
-        const char* password;
+        char* ssid;
+        char* password;
         int WIFI_RETRY_ATTEMPTS;
         int wifi_retry_count;
         esp_netif_t *netif;

@@ -1,20 +1,20 @@
 #include "wireless.hpp"
+#include "debug.hpp"
+#include "esp_event.h"
+#include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "nvs_flash.h"
 #include <inttypes.h>
 #include <string.h>
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "esp_log.h"
-#include "debug.hpp"
 
 #define WIFI_AUTHMODE WIFI_AUTH_WPA2_PSK
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-WirelessHandler::WirelessHandler(const char* ssid, const char* password, int wifi_retry_limit) {
+WirelessHandler::WirelessHandler(const char *ssid, const char *password, int wifi_retry_limit) {
     this->WIFI_RETRY_ATTEMPTS = wifi_retry_limit;
     this->wifi_retry_count = 0;
     this->ssid = ssid;
@@ -24,8 +24,6 @@ WirelessHandler::WirelessHandler(const char* ssid, const char* password, int wif
     this->s_wifi_event_group = NULL;
 
     this->wifi_mutex = xSemaphoreCreateMutex();
-
-    this->init();
 }
 
 esp_err_t WirelessHandler::init(void) {
@@ -95,8 +93,10 @@ esp_err_t WirelessHandler::init(void) {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::wifi_event_cb_lambda, this, &this->wifi_event_handler));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::ip_event_cb_lambda, this, &this->ip_event_handler));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::wifi_event_cb_lambda, this, &this->wifi_event_handler));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(
+        IP_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::ip_event_cb_lambda, this, &this->ip_event_handler));
 
     xSemaphoreGive(this->wifi_mutex);
     return ret;
@@ -128,7 +128,8 @@ esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_passw
 
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    EventBits_t bits = xEventGroupWaitBits(this->s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+    EventBits_t bits = xEventGroupWaitBits(this->s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
+                                           pdFALSE, portMAX_DELAY);
 
     if (bits & WIFI_CONNECTED_BIT) {
         xSemaphoreGive(this->wifi_mutex);
@@ -256,7 +257,24 @@ bool WirelessHandler::isConnected(void) {
     }
 }
 
-// void WirelessHandler::reconnect_timer_cb(TimerHandle_t xTimer) {
-//     DEBUG("Reconnect timer callback triggered\n");
-//     esp_wifi_connect();
-// }
+char *WirelessHandler::get_ssid() { return this->ssid; }
+
+char *WirelessHandler::get_password() { return this->password; }
+
+int WirelessHandler::set_ssid(const char *ssid, const size_t ssid_len) {
+    if (strncpy(this->ssid, ssid, ssid_len) != 0) {
+        DEBUG("Failed to set SSID in WirelessHandler");
+        return -1;
+    }
+    this->ssid[ssid_len] = '\0';
+    return 0;
+}
+
+int WirelessHandler::set_password(const char *password, const size_t password_len) {
+    if (strncpy(this->password, password, password_len) != 0) {
+        DEBUG("Failed to set password in WirelessHandler");
+        return -1;
+    }
+    this->password[password_len] = '\0';
+    return 0;
+}
