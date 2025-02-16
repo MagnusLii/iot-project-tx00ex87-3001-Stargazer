@@ -1,6 +1,13 @@
 #include "TLSWrapper.hpp"
-#include "mbedtls/debug.h"
 #include "debug.hpp"
+#include "mbedtls/debug.h"
+#include "mbedtls/error.h"
+#include "mbedtls/net_sockets.h"
+#include "mbedtls/ssl.h"
+#include "testMacros.hpp"
+
+#define ENABLE_SELF_SIGNED_CERT
+// #define TLS_DEBUG
 
 TLSWrapper::TLSWrapper() {
     mbedtls_net_init(&net_ctx);
@@ -8,6 +15,13 @@ TLSWrapper::TLSWrapper() {
     mbedtls_ssl_config_init(&ssl_conf);
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
+
+#ifdef TLS_DEBUG
+    // Does not work with tls1.3 enabled
+    DEBUG("Enabling TLS debug");
+    mbedtls_debug_set_threshold(4);                          // Set debug level to show detailed logs
+    mbedtls_ssl_conf_dbg(&ssl_conf, mbedtls_debug_cb, NULL); // Enable debug
+#endif
 
     // Initialize entropy and random number generator
     if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0) != 0) {
@@ -24,22 +38,52 @@ TLSWrapper::~TLSWrapper() {
 }
 
 bool TLSWrapper::connect(const char *host, const char *port) {
+    int ret;
+
     if (mbedtls_net_connect(&net_ctx, host, port, MBEDTLS_NET_PROTO_TCP) != 0) {
         DEBUG("TCP connection failed");
         return false;
     }
 
-    if (mbedtls_ssl_config_defaults(&ssl_conf, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0) {
-        DEBUG("Failed to configure SSL");
+    int conf_ret = mbedtls_ssl_config_defaults(&ssl_conf, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM,
+                                               MBEDTLS_SSL_PRESET_DEFAULT);
+    if (conf_ret != 0) {
+        DEBUG("SSL config failed, error code: ", conf_ret);
         return false;
     }
+
+#ifdef ENABLE_SELF_SIGNED_CERT
+    DEBUG("disabling certificate verification");
+    mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_NONE);
+#else
+    static const char *root_cert = CERTIFICATE; TODO: read cert from sdcard
+    mbedtls_x509_crt ca_cert;
+    mbedtls_x509_crt_init(&ca_cert);
+    ret = mbedtls_x509_crt_parse(&ca_cert, (const unsigned char *)root_cert, strlen(root_cert) + 1);
+    if (ret != 0) {
+        DEBUG("Failed to parse CA certificate, error code: ", ret);
+        return false;
+    }
+
+    mbedtls_ssl_conf_ca_chain(&ssl_conf, &ca_cert, NULL); // Set CA chain
+#endif
 
     mbedtls_ssl_conf_rng(&ssl_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
     mbedtls_ssl_setup(&ssl, &ssl_conf);
     mbedtls_ssl_set_bio(&ssl, &net_ctx, mbedtls_net_send, mbedtls_net_recv, nullptr);
 
-    if (mbedtls_ssl_handshake(&ssl) != 0) {
-        DEBUG("TLS handshake failed");
+    const char *hostname = "stargazer.local";
+    if (mbedtls_ssl_set_hostname(&ssl, hostname) != 0) {
+        DEBUG("Setting hostname failed");
+        return false;
+    }
+
+    ret = mbedtls_ssl_handshake(&ssl);
+    if (ret != 0) {
+        DEBUG("TLS handshake failed, error code: ", ret);
+        char error_buf[100];
+        mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+        DEBUG("TLS handshake error: ", error_buf);
         return false;
     }
 
@@ -47,15 +91,15 @@ bool TLSWrapper::connect(const char *host, const char *port) {
     return true;
 }
 
-int TLSWrapper::send(const char *data, size_t len) {
-    return mbedtls_ssl_write(&ssl, (const unsigned char *)data, len);
-}
+int TLSWrapper::send(const char *data, size_t len) { return mbedtls_ssl_write(&ssl, (const unsigned char *)data, len); }
 
-int TLSWrapper::receive(char *buffer, size_t maxLen) {
-    return mbedtls_ssl_read(&ssl, (unsigned char *)buffer, maxLen);
-}
+int TLSWrapper::receive(char *buffer, size_t maxLen) { return mbedtls_ssl_read(&ssl, (unsigned char *)buffer, maxLen); }
 
 void TLSWrapper::close() {
     mbedtls_ssl_close_notify(&ssl);
     mbedtls_net_free(&net_ctx);
+}
+
+void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str) {
+    DEBUG("mbedtls debug ", level, " : ", file, " : ", line, " : ", str);
 }

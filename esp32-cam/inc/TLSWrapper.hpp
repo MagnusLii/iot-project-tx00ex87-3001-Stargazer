@@ -25,4 +25,6 @@ private:
     mbedtls_entropy_context entropy;
 };
 
+void mbedtls_debug(void *ctx, int level, const char *file, int line, const char *str);
+
 #endif // TLSWRAPPER_H
