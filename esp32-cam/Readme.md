@@ -17,6 +17,7 @@
 - Set `configTimer_TASK_STACK_DEPTH` from `2048` -> `4096`
 - Set `Partition Table` to `Custom partition table CSV` and use `partitions.csv` as the table.
 - Set `CONFIG_MAIN_TASK_STACK_SIZE` from `2048` to `8192` when using memory intentsive tests.
+- Enable `Enable mbedTLS debugging` for verbose tls debugs.
 
 ### Code notes
 
