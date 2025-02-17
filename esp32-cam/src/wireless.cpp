@@ -6,6 +6,7 @@
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "nvs_flash.h"
+#include <errno.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -14,11 +15,11 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-WirelessHandler::WirelessHandler(const char *ssid, const char *password, int wifi_retry_limit) {
+WirelessHandler::WirelessHandler(SDcardHandler *sdcardhandler, int wifi_retry_limit) {
+    this->sdcardHandler = sdcardhandler;
+
     this->WIFI_RETRY_ATTEMPTS = wifi_retry_limit;
     this->wifi_retry_count = 0;
-    this->ssid = ssid;
-    this->password = password;
 
     this->netif = NULL;
     this->s_wifi_event_group = NULL;
@@ -103,10 +104,6 @@ esp_err_t WirelessHandler::init(void) {
 }
 
 esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_password) {
-    // this->init();
-    // strncpy((char *)this->ssid, wifi_ssid, sizeof(this->ssid));
-    // strncpy((char *)this->password, wifi_password, sizeof(this->password));
-
     DEBUG("Connecting to Wi-Fi network: ", wifi_ssid);
     xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
 
@@ -179,6 +176,8 @@ esp_err_t WirelessHandler::deinit(void) {
     return ESP_OK;
 }
 
+bool WirelessHandler::isConnected(void) { return xEventGroupGetBits(this->s_wifi_event_group) & WIFI_CONNECTED_BIT; }
+
 void WirelessHandler::ip_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     DEBUG("Handling IP event, event code: ", event_id);
     ip_event_got_ip_t *event_ip = nullptr;
@@ -246,35 +245,24 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
     }
 }
 
-bool WirelessHandler::isConnected(void) {
-    wifi_ap_record_t ap_info;
-    esp_err_t ret = esp_wifi_sta_get_ap_info(&ap_info);
-    if (ret == ESP_OK) {
-        return true;
-    } else {
-        DEBUG("Wi-Fi not connected");
-        return false;
-    }
+const char *WirelessHandler::get_setting(Settings settingID) {
+    return this->settings[settingID].c_str();
 }
 
-char *WirelessHandler::get_ssid() { return this->ssid; }
-
-char *WirelessHandler::get_password() { return this->password; }
-
-int WirelessHandler::set_ssid(const char *ssid, const size_t ssid_len) {
-    if (strncpy(this->ssid, ssid, ssid_len) != 0) {
-        DEBUG("Failed to set SSID in WirelessHandler");
-        return -1;
-    }
-    this->ssid[ssid_len] = '\0';
+int WirelessHandler::set_setting(const char *buffer, const size_t buffer_len, Settings settingID) {
+    this->settings[settingID] = std::string(buffer, buffer_len);
     return 0;
 }
 
-int WirelessHandler::set_password(const char *password, const size_t password_len) {
-    if (strncpy(this->password, password, password_len) != 0) {
-        DEBUG("Failed to set password in WirelessHandler");
-        return -1;
-    }
-    this->password[password_len] = '\0';
-    return 0;
+bool WirelessHandler::set_all_settings(std::map <Settings, std::string> settings) {
+    this->settings = settings;
+    return true;
+}
+
+int WirelessHandler::save_settings_to_sdcard(std::map <Settings, std::string> settings) {
+    return this->sdcardHandler->save_all_settings(settings);
+}
+
+int WirelessHandler::read_settings_from_sdcard(std::map <Settings, std::string> settings) {
+    return this->sdcardHandler->read_all_settings(settings);
 }

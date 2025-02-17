@@ -6,7 +6,8 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "testMacros.hpp"
+#include "sd-card.hpp"
+#include "map"
 
 #define WIFI_AUTHMODE WIFI_AUTH_WPA2_PSK
 #define WIFI_CONNECTED_BIT BIT0
@@ -14,18 +15,19 @@
 
 class WirelessHandler {
     public:
-        WirelessHandler(const char* ssid = WIFI_SSID, const char* password = WIFI_SSID, int wifi_retry_limit = 3);
+        WirelessHandler(SDcardHandler* sdcardhandler, int wifi_retry_limit = 3);
         esp_err_t init(void);
         esp_err_t connect(const char *ssid, const char *password);
         esp_err_t disconnect(void);
         esp_err_t deinit(void);
         bool isConnected(void);
 
-        char* get_ssid();
-        char* get_password();
-        int set_ssid(const char* ssid, const size_t ssid_len);
-        int set_password(const char* password, const size_t password_len);
+        const char* get_setting(Settings settingID);
+        int set_setting(const char* buffer, const size_t buffer_len, Settings settingID);
+        bool set_all_settings(std::map <Settings, std::string> settings);
 
+        int save_settings_to_sdcard(std::map <Settings, std::string> settings);
+        int read_settings_from_sdcard(std::map <Settings, std::string> settings);
 
     private:
         static void ip_event_cb_lambda(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data){
@@ -40,8 +42,9 @@ class WirelessHandler {
         }
         void wifi_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);   
 
-        char* ssid;
-        char* password;
+
+        std::map<Settings, std::string> settings;
+
         int WIFI_RETRY_ATTEMPTS;
         int wifi_retry_count;
         esp_netif_t *netif;
@@ -49,6 +52,8 @@ class WirelessHandler {
         esp_event_handler_instance_t wifi_event_handler;
         EventGroupHandle_t s_wifi_event_group;
         SemaphoreHandle_t wifi_mutex;
+
+        SDcardHandler *sdcardHandler;
 };
 
 #endif
