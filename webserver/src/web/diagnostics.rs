@@ -21,6 +21,7 @@ pub async fn get_diagnostics(
     println!("Page: {}, Offset: {}", page, offset);
 
     if let Some(name) = name {
+        println!("Getting diagnostics for: {}", name);
         let diagnostics = sqlx::query_as(
             "SELECT keys.name AS name, diagnostics_status.status AS status, diagnostics.message AS message, datetime(diagnostics.time, 'unixepoch') AS datetime 
             FROM diagnostics 
@@ -51,4 +52,21 @@ pub async fn get_diagnostics(
 
         Ok(diagnostics)
     }
+}
+
+#[derive(Debug, Deserialize, FromRow)]
+pub struct DiagnosticNamesSql {
+    pub name: String,
+}
+
+pub async fn get_diagnostics_names(db: &SqlitePool) -> Result<Vec<DiagnosticNamesSql>, Error> {
+    let names = sqlx::query_as(
+        "SELECT DISTINCT keys.name AS name
+        FROM diagnostics
+        JOIN keys ON diagnostics.token = keys.api_token",
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(names)
 }

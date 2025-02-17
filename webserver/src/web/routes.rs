@@ -219,23 +219,79 @@ pub struct DiagnosticQuery {
 
 pub async fn diagnostics(
     State(state): State<SharedState>,
-    Query(name): Query<DiagnosticQuery>,
+    query: Result<Query<DiagnosticQuery>, QueryRejection>,
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
 
-    let html_diagnostics = diagnostics::get_diagnostics(name.name, name.page, &state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|diagnostic| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    let query = match query {
+        Ok(q) => q.0,
+        Err(e) => {
+            eprintln!("Error parsing query: {}", e);
+            DiagnosticQuery {
+                name: None,
+                page: None,
+            }
+        }
+    };
+
+    let mut valid_query = false;
+    if let Ok(devices) = diagnostics::get_diagnostics_names(&state.db).await {
+        println!("Devices: {:?}", devices);
+
+        let mut html_devices = "<option value=\"\">All</option>".to_string();
+
+        if let Some(name) = &query.name {
+            html_devices += &devices
+                .iter()
+                .map(|device| {
+                    if &device.name == name {
+                        valid_query = true;
+                        format!(
+                            "<option value=\"{}\" selected>{}</option>",
+                            device.name, device.name
+                        )
+                    } else {
+                        format!("<option value=\"{}\">{}</option>", device.name, device.name)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+        } else {
+            valid_query = true;
+            html_devices += &devices
+                .iter()
+                .map(|device| format!("<option value=\"{}\">{}</option>", device.name, device.name))
+                .collect::<Vec<String>>()
+                .join("\n");
+        }
+        html = html.replace("<!--NAMES-->", &html_devices);
+    }
+
+    if !valid_query {
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Invalid name filter</td></tr>",
+        );
+    } else if let Ok(diagnostics) =
+        diagnostics::get_diagnostics(query.name, query.page, &state.db).await
+    {
+        let html_diagnostics = diagnostics
+            .iter()
+            .map(|diagnostic| {
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    } else {
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Could not load diagnostics</td></tr>",
+        );
+    }
 
     (StatusCode::OK, Html(html))
 }
