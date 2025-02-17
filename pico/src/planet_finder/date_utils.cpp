@@ -8,6 +8,12 @@ void datetime_increment_hour(datetime_t &date) {
     }
 }
 
+void datetime_add_hours(datetime_t &date, uint hours) {
+    uint days_to_add = (date.hour + hours) / 24;
+    date.hour = (date.hour + hours) - (days_to_add * 24);
+    for (int i=0; i<days_to_add; i++) datetime_increment_day(date);
+}
+
 
 void datetime_increment_day(datetime_t &date) {
     date.day++;

@@ -23,6 +23,7 @@ async fn create_command(
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn delete_command(db: &SqlitePool, id: i64) {
     println!("Deleting command: {}", id);
     sqlx::query("DELETE FROM commands WHERE id = ?")

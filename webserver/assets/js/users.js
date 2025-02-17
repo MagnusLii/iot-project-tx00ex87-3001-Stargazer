@@ -47,13 +47,15 @@ function modifyUser() {
             "password": document.getElementById("new-password").value
         })
     }).then(response => {
-        if (!response.ok) response.text().then(data => {
-            document.getElementById("message").innerHTML = data;
-        }).catch(() => {
-            throw new Error("Issue modifying user");
-        })
-    }).then(() => {
-        location.reload();
+        if (!response.ok) {
+            response.text().then(data => {
+                document.getElementById("modify-user-message").innerHTML = data;
+            }).catch(() => {
+                throw new Error("Issue modifying user");
+            })
+        } else {
+            location.reload();
+        }
     }).catch(error => {
         alert(error);
     });

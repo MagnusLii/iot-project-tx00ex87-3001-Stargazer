@@ -17,7 +17,7 @@
 
 class StepperMotor {
   public:
-    StepperMotor(const std::vector<uint> &stepper_pins, const std::vector<uint> &opto_fork_pins);
+    StepperMotor(const std::vector<uint> &stepper_pins, uint optoforkpin);
 
     void init(PIO pio, float rpm, bool clockwise);
 
@@ -48,7 +48,7 @@ class StepperMotor {
     int read_steps_left(void);
 
     std::vector<uint> pins;          // Stepper motor pins
-    std::vector<uint> optoForkPins;          // Pin for opto fork sensor, for now unused
+    uint optoForkPin;          // Pin for opto fork sensor, for now unused
     bool direction;            // Motor direction: true for clockwise, false for anticlockwise
     PIO pioInstance;           // PIO instance
     uint programOffset;        // Program offset in PIO memory

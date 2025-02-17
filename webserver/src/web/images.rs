@@ -1,3 +1,4 @@
+use sqlx::{FromRow, SqlitePool};
 use std::{env, fs, path::PathBuf};
 
 #[derive(Clone)]
@@ -85,7 +86,7 @@ pub async fn update_gallery() -> bool {
 }
 
 pub async fn register_image(
-    db: &sqlx::SqlitePool,
+    db: &SqlitePool,
     name: &str,
     path: &str,
     web_path: &str,
@@ -103,21 +104,21 @@ pub async fn register_image(
     Ok(())
 }
 
-pub async fn unregister_image(db: &sqlx::SqlitePool, path: &str) {
+pub async fn unregister_image(db: &SqlitePool, path: &str) {
     let sql = "DELETE FROM images WHERE path = ?";
     sqlx::query(sql).bind(path).execute(db).await.unwrap();
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(FromRow)]
 pub struct Image {
-    id: i64,
+    //id: i64,
     pub name: String,
     path: String,
     pub web_path: String,
-    command_id: i64,
+    //command_id: i64,
 }
 
-async fn get_image_list(db: &sqlx::SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
+async fn get_image_list(db: &SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
     let sql = "SELECT * FROM images";
     let images = sqlx::query_as(sql).fetch_all(db).await?;
 
@@ -125,15 +126,17 @@ async fn get_image_list(db: &sqlx::SqlitePool) -> Result<Vec<Image>, sqlx::Error
 }
 
 pub async fn check_images(
-    db: &sqlx::SqlitePool,
+    db: &SqlitePool,
     dir: &ImageDirectory,
     update: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let images = dir.find_images();
 
+    /*
     for image in &images {
         println!("Image: {}", image.display());
     }
+    */
 
     // Verify that all images in the database are present in the directory
     match get_image_list(&db).await {
@@ -157,7 +160,7 @@ pub async fn check_images(
     Ok(())
 }
 
-async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec<Image>) {
+async fn update_images(db: &SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec<Image>) {
     for image in &dir_images {
         let path = image.to_str().expect("Failed to get path");
 
@@ -167,18 +170,16 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
         }
 
         // Correct naming scheme <date>-<id>-<name>.<ext>
-        // Get filename
         let filename = image.file_name().unwrap().to_str().unwrap();
 
-        // Form web path
         let web_path = format!("/assets/images/{}", filename);
 
-        // Remove extension
         let filename = filename.split(".").next().unwrap();
 
         // Collect parts
         let parts = filename.split("-").collect::<Vec<&str>>();
         if parts.len() != 3 {
+            // Unexpected format/number of parts
             continue;
         }
 
@@ -187,6 +188,7 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
         let id = parts[1].parse::<i64>().ok();
 
         if date.is_none() || id.is_none() {
+            // Unexpected format
             continue;
         }
 
@@ -199,7 +201,7 @@ async fn update_images(db: &sqlx::SqlitePool, dir_images: Vec<PathBuf>, db_image
 }
 
 pub async fn get_image_info(
-    db: &sqlx::SqlitePool,
+    db: &SqlitePool,
     mut page: u32,
     mut page_size: u32,
 ) -> Result<Vec<Image>, sqlx::Error> {
@@ -226,7 +228,7 @@ pub async fn get_image_info(
     Ok(images)
 }
 
-pub async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> {
+pub async fn get_image_count(db: &SqlitePool) -> Result<u64, sqlx::Error> {
     let count = sqlx::query_scalar("SELECT COUNT(*) FROM images")
         .fetch_one(db)
         .await?;
@@ -234,7 +236,7 @@ pub async fn get_image_count(db: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> 
     Ok(count)
 }
 
-pub async fn get_last_image(db: &sqlx::SqlitePool) -> Result<Image, sqlx::Error> {
+pub async fn get_last_image(db: &SqlitePool) -> Result<Image, sqlx::Error> {
     let image = sqlx::query_as("SELECT * FROM images ORDER BY id DESC")
         .fetch_one(db)
         .await?;
