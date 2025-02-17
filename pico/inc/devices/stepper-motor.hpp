@@ -16,9 +16,6 @@
 #define CLOCKWISE true
 #define ANTICLOCKWISE false
 
-#define MAX_ANGLE M_PI; // half of a full turn (180 degrees)
-#define MIN_ANGLE 0;
-
 int modulo(int x, int y);
 
 
@@ -40,7 +37,6 @@ class StepperMotor {
     uint8_t getCurrentStep() const;
     bool isRunning() const;
     uint16_t getMaxSteps() const;
-    uint16_t getEdgeSteps() const;
     int16_t getStepCount() const;
     bool getDirection() const;
 

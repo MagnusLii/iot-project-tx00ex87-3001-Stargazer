@@ -69,20 +69,16 @@ int main() {
     mctrl.calibrate();
     while (mctrl.isCalibrating()) ;
 
-    while (true) ;
+    Command command;
+    command.time.year = 1000;
+    while (true)  {
+        command = moon.next_trace();
+        if (command.time.year != -1) {
+            mctrl.turn_to_coordinates(command.coords);
+            std::cout <<"alt actual " << command.coords.altitude * 180 / M_PI << " azi actual " << command.coords.azimuth * 180 / M_PI << std::endl;
+            while (mctrl.isRunning()) ;
+        }
 
-    // Command command;
-    // command.time.year = 1000;
-    // while (true)  {
-    //     command = moon.next_trace();
-    //     if (command.time.year != -1) {
-    //         mv.turn_to(command.coords.altitude);
-    //         mh.turn_to(command.coords.azimuth);
-    //         std::cout <<"alt " << command.coords.altitude * 180 / M_PI << " azi " << command.coords.azimuth * 180 / M_PI << std::endl;
-    //         while (mv.isRunning()) ;
-    //         while (mh.isRunning()) ;
-    //     }
-
-    // }
+    }
 }
 

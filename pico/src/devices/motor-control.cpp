@@ -1,5 +1,7 @@
 #include "motor-control.hpp"
 
+#define NATURAL_SPEED 3
+
 
 // these are used for calibration
 static MotorControl *motorcontrol;
@@ -15,8 +17,23 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
     motor_vertical->init(pio1, 5, CLOCKWISE);
 }
 
-bool MotorControl::turn_to_command(Command command) {
-
+bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
+    if (coords.altitude < MIN_ANGLE ||coords.altitude > MAX_ANGLE) {
+        DEBUG("Altitude below horizon, can't turn the motor");
+        return false;
+    }
+    if (coords.azimuth > MAX_ANGLE) {
+        coords.azimuth -= MAX_ANGLE;
+        if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;
+        else coords.altitude -= M_PI + 2 * coords.altitude;
+    }
+    double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) / fabs(motor_vertical->get_position() - coords.altitude);
+    double horizontal_speed = NATURAL_SPEED * ratio;
+    motor_vertical->setSpeed(NATURAL_SPEED);
+    motor_horizontal->setSpeed(horizontal_speed);
+    motor_horizontal->turn_to(coords.azimuth);
+    motor_vertical->turn_to(coords.altitude);
+    std::cout <<"ratio " << ratio << " spe " << horizontal_speed << std::endl;
     return true;
 }
 
@@ -40,7 +57,11 @@ bool MotorControl::isCalibrated(void) const {
 }
 
 bool MotorControl::isCalibrating(void) const {
-    return horizontal_calibrating && vertical_calibrating;
+    return horizontal_calibrating || vertical_calibrating;
+}
+
+bool MotorControl::isRunning(void) const {
+    return motor_horizontal->isRunning() || motor_vertical->isRunning();
 }
 
 //// CALIBRATION ////
@@ -104,6 +125,7 @@ void MotorControl::calibration_handler(Axis axis, bool rise) {
             if (!isCalibrated()) {
                 motor_horizontal->stop();
                 motor_horizontal->resetStepCounter();
+                motor_horizontal->setDirection(CLOCKWISE);
                 horizontal_calibrated = true;
                 horizontal_calibrating = false;
             }
@@ -114,6 +136,8 @@ void MotorControl::calibration_handler(Axis axis, bool rise) {
             if (!isCalibrated()) {
                 motor_vertical->stop();
                 motor_vertical->resetStepCounter();
+                motor_vertical->setDirection(CLOCKWISE);
+                // motor_vertical->turnSteps(100);
                 vertical_calibrated = true;
                 vertical_calibrating = false;
             }
