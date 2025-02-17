@@ -22,14 +22,7 @@ int main() {
     sleep_ms(5000);
     DEBUG("Start\r\n");
     bool awoken = false;
-    awake = false;
-    if (sleep_for(0, 1, &alarm_sleep_callback)) {
-        while(!awake) {
-            awoken = true;
-            DEBUG("what");
-            break;
-        }
-    }
+
     sleep_power_up();
     DEBUG("Hello");
 
