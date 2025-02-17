@@ -52,11 +52,6 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->getTimestampRequest.requestType = RequestType::GET_TIME;
 }
 
-RequestHandlerReturnCode RequestHandler::createDiagnosticsPOSTRequest(std::string *requestPtr) {
-    // Implement when requests are more clear.
-    return RequestHandlerReturnCode::SUCCESS;
-}
-
 RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                                 std::string base64_image_data) {
     if (requestPtr == nullptr) {

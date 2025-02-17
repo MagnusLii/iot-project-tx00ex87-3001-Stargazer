@@ -47,7 +47,6 @@ class RequestHandler {
                    std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
     // TODO: Add destructor
 
-    RequestHandlerReturnCode createDiagnosticsPOSTRequest(std::string *requestPtr);
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
     void createUserInstructionsGETRequest(std::string *requestPtr);
     void createTimestampGETRequest(std::string *requestPtr);
