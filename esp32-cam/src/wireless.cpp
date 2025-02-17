@@ -82,7 +82,7 @@ esp_err_t WirelessHandler::init(void) {
     }
 
     // Set hostname
-    const char *hostname = "Stargazer"; // TODO: make dynamic
+    const char *hostname = "Stargazer";
     esp_err_t err = esp_netif_set_hostname(netif, hostname);
     if (err == ESP_OK) {
         DEBUG("Hostname set to: ", hostname);
@@ -227,14 +227,6 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
             break;
         case (WIFI_EVENT_STA_DISCONNECTED):
             DEBUG("Wi-Fi disconnected");
-            if (this->wifi_retry_count < this->WIFI_RETRY_ATTEMPTS) {
-                DEBUG("Retrying to connect to Wi-Fi network...");
-                esp_wifi_connect();
-                this->wifi_retry_count++;
-            } else {
-                DEBUG("Failed to connect to Wi-Fi network");
-                xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-            }
             break;
         case (WIFI_EVENT_STA_AUTHMODE_CHANGE):
             DEBUG("Wi-Fi authmode changed");
