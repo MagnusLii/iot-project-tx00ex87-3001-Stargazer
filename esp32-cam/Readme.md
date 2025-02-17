@@ -23,3 +23,13 @@
 
 `.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times.  
 ^^ this needs to be tested again, I've done code improvements.
+
+setting file layout
+```
+SSID
+PASSWORD
+SERVER DOMAIN
+SERVER PORT
+SERVER API TOKEN
+CRC
+```
