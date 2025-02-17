@@ -19,8 +19,17 @@
 static bool awake;
 
 static void alarm_sleep_callback(uint alarm_id) {
-    printf("alarm woke us up\n");
+    DEBUG("Woken by timer \n");
     uart_default_tx_wait_blocking();
+
+    if (uart_is_readable(uart0)) {
+        DEBUG("Woken by UART \n");
+        while (uart_is_readable(uart0)) {
+            char c = uart_getc(uart0);
+            DEBUG("%c \n", c);
+        }
+    }
+
     awake = true;
     hardware_alarm_set_callback(alarm_id, NULL);
     hardware_alarm_unclaim(alarm_id);
@@ -30,18 +39,19 @@ int main() {
     stdio_init_all();
     sleep_ms(5000);
     DEBUG("Start\r\n");
-
+    bool awoken = false;
     awake = false;
-    if (sleep_goto_sleep_for(10000, &alarm_sleep_callback)) {
-        while(!awake)
-            DEBUG("bruh");
+    if (sleep_for(0, 1, &alarm_sleep_callback)) {
+        while(!awake) {
+            awoken = true;
+            DEBUG("what");
+            break;
+        }
     }
-
     sleep_power_up();
     DEBUG("Hello");
 
     while(true) {
-
     };
     /*
     auto queue = std::make_shared<std::queue<msg::Message>>();
