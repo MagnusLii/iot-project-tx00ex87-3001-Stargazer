@@ -53,8 +53,6 @@ function fillCommandList(page_n = 0, exact = false) {
         filter = 0;
     }
 
-
-
     fetch(`/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,6 +105,7 @@ function fillCommandList(page_n = 0, exact = false) {
             const key_id = document.createElement("td");
             const status = document.createElement("td");
             const time = document.createElement("td");
+            const cancel = document.createElement("td");
             target.textContent = command.target;
             position.textContent = command.position;
             id.textContent = command.id;
@@ -114,6 +113,13 @@ function fillCommandList(page_n = 0, exact = false) {
             key_id.textContent = command.key_id;
             status.textContent = command.status;
             time.textContent = command.datetime;
+            cancel.className = "command-cancel";
+            if (command.status == 0) {
+                const deleteButton = document.createElement("button");
+                deleteButton.textContent = "Cancel";
+                deleteButton.onclick = () => deleteCommand(command.id);
+                cancel.appendChild(deleteButton);
+            }
             row.appendChild(id);
             row.appendChild(target);
             row.appendChild(position);
@@ -121,10 +127,11 @@ function fillCommandList(page_n = 0, exact = false) {
             row.appendChild(key_id);
             row.appendChild(status);
             row.appendChild(time);
+            row.appendChild(cancel);
             table.appendChild(row);
         });
 
-        deleteButtons();
+        //deleteButtons();
     }).catch(() => {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
@@ -156,8 +163,9 @@ function deleteButtons() {
         const status = cells[5].textContent;
         if (status == "0") {
             const cell = document.createElement("td");
+            cell.className = "command-cancel-button";
             const deleteButton = document.createElement("button");
-            deleteButton.textContent = "Delete";
+            deleteButton.textContent = "Cancel";
             deleteButton.onclick = () => deleteCommand(cells[0].textContent);
             cell.appendChild(deleteButton);
             row.appendChild(cell);

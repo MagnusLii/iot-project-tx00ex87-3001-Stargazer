@@ -36,6 +36,10 @@ pub fn verify_password(password: &str, expected: &str) -> Result<(), PasswordErr
     }
 }
 
+pub fn is_valid_char(c: char) -> bool {
+    c.is_alphanumeric() || c.is_ascii_punctuation()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

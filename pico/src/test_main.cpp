@@ -5,6 +5,8 @@
 #include "devices/compass.hpp"
 #include "message.hpp"
 #include "pico/stdlib.h" // IWYU pragma: keep
+#include "planet_finder.hpp"
+#include "pico/stdlib.h"
 #include "uart/PicoUart.hpp"
 #include <hardware/timer.h>
 #include <iostream>
@@ -14,26 +16,28 @@
 #include <vector>
 #include "sleep_functions.hpp"
 
+#include "stepper-motor.hpp"
+
 #include "debug.hpp"
 
-static bool awake;
-
-static void alarm_sleep_callback(uint alarm_id) {
-    DEBUG("Woken by timer \n");
-    uart_default_tx_wait_blocking();
-
-    if (uart_is_readable(uart0)) {
-        DEBUG("Woken by UART \n");
-        while (uart_is_readable(uart0)) {
-            char c = uart_getc(uart0);
-            DEBUG("%c \n", c);
-        }
-    }
-
-    awake = true;
-    hardware_alarm_set_callback(alarm_id, NULL);
-    hardware_alarm_unclaim(alarm_id);
-}
+// int main() {
+//     stdio_init_all();
+//     Celestial moon(MOON);
+//     datetime_t date;
+//     date.year = 2025;
+//     date.month = 2;
+//     date.day = 2;
+//     date.hour = 20;
+//     date.min = 0;
+//     Coordinates coords(60.1699, 24.9384);
+//     moon.set_observer_coordinates(coords);
+//     datetime_t date2 = moon.get_interest_point_time(ZENITH, date);
+//     moon.print_coordinates(date, 48);
+//     while (true) {
+//         std::cout << (int)date2.month << ", " << (int)date2.day << ", " << (int)date2.hour << std::endl;
+//         sleep_ms(500);
+//     }
+// }
 
 int main() {
     stdio_init_all();
@@ -141,9 +145,10 @@ int main() {
                     DEBUG("Unknown message type: ", msg.type);
                     break;
             }
-
-            queue->pop();
         }
+        // motor1.turnSteps(200);
+        // motor1.stop();
+        // motor2.stop();
 
         sleep_ms(5000);
 
@@ -152,7 +157,9 @@ int main() {
             DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour),
                   ":", unsigned(now.min), ":", unsigned(now.sec));
         }
+
     }
     */
     return 0;
 }
+
