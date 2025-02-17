@@ -1,7 +1,7 @@
 // TESTING DEFINES
 
 // Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
-#define RESERVE_UART0_FOR_PICO_COMM
+// #define RESERVE_UART0_FOR_PICO_COMM
 
 // Sends datetime response over UART0 every 10 seconds
 // #define UART_DEMO
@@ -19,12 +19,6 @@
 
 // Enables production code
 #define PRODUCTION_CODE
-
-// Enables monitoring of idle tasks on both cores
-#define WATCHDOG_MONITOR_IDLE_TASKS
-
-// Enables clearing the SD card when space is low
-// #define ENABLE_CLEARING_SD_CARD
 
 #include <esp_event.h>
 #include <esp_log.h>
