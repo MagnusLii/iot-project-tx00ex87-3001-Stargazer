@@ -144,12 +144,14 @@ void init_task(void *pvParameters) {
         handlers->sdcardHandler->clear_sdcard();
         // TODO: Add diagnostics msg
     }
-#endif
+#endif // ENABLE_CLEARING_SD_CARD
 
     handlers->wirelessHandler = std::make_shared<WirelessHandler>(handlers->sdcardHandler.get());
+    
+    // Read settings from SD card
+    std::map<Settings, std::string> settings;
 
 #ifdef SAVE_TEST_SETTINGS_TO_SDCARD
-    std::map<Settings, std::string> settings;
     settings[Settings::WIFI_SSID] = TEST_WIFI_SSID;
     settings[Settings::WIFI_PASSWORD] = TEST_WIFI_PASSWORD;
     settings[Settings::WEB_DOMAIN] = TEST_WEB_SERVER;
@@ -163,10 +165,8 @@ void init_task(void *pvParameters) {
         DEBUG("Settings saved to SD card");
         esp_restart();
     }
-#endif
+#endif // SAVE_TEST_SETTINGS_TO_SDCARD
 
-    // Read settings from SD card
-    std::map<Settings, std::string> settings;
     if (handlers->sdcardHandler->read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings from SD card");
         esp_restart();
@@ -180,7 +180,7 @@ void init_task(void *pvParameters) {
     for (auto const &setting : settings) {
         DEBUG("Setting: ", setting.first, " Value: ", setting.second);
     }
-#endif
+#endif // PRINT_SETTINGS_READ_FROM_SDCARD
 
     // Initialize Wi-Fi
     if (handlers->wirelessHandler->init() != ESP_OK) {
@@ -191,8 +191,6 @@ void init_task(void *pvParameters) {
     // Attempt to connect to wifi
     handlers->wirelessHandler->connect(handlers->wirelessHandler->get_setting(Settings::WIFI_SSID),
                                        handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
-
-
 
     // Initialize request handler
     handlers->requestHandler = std::make_shared<RequestHandler>(TEST_WEB_SERVER, TEST_WEB_PORT, TEST_WEB_TOKEN,
@@ -293,7 +291,7 @@ void send_request_to_websrv_task(void *pvParameters) {
         // Wait for a request to be available
         if (xQueueReceive(requestHandler->getWebSrvRequestQueue(), &request, portMAX_DELAY) == pdTRUE) {
 
-            while(handlers->wirelessHandler->isConnected() == false) {
+            while (handlers->wirelessHandler->isConnected() == false) {
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
@@ -528,7 +526,6 @@ void handle_uart_data_task(void *pvParameters) {
                             break;
                         }
 
-
                         if (msg.content[0] == "1") {
                             msg = msg::datetime_response(get_datetime());
                             convert_to_string(msg, string);
@@ -683,18 +680,5 @@ void handle_uart_data_task(void *pvParameters) {
                 DEBUG("Failed to convert received data to message");
             }
         }
-    }
-}
-
-// Test task
-void take_picture_and_save_to_sdcard_in_loop_task(void *pvParameters) {
-    CameraHandler *cameraHandler = (CameraHandler *)pvParameters;
-    std::string filepath;
-
-    while (true) {
-        cameraHandler->create_image_filename(filepath);
-        cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
-
-        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
