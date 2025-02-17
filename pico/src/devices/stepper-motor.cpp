@@ -2,48 +2,18 @@
 #include "stepper.pio.h"
 #include "structs.hpp"
 
-
-static StepperMotor *stepper_horizontal;
-static StepperMotor *stepper_vertical;
-
-void raw_calibration_handler_horizontal(void) {
-    int horizontal_opto = -1;
-    if (stepper_horizontal) horizontal_opto = stepper_horizontal->optoForkPin;
-    if (gpio_get_irq_event_mask(horizontal_opto) & GPIO_IRQ_EDGE_RISE) {
-        gpio_acknowledge_irq(horizontal_opto, GPIO_IRQ_EDGE_RISE);
-        stepper_horizontal->calibration_handler(true);
-    } else if (gpio_get_irq_event_mask(horizontal_opto) & GPIO_IRQ_EDGE_FALL) {
-        gpio_acknowledge_irq(horizontal_opto, GPIO_IRQ_EDGE_FALL);
-        stepper_horizontal->calibration_handler(false);
-    }
-}
-
-void raw_calibration_handler_vertical(void) {
-    int vertical_opto=-1;
-    if (stepper_vertical) vertical_opto = stepper_vertical->optoForkPin;
-     if (gpio_get_irq_event_mask(vertical_opto) & GPIO_IRQ_EDGE_RISE) {
-        gpio_acknowledge_irq(vertical_opto, GPIO_IRQ_EDGE_RISE);
-        stepper_vertical->calibration_handler(true);
-    } else if (gpio_get_irq_event_mask(vertical_opto) & GPIO_IRQ_EDGE_FALL) {
-        gpio_acknowledge_irq(vertical_opto, GPIO_IRQ_EDGE_FALL);
-        stepper_vertical->calibration_handler(false);
-    }
-}
-
 int modulo(int x, int y) {
     int rem = x % y;
     return rem + ((rem < 0) ? y : 0);
 }
 
-StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, int optoforkpin, Axis axis)
-    : pins(stepper_pins), optoForkPin(optoforkpin), direction(true), pioInstance(nullptr), programOffset(0),
-      stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(4097),
-      edgeSteps(0), stepMemory(0), stepperCalibrated(false), stepperCalibrating(false), axis(axis) {
+StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins)
+    : pins(stepper_pins), direction(true), pioInstance(nullptr), programOffset(0),
+      stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(4097), stepMemory(0) {
         // need 4 pins
         if (pins.size() != 4) panic("Need 4 pins to operate stepper motor. number of pins got: %d", pins.size());
         // Three first stepper pins must be less than 6 apart
         if (pins[2] - pins [0] > 5) panic("Three first stepper pins must be less than 6 apart. They are %d apart", pins[2] - pins [0]);
-        set_calibration_pointer(axis);
       }
 
 void StepperMotor::init(PIO pio, float rpm, bool clockwise) {
@@ -76,13 +46,7 @@ float StepperMotor::calculateClkDiv(float rpm) const {
 
 // needs to be called after initializing PIO and statemachine
 // The pins have to be ascending in order
-void StepperMotor::pins_init() {
-    // TODO: maybe make an optofork class that handles optofork related things
-    if (optoForkPin) {
-        gpio_set_dir(optoForkPin, GPIO_IN);
-        gpio_set_function(optoForkPin, GPIO_FUNC_SIO);
-        gpio_pull_up(optoForkPin);
-    }
+void StepperMotor::pins_init() {   
     // mask is needed to set pin directions in the state machine
     uint32_t pin_mask = 0x0;
     for (uint pin : pins) {
@@ -130,12 +94,6 @@ void StepperMotor::morph_pio_pin_definitions(void) {
     }
 }
 
-void StepperMotor::set_calibration_pointer(Axis axis) {
-    if (axis == HORIZONTAL) stepper_horizontal = this;
-    else if (axis == VERTICAL) stepper_vertical = this;
-    this->axis = axis;
-}
-
 void StepperMotor::turnSteps(uint16_t steps) {
     uint32_t word = ((programOffset + stepper_clockwise_offset_loop + 3 * sequenceCounter) << 16) | (steps);
     pio_sm_put_blocking(pioInstance, stateMachine, word);
@@ -176,6 +134,10 @@ void StepperMotor::setSpeed(float rpm) {
     float div = calculateClkDiv(rpm);
     pio_sm_set_clkdiv(pioInstance, stateMachine, div);
     pio_sm_set_enabled(pioInstance, stateMachine, true);
+}
+
+void StepperMotor::resetStepCounter(void) {
+    stepCounter = 0;
 }
 
 void StepperMotor::stop() {
@@ -271,21 +233,11 @@ bool StepperMotor::isRunning() const {
              (pio_sm_get_tx_fifo_level(pioInstance, stateMachine) == 0));
 }
 
-bool StepperMotor::isCalibrated() const {
-    return stepperCalibrated;
-}
-
-bool StepperMotor::isCalibrating() const {
-    return stepperCalibrating;
-}
 
 uint16_t StepperMotor::getMaxSteps() const {
     return stepMax;
 }
 
-uint16_t StepperMotor::getEdgeSteps() const {
-    return edgeSteps;
-}
 
 int16_t StepperMotor::getStepCount() const {
     return stepCounter;
@@ -293,31 +245,4 @@ int16_t StepperMotor::getStepCount() const {
 
 bool StepperMotor::getDirection() const {
     return direction;
-}
-
-void StepperMotor::calibrate(void) {
-    if (isCalibrating()) return;
-    if (!optoForkPin) return;
-    if (axis == UNDEFINED) return;
-    setSpeed(2);
-    stepperCalibrating = true;
-    stepperCalibrated = false;
-    if (axis == HORIZONTAL)
-        gpio_add_raw_irq_handler_with_order_priority(optoForkPin, raw_calibration_handler_horizontal, PICO_HIGHEST_IRQ_PRIORITY);
-    else
-        gpio_add_raw_irq_handler_with_order_priority(optoForkPin, raw_calibration_handler_vertical, PICO_HIGHEST_IRQ_PRIORITY);
-    gpio_set_irq_enabled(optoForkPin, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
-    if (!irq_is_enabled(IO_IRQ_BANK0)) irq_set_enabled(IO_IRQ_BANK0, true);
-
-    turnSteps(6000);
-}
-
-void StepperMotor::calibration_handler(bool rise) {
-    if (rise) {
-        if (!isCalibrated()) {
-            stop();
-            stepCounter = 0;
-            stepperCalibrated = true;
-        }
-    }
 }

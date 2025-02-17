@@ -24,21 +24,16 @@ int main() {
     uint optofork(0);
 
     PIO pio = pio0;
-    StepperMotor motor(stepperPins, optofork);
     // StepperMotor motor2(stepperPins2, optoforks);
     
-    motor.init(pio, 2, true);
     // motor2.init(pio1, 5, true);
 
-    motor.turnSteps(10000);
-    motor.stop();
     // motor2.turnSteps(10000);
     while (true) {
         for (auto pin : stepperPins) {
             std::cout << gpio_get(pin) << ", ";
         }
         std::cout << std::endl;
-        motor.turnSteps(1);
     }
 
     return 0;

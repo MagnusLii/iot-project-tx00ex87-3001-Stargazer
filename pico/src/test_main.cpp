@@ -43,8 +43,8 @@ int main() {
     std::cout << "abc" << std::endl;
     std::vector<uint> pins1{2, 3, 6, 13};
     std::vector<uint> pins2{16,17,18,19};
-    StepperMotor mh(pins1, 14, HORIZONTAL);
-    StepperMotor mv(pins2, 28, VERTICAL);
+    StepperMotor mh(pins1);
+    StepperMotor mv(pins2);
     mh.init(pio0, 5, true);
     mv.init(pio1, 5, true);
 //    mh.turnSteps(4000);
@@ -58,10 +58,6 @@ int main() {
     date.min = 0;
     Coordinates coords(60.1699, 24.9384);
     moon.set_observer_coordinates(coords);
-    mh.calibrate();
-    mv.calibrate();
-    while (!mv.isCalibrated()) ;
-    while (!mh.isCalibrated()) ;
     moon.start_trace(date, 24);
 
     Command command;

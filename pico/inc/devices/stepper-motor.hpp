@@ -16,38 +16,29 @@
 #define CLOCKWISE true
 #define ANTICLOCKWISE false
 
-enum Axis {
-  UNDEFINED,
-  HORIZONTAL,
-  VERTICAL
-};
+#define MAX_ANGLE M_PI; // half of a full turn (180 degrees)
+#define MIN_ANGLE 0;
 
 int modulo(int x, int y);
 
 
 class StepperMotor {
-  friend void raw_calibration_handler_horizontal(void);
-  friend void raw_calibration_handler_vertical(void);
   public:
-    StepperMotor(const std::vector<uint> &stepper_pins, int optoforkpin=-1, Axis axis=UNDEFINED);
+    StepperMotor(const std::vector<uint> &stepper_pins);
 
     void init(PIO pio, float rpm, bool clockwise);
-
-    void set_calibration_pointer(Axis axis);
-    void calibrate(void);
 
     void turnSteps(uint16_t steps);
     void turn_to(double radians);
     void turnOneRevolution();
-    void setSpeed(float rpm);
     void stop();
+    void setSpeed(float rpm);
     void setDirection(bool clockwise);
+    void resetStepCounter(void);
 
     double get_position(void);
     uint8_t getCurrentStep() const;
     bool isRunning() const;
-    bool isCalibrated() const;
-    bool isCalibrating() const;
     uint16_t getMaxSteps() const;
     uint16_t getEdgeSteps() const;
     int16_t getStepCount() const;
@@ -59,11 +50,9 @@ class StepperMotor {
     void morph_pio_pin_definitions(void);
     void pins_init();
     int read_steps_left(void);
-    void calibration_handler(bool rise);
     int radians_to_steps(double radians);
 
     std::vector<uint> pins;    // Stepper motor pins
-    int optoForkPin;          // Pin for opto fork sensor, for now unused
     bool direction;            // Motor direction: true for clockwise, false for anticlockwise
     PIO pioInstance;           // PIO instance
     uint programOffset;        // Program offset in PIO memory
@@ -72,11 +61,9 @@ class StepperMotor {
     int8_t sequenceCounter;    // Sequence counter for step calculation
     int stepCounter;           // Total steps taken
     uint stepMax;              // Maximum number of steps for a full revolution
-    uint edgeSteps;            // Steps at the edge of calibration
     uint64_t stepMemory;       // Tracks recent step movements
-    bool stepperCalibrated;    // Whether the stepper is calibrated
-    bool stepperCalibrating;   // Whether calibration is in progress
-    Axis axis;
 };
+
+
 
 #endif // STEPPER_MOTOR_H
