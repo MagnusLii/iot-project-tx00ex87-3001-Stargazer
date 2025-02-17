@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "stepper-motor.hpp"
+#include "motor-control.hpp"
 
 #include "debug.hpp"
 
@@ -43,12 +44,12 @@ int main() {
     std::cout << "abc" << std::endl;
     std::vector<uint> pins1{2, 3, 6, 13};
     std::vector<uint> pins2{16,17,18,19};
-    StepperMotor mh(pins1);
-    StepperMotor mv(pins2);
-    mh.init(pio0, 5, true);
-    mv.init(pio1, 5, true);
-//    mh.turnSteps(4000);
-//    while (mh.isRunning()) ;
+    int opto_horizontal = 14;
+    int opto_vertical = 28;
+    std::shared_ptr<StepperMotor> mh = std::make_shared<StepperMotor>(pins1);
+    std::shared_ptr<StepperMotor> mv = std::make_shared<StepperMotor>(pins2);
+    MotorControl mctrl(mh, mv, opto_horizontal, opto_vertical);
+
     Celestial moon(MOON);
     datetime_t date;
     date.year = 2025;
@@ -60,18 +61,28 @@ int main() {
     moon.set_observer_coordinates(coords);
     moon.start_trace(date, 24);
 
-    Command command;
-    command.time.year = 1000;
-    while (true)  {
-        command = moon.next_trace();
-        if (command.time.year != -1) {
-            mv.turn_to(command.coords.altitude);
-            mh.turn_to(command.coords.azimuth);
-            std::cout <<"alt " << command.coords.altitude * 180 / M_PI << " azi " << command.coords.azimuth * 180 / M_PI << std::endl;
-            while (mv.isRunning()) ;
-            while (mh.isRunning()) ;
-        }
+    mh->turnSteps(500);
+    mv->turnSteps(500);
+    while (mh->isRunning()) ;
+    while (mv->isRunning()) ;
 
-    }
+    mctrl.calibrate();
+    while (mctrl.isCalibrating()) ;
+
+    while (true) ;
+
+    // Command command;
+    // command.time.year = 1000;
+    // while (true)  {
+    //     command = moon.next_trace();
+    //     if (command.time.year != -1) {
+    //         mv.turn_to(command.coords.altitude);
+    //         mh.turn_to(command.coords.azimuth);
+    //         std::cout <<"alt " << command.coords.altitude * 180 / M_PI << " azi " << command.coords.azimuth * 180 / M_PI << std::endl;
+    //         while (mv.isRunning()) ;
+    //         while (mh.isRunning()) ;
+    //     }
+
+    // }
 }
 

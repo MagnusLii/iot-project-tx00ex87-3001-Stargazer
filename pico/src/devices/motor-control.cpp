@@ -4,12 +4,16 @@
 // these are used for calibration
 static MotorControl *motorcontrol;
 
-MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared_ptr<StepperMotor> vertical, int optopin_horizontal, int optopin_vertical)
-    : motor_horizontal(horizontal), motor_vertical(vertical),
-    opto_horizontal(optopin_horizontal), opto_vertical(opto_vertical) {
-        init_optoforks();
-        motorcontrol = this;
-    }
+MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared_ptr<StepperMotor> vertical,
+                           int optopin_horizontal, int optopin_vertical)
+    : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
+      opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
+      horizontal_calibrating(false), vertical_calibrating(false) {
+    init_optoforks();
+    motorcontrol = this;
+    motor_horizontal->init(pio0, 5, CLOCKWISE);
+    motor_vertical->init(pio1, 5, CLOCKWISE);
+}
 
 bool MotorControl::turn_to_command(Command command) {
 
@@ -32,11 +36,11 @@ void MotorControl::init_optoforks(void) {
 }
 
 bool MotorControl::isCalibrated(void) const {
-    return horizontal_calibrated || vertical_calibrated;
+    return horizontal_calibrated && vertical_calibrated;
 }
 
 bool MotorControl::isCalibrating(void) const {
-    return horizontal_calibrating ||vertical_calibrating;
+    return horizontal_calibrating && vertical_calibrating;
 }
 
 //// CALIBRATION ////
@@ -96,7 +100,7 @@ void MotorControl::calibrate(void) {
 
 void MotorControl::calibration_handler(Axis axis, bool rise) {
     if (axis == HORIZONTAL) {
-        if (rise) {
+        if (!rise) {
             if (!isCalibrated()) {
                 motor_horizontal->stop();
                 motor_horizontal->resetStepCounter();
@@ -104,8 +108,9 @@ void MotorControl::calibration_handler(Axis axis, bool rise) {
                 horizontal_calibrating = false;
             }
         }
-    } else {
-        if (rise) {
+    }
+    if (axis == VERTICAL) {
+        if (!rise) {
             if (!isCalibrated()) {
                 motor_vertical->stop();
                 motor_vertical->resetStepCounter();
@@ -113,6 +118,5 @@ void MotorControl::calibration_handler(Axis axis, bool rise) {
                 vertical_calibrating = false;
             }
         }
-    }
-    
+    }  
 }
