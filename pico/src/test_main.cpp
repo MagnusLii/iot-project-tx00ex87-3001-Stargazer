@@ -14,6 +14,7 @@
 #include <queue>
 #include <sstream>
 #include <vector>
+#include "sleep_functions.hpp"
 
 #include "stepper-motor.hpp"
 
@@ -42,6 +43,21 @@ int main() {
     stdio_init_all();
     sleep_ms(5000);
     DEBUG("Start\r\n");
+    bool awoken = false;
+    awake = false;
+    if (sleep_for(0, 1, &alarm_sleep_callback)) {
+        while(!awake) {
+            awoken = true;
+            DEBUG("what");
+            break;
+        }
+    }
+    sleep_power_up();
+    DEBUG("Hello");
+
+    while(true) {
+    };
+    /*
     auto queue = std::make_shared<std::queue<msg::Message>>();
     auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
@@ -143,7 +159,7 @@ int main() {
         }
 
     }
-
+    */
     return 0;
 }
 
