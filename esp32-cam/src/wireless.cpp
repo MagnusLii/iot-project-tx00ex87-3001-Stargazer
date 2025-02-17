@@ -19,7 +19,6 @@ WirelessHandler::WirelessHandler(SDcardHandler *sdcardhandler, int wifi_retry_li
     this->sdcardHandler = sdcardhandler;
 
     this->WIFI_RETRY_ATTEMPTS = wifi_retry_limit;
-    this->wifi_retry_count = 0;
 
     this->netif = NULL;
     this->s_wifi_event_group = NULL;
@@ -187,7 +186,6 @@ void WirelessHandler::ip_event_cb(void *arg, esp_event_base_t event_base, int32_
         case (IP_EVENT_STA_GOT_IP):
             event_ip = (ip_event_got_ip_t *)event_data;
             DEBUG("Got IP: ", IP2STR(&event_ip->ip_info.ip));
-            this->wifi_retry_count = 0;
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
             break;
         case (IP_EVENT_STA_LOST_IP):
@@ -196,7 +194,6 @@ void WirelessHandler::ip_event_cb(void *arg, esp_event_base_t event_base, int32_
         case (IP_EVENT_GOT_IP6):
             event_ip6 = (ip_event_got_ip6_t *)event_data;
             DEBUG("Got IPv6: ", IPV62STR(event_ip6->ip6_info.ip));
-            this->wifi_retry_count = 0;
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
             break;
         default:

@@ -46,7 +46,6 @@ class WirelessHandler {
         std::map<Settings, std::string> settings;
 
         int WIFI_RETRY_ATTEMPTS;
-        int wifi_retry_count;
         esp_netif_t *netif;
         esp_event_handler_instance_t ip_event_handler;
         esp_event_handler_instance_t wifi_event_handler;
