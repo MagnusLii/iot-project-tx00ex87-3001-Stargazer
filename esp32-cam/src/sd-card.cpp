@@ -9,6 +9,7 @@
 #include "sdmmc_cmd.h"
 #include <string.h>
 #include <string>
+#include <map>
 
 /**
  * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
@@ -386,63 +387,25 @@ bool SDcardHandler::check_crc(const std::string &data) {
     return (crc == crc_calc);
 }
 
-/**
- * @brief Saves all settings to a file with a CRC checksum.
- *
- * This function iterates through the provided settings, appends each to a temporary string,
- * adds a CRC checksum, and then writes the resulting data to a file called "settings.txt".
- * If the number of settings is insufficient or there is a file write failure, it returns an error code.
- *
- * @param settings A vector of strings containing the settings to be saved.
- *
- * @return int
- * - 0: Success.
- * - 1: Insufficient settings provided.
- * - 2: File write failure.
- *
- * @note The function expects the settings vector to contain at least `Settings::CRC - 1` settings.
- * The CRC is appended to the settings before saving.
- */
-int SDcardHandler::save_all_settings(const std::vector<std::string> settings) {
+int SDcardHandler::save_all_settings(const std::map <Settings, std::string> settings) {
     DEBUG("Saving all settings");
+
     std::string temp_settings;
-    for (int i = 0; i < (int)Settings::CRC - 1; i++) {
-        if (i >= settings.size()) {
-            DEBUG("Insufficient settings provided");
-            return 1; // Insufficient settings in vector
-        }
-        temp_settings += settings[i] + "\n";
+    for (int i = 0; i < (int)Settings::CRC; i++) {
+        temp_settings += settings.at((Settings)i);
     }
 
     add_crc(temp_settings);
 
     if (write_file("settings.txt", temp_settings)) {
         DEBUG("Failed to write settings to file");
-        return 2; // File write failure
+        return 1; // File write failure
     }
 
     return 0; // Success
 }
 
-/**
- * @brief Reads all settings from a file and validates the CRC checksum.
- *
- * This function attempts to read settings from a file called "settings.txt", checks the CRC of the
- * retrieved settings, and parses them into the provided vector. Returns an error code on failure.
- *
- * @param settings A vector of strings to store the retrieved settings.
- *
- * @return int
- * - 0: Success.
- * - 1: File opening failure.
- * - 2: File reading failure.
- * - 3: CRC check failure.
- * - 4: Malformed settings data.
- *
- * @note The function reads `Settings::CRC` lines from the file and expects the last line to be the CRC.
- * The settings are extracted and stored in the provided vector.
- */
-int SDcardHandler::read_all_settings(std::vector<std::string> settings) {
+int SDcardHandler::read_all_settings(std::map <Settings, std::string> &settings) {
     DEBUG("Reading all settings");
     std::string full_filename_str = this->mount_point + "/settings.txt";
     std::string temp_settings;
@@ -456,7 +419,7 @@ int SDcardHandler::read_all_settings(std::vector<std::string> settings) {
 
     char read_buffer[100];
 
-    for (int i = 0; i < (int)Settings::CRC; i++) {
+    for (int i = 0; i <= (int)Settings::CRC; i++) {
         if (!fgets(read_buffer, 100, fptr)) {
             DEBUG("Failed to read line from file");
             fclose(fptr);
@@ -468,55 +431,37 @@ int SDcardHandler::read_all_settings(std::vector<std::string> settings) {
         DEBUG("Read: ", read_buffer);
     }
 
+    fclose(fptr);
+
     if (!check_crc(temp_settings)) {
         DEBUG("CRC check failed");
-        fclose(fptr);
         return 3; // CRC check failure
     }
 
     DEBUG("CRC check passed");
 
     size_t pos = 0;
-    for (int i = 0; i < (int)Settings::CRC - 1; i++) {
+    for (int i = 0; i < (int)Settings::CRC; i++) {
         pos = temp_settings.find("\n");
         if (pos == std::string::npos) {
             DEBUG("Malformed settings data");
-            fclose(fptr);
             return 4; // Malformed settings data
         }
-        settings[i] = temp_settings.substr(0, pos);
+        settings[(Settings)i] = temp_settings.substr(0, pos).c_str();
         temp_settings.erase(0, pos + 1);
     }
 
-    fclose(fptr);
     return 0; // Success
 }
 
-/**
- * @brief Saves a single setting by updating its value.
- *
- * This function reads the current settings, updates the specified setting identified by `settingID`
- * with the provided value, and then saves all settings back to the file including crc. Returns an error code on
- * failure.
- *
- * @param settingID The identifier of the setting to be updated.
- * @param value The new value to be assigned to the setting.
- *
- * @return int
- * - 0: Success.
- * - 1: Failed to read settings.
- * - 2: Failed to save settings.
- *
- * @note The function modifies a specific setting and saves all settings to the file.
- */
 int SDcardHandler::save_setting(const Settings settingID, const std::string &value) {
-    std::vector<std::string> settings;
+    std::map <Settings, std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
         return 1; // Failed to read settings
     }
 
-    settings[(int)settingID] = value;
+    settings[settingID] = value;
     if (save_all_settings(settings) != 0) {
         DEBUG("Failed to save settings");
         return 2; // Failed to save settings
@@ -525,29 +470,14 @@ int SDcardHandler::save_setting(const Settings settingID, const std::string &val
     return 0; // Success
 }
 
-/**
- * @brief Reads a single setting's value.
- *
- * This function reads all settings from the file and retrieves the value of the specified setting
- * identified by `settingID`. The value is assigned to the provided reference parameter.
- *
- * @param settingID The identifier of the setting to be read.
- * @param value A reference to the string where the setting value will be stored.
- *
- * @return int
- * - 0: Success.
- * - 1: Failed to read settings.
- *
- * @note The function retrieves the setting value based on its identifier and stores it in the provided reference.
- */
 int SDcardHandler::read_setting(const Settings settingID, std::string &value) {
-    std::vector<std::string> settings;
+    std::map <Settings, std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
         return 1; // Failed to read settings
     }
 
-    value = settings[(int)settingID];
+    value = settings[settingID];
     return 0; // Success
 }
 

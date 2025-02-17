@@ -7,10 +7,12 @@
 #include <string>
 #include <vector>
 #include "sdmmc_cmd.h"
+#include <map>
 
 enum class Settings {
     WIFI_SSID,
     WIFI_PASSWORD,
+    WEB_DOMAIN,
     WEB_PORT,
     WEB_TOKEN,
     CRC // Keep as final element
@@ -36,8 +38,8 @@ class SDcardHandler {
     int read_file_base64(const char *filename, std::string &read_data_storage);
     void add_crc(std::string &data);
     bool check_crc(const std::string &data);
-    int save_all_settings(const std::vector<std::string> settings);
-    int read_all_settings(std::vector<std::string> settings);
+    int save_all_settings(const std::map <Settings, std::string> settings);
+    int read_all_settings(std::map <Settings, std::string> &settings);
     int save_setting(const Settings settingID, const std::string &value);
     int read_setting(const Settings settingID, std::string &value);
     uint32_t get_sdcard_free_space();
