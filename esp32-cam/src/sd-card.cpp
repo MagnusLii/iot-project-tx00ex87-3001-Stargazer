@@ -10,6 +10,7 @@
 #include <string.h>
 #include <string>
 #include <map>
+#include "ScopedMutex.hpp"
 
 /**
  * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
@@ -133,10 +134,7 @@ esp_err_t SDcardHandler::get_sd_card_status() { return this->sd_card_status; }
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
 int SDcardHandler::write_file(const char *filename, std::string data) {
-    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
-        DEBUG("Failed to acquire mutex");
-        return 1; // Mutex acquisition failure
-    }
+    ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
 
@@ -146,21 +144,17 @@ int SDcardHandler::write_file(const char *filename, std::string data) {
     if (!file) {
         DEBUG("Failed to open file for writing");
         perror("File open error");
-        xSemaphoreGive(file_mutex);
         return 2; // File open failure
     }
 
     if (fwrite(data.c_str(), 1, data.length(), file) != data.length()) {
         DEBUG("File write failed");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         return 3; // File write failure
     }
 
     DEBUG("File write success");
     fclose(file);
-
-    xSemaphoreGive(file_mutex);
     return 0; // Success
 }
 
@@ -203,10 +197,7 @@ int SDcardHandler::write_file(const char *filename, const char *data) {
  * @note The function locks a mutex to ensure that file operations are thread-safe.
  */
 int SDcardHandler::write_file(const char *filename, const uint8_t *data, const size_t len) {
-    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
-        DEBUG("Failed to acquire mutex");
-        return 1; // Mutex acquisition failure
-    }
+    ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
 
@@ -216,29 +207,22 @@ int SDcardHandler::write_file(const char *filename, const uint8_t *data, const s
     if (!file) {
         DEBUG("Failed to open file for writing");
         perror("File open error");
-        xSemaphoreGive(file_mutex);
         return 2; // File open failure
     }
 
     if (fwrite(data, 1, len, file) != len) {
         DEBUG("File write failed");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         return 3; // File write failure
     }
 
     DEBUG("File write success");
     fclose(file);
-
-    xSemaphoreGive(file_mutex);
     return 0; // Success
 }
 
 int SDcardHandler::read_file(const char *filename, std::string &read_data_storage) {
-    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
-        DEBUG("Failed to acquire mutex");
-        return 1;
-    }
+    ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
     DEBUG("Opening file ", full_filename_str.c_str());
@@ -246,7 +230,6 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
     if (!file) {
         DEBUG("Failed to open file for reading");
         perror("File open error");
-        xSemaphoreGive(file_mutex);
         return 2;
     }
     DEBUG("File opened successfully");
@@ -261,7 +244,6 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
     if (read_size != file_size) {
         DEBUG("Failed to read the complete file");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         delete[] read_buffer;
         return 3;
     }
@@ -270,24 +252,20 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
     read_data_storage.assign(read_buffer, read_size);
     delete[] read_buffer;
     fclose(file);
-    xSemaphoreGive(file_mutex);
 
     DEBUG("Exiting read_file");
     return 0;
 }
 
+
 int SDcardHandler::read_file_base64(const char *filename, std::string &read_data_storage) {
-    if (xSemaphoreTake(file_mutex, portMAX_DELAY) != pdTRUE) { // Lock
-        DEBUG("Failed to acquire mutex");
-        return 1;
-    }
+    ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
     FILE *file = fopen(full_filename_str.c_str(), "rb"); // "rb" for binary-safe reading
     if (!file) {
         DEBUG("Failed to open file for reading");
         perror("File open error");
-        xSemaphoreGive(file_mutex);
         return 2;
     }
 
@@ -298,7 +276,6 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     if (file_size == 0) {
         DEBUG("File is empty");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         return 3;
     }
 
@@ -307,7 +284,6 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     if (read_size != file_size) {
         DEBUG("Failed to read the complete file");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         delete[] read_buffer;
         return 4;
     }
@@ -324,7 +300,6 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     if (ret != 0) {
         DEBUG("Base64 encoding failed");
         fclose(file);
-        xSemaphoreGive(file_mutex);
         delete[] base64_buffer;
         return 5;
     }
@@ -334,9 +309,9 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     delete[] base64_buffer;
 
     fclose(file);
-    xSemaphoreGive(file_mutex);
     return 0; // Success
 }
+
 
 /**
  * @brief Adds a CRC value to the given data string.
