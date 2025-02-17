@@ -378,12 +378,6 @@ bool SDcardHandler::check_crc(const std::string &data) {
     uint16_t crc = std::stoi(crc_str);
     copy = copy.substr(0, pos);
     uint16_t crc_calc = crc16(copy);
-
-    DEBUG("Data: ", data.c_str());
-    DEBUG("Copy: ", copy.c_str());
-
-    DEBUG("Extracted CRC: ", crc);
-    DEBUG("Calculated CRC: ", crc_calc);
     return (crc == crc_calc);
 }
 
