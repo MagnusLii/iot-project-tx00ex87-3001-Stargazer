@@ -6,7 +6,7 @@
 #include "mbedtls/ssl.h"
 #include "testMacros.hpp"
 
-#define ENABLE_SELF_SIGNED_CERT
+// #define DISABLE_CERTIFICATE_VERIFICATION
 // #define TLS_DEBUG
 
 TLSWrapper::TLSWrapper() {
@@ -21,7 +21,7 @@ TLSWrapper::TLSWrapper() {
     DEBUG("Enabling TLS debug");
     mbedtls_debug_set_threshold(4);                          // Set debug level to show detailed logs
     mbedtls_ssl_conf_dbg(&ssl_conf, mbedtls_debug_cb, NULL); // Enable debug
-#endif
+#endif                                                       // TLS_DEBUG
 
     // Initialize entropy and random number generator
     if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0) != 0) {
@@ -52,11 +52,12 @@ bool TLSWrapper::connect(const char *host, const char *port) {
         return false;
     }
 
-#ifdef ENABLE_SELF_SIGNED_CERT
+#ifdef DISABLE_CERTIFICATE_VERIFICATION
     DEBUG("disabling certificate verification");
     mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_NONE);
 #else
-    static const char *root_cert = CERTIFICATE; TODO: read cert from sdcard
+    mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+    static const char *root_cert = TEST_CERTIFICATE; // TODO: read cert from sdcard
     mbedtls_x509_crt ca_cert;
     mbedtls_x509_crt_init(&ca_cert);
     ret = mbedtls_x509_crt_parse(&ca_cert, (const unsigned char *)root_cert, strlen(root_cert) + 1);
@@ -66,7 +67,7 @@ bool TLSWrapper::connect(const char *host, const char *port) {
     }
 
     mbedtls_ssl_conf_ca_chain(&ssl_conf, &ca_cert, NULL); // Set CA chain
-#endif
+#endif // DISABLE_CERTIFICATE_VERIFICATION
 
     mbedtls_ssl_conf_rng(&ssl_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
     mbedtls_ssl_setup(&ssl, &ssl_conf);
@@ -100,6 +101,8 @@ void TLSWrapper::close() {
     mbedtls_net_free(&net_ctx);
 }
 
+#ifdef TLS_DEBUG
 void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str) {
     DEBUG("mbedtls debug ", level, " : ", file, " : ", line, " : ", str);
 }
+#endif // TLS_DEBUG
