@@ -6,6 +6,7 @@
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "nvs_flash.h"
+#include "scopedMutex.hpp"
 #include <errno.h>
 #include <inttypes.h>
 #include <string.h>
@@ -28,7 +29,7 @@ WirelessHandler::WirelessHandler(SDcardHandler *sdcardhandler, int wifi_retry_li
 
 esp_err_t WirelessHandler::init(void) {
     DEBUG("Initializing Wi-Fi");
-    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+    ScopedMutex lock(this->wifi_mutex);
 
     // Initialize Non-Volatile Storage
     DEBUG("Initializing NVS");
@@ -44,9 +45,6 @@ esp_err_t WirelessHandler::init(void) {
     DEBUG("Wi-Fi netif initialized");
     if (ret != ESP_OK) {
         DEBUG("Failed to initialize netif: ", esp_err_to_name(ret));
-        // TODO: handle error
-
-        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
@@ -54,9 +52,6 @@ esp_err_t WirelessHandler::init(void) {
     DEBUG("Wi-Fi event loop created");
     if (ret != ESP_OK) {
         DEBUG("Failed to create event loop: ", esp_err_to_name(ret));
-        // TODO: handle error
-
-        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
@@ -64,19 +59,13 @@ esp_err_t WirelessHandler::init(void) {
     DEBUG("Wi-Fi default STA handlers set");
     if (ret != ESP_OK) {
         DEBUG("Failed to set default Wi-Fi STA handlers: ", esp_err_to_name(ret));
-        // TODO: handle error
-
-        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
     this->netif = esp_netif_create_default_wifi_sta();
     DEBUG("Wi-Fi default STA netif created");
-    if (this->netif == NULL) {
+    if (this->netif == nullptr) {
         DEBUG("Failed to create default Wi-Fi STA netif");
-        // TODO: handle error
-
-        xSemaphoreGive(this->wifi_mutex);
         return ESP_FAIL;
     }
 
@@ -98,54 +87,51 @@ esp_err_t WirelessHandler::init(void) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, ESP_EVENT_ANY_ID, &WirelessHandler::ip_event_cb_lambda, this, &this->ip_event_handler));
 
-    xSemaphoreGive(this->wifi_mutex);
     return ret;
 }
 
 esp_err_t WirelessHandler::connect(const char *wifi_ssid, const char *wifi_password) {
+    ScopedMutex lock(this->wifi_mutex);
     DEBUG("Connecting to Wi-Fi network: ", wifi_ssid);
-    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
-
-    // Initialize Wi-Fi driver if not already done
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t wifi_config = {};
     wifi_config.sta.threshold.authmode = WIFI_AUTHMODE;
-
     strncpy((char *)wifi_config.sta.ssid, wifi_ssid, sizeof(wifi_config.sta.ssid));
     strncpy((char *)wifi_config.sta.password, wifi_password, sizeof(wifi_config.sta.password));
 
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    EventBits_t bits = xEventGroupWaitBits(this->s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
-                                           pdFALSE, portMAX_DELAY);
-
-    if (bits & WIFI_CONNECTED_BIT) {
-        xSemaphoreGive(this->wifi_mutex);
-        return ESP_OK;
+    int retries = 0;
+    while (retries < this->WIFI_RETRY_ATTEMPTS) {
+        if (xEventGroupWaitBits(this->s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdFALSE, pdMS_TO_TICKS(5000))) {
+            DEBUG("Wi-Fi Connected!");
+            return ESP_OK;
+        }
+        DEBUG("Retrying Wi-Fi connection...");
+        esp_wifi_disconnect();
+        esp_wifi_connect();
+        retries++;
     }
 
-    // TODO: handle error
-
-    xSemaphoreGive(this->wifi_mutex);
-    DEBUG("Failed to connect to Wi-Fi network\n");
+    DEBUG("Wi-Fi connection failed after ", retries, " attempts.");
     return ESP_FAIL;
 }
 
 esp_err_t WirelessHandler::disconnect(void) {
-    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
+    ScopedMutex lock(this->wifi_mutex);
     DEBUG("Disconnecting from Wi-Fi network");
-    if (this->s_wifi_event_group) { vEventGroupDelete(this->s_wifi_event_group); }
-    DEBUG("Wi-Fi network connection status: ", this->isConnected());
-    xSemaphoreGive(this->wifi_mutex);
-    return esp_wifi_disconnect();
+
+    esp_err_t err = esp_wifi_disconnect();
+    if (err != ESP_OK) { DEBUG("Failed to disconnect: ", esp_err_to_name(err)); }
+
+    if (this->s_wifi_event_group) {
+        vEventGroupDelete(this->s_wifi_event_group);
+        this->s_wifi_event_group = NULL;
+    }
+
+    return err;
 }
 
 esp_err_t WirelessHandler::deinit(void) {
@@ -175,7 +161,9 @@ esp_err_t WirelessHandler::deinit(void) {
     return ESP_OK;
 }
 
-bool WirelessHandler::isConnected(void) { return xEventGroupGetBits(this->s_wifi_event_group) & WIFI_CONNECTED_BIT; }
+bool WirelessHandler::isConnected(void) {
+    return this->s_wifi_event_group && (xEventGroupGetBits(this->s_wifi_event_group) & WIFI_CONNECTED_BIT);
+}
 
 void WirelessHandler::ip_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     DEBUG("Handling IP event, event code: ", event_id);
@@ -222,9 +210,12 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
         case (WIFI_EVENT_STA_CONNECTED):
             DEBUG("Wi-Fi connected");
             break;
-        case (WIFI_EVENT_STA_DISCONNECTED):
-            DEBUG("Wi-Fi disconnected");
+        case WIFI_EVENT_STA_DISCONNECTED:
+            DEBUG("Wi-Fi disconnected, retrying...");
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            if (this->WIFI_RETRY_ATTEMPTS > 0) { esp_wifi_connect(); }
             break;
+
         case (WIFI_EVENT_STA_AUTHMODE_CHANGE):
             DEBUG("Wi-Fi authmode changed");
             break;
@@ -234,24 +225,21 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
     }
 }
 
-const char *WirelessHandler::get_setting(Settings settingID) {
-    return this->settings[settingID].c_str();
-}
-
 int WirelessHandler::set_setting(const char *buffer, const size_t buffer_len, Settings settingID) {
+    if (buffer == nullptr || buffer_len == 0) return -1; // Prevent invalid writes
     this->settings[settingID] = std::string(buffer, buffer_len);
     return 0;
 }
 
-bool WirelessHandler::set_all_settings(std::map <Settings, std::string> settings) {
+bool WirelessHandler::set_all_settings(std::map<Settings, std::string> settings) {
     this->settings = settings;
     return true;
 }
 
-int WirelessHandler::save_settings_to_sdcard(std::map <Settings, std::string> settings) {
+int WirelessHandler::save_settings_to_sdcard(std::map<Settings, std::string> settings) {
     return this->sdcardHandler->save_all_settings(settings);
 }
 
-int WirelessHandler::read_settings_from_sdcard(std::map <Settings, std::string> settings) {
+int WirelessHandler::read_settings_from_sdcard(std::map<Settings, std::string> settings) {
     return this->sdcardHandler->read_all_settings(settings);
 }
