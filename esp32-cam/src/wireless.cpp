@@ -225,6 +225,8 @@ void WirelessHandler::wifi_event_cb(void *arg, esp_event_base_t event_base, int3
     }
 }
 
+const char *WirelessHandler::get_setting(Settings settingID) { return this->settings[settingID].c_str(); }
+
 int WirelessHandler::set_setting(const char *buffer, const size_t buffer_len, Settings settingID) {
     if (buffer == nullptr || buffer_len == 0) return -1; // Prevent invalid writes
     this->settings[settingID] = std::string(buffer, buffer_len);
