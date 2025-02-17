@@ -31,7 +31,19 @@
 #include <string.h>
 #include <vector>
 
-#include "testMacros.hpp" // TODO: remove after testing
+#include "testMacros.hpp"
+
+#define RECONNECT_TIMER_PERIOD 60000
+
+// Enables monitoring of idle tasks on both cores
+#define WATCHDOG_MONITOR_IDLE_TASKS
+
+// Enables clearing the SD card when space is low
+#define ENABLE_CLEARING_SD_CARD
+
+// #define SAVE_TEST_SETTINGS_TO_SDCARD
+
+// #define PRINT_SETTINGS_READ_FROM_SDCARD
 
 // ----------------------------------------------------------
 // ----------------SUPPORTING-FUNCTIONS----------------------
@@ -53,6 +65,7 @@ void get_request_timer_callback(TimerHandle_t timer) {
     DEBUG("Userinstructions GET request sent");
 }
 
+// Timer stops itself if time is synced
 void get_timestamp_timer_callback(TimerHandle_t timer) {
     RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
 
@@ -93,6 +106,15 @@ bool read_file_with_retry_base64(SDcardHandler *sdcardHandler, const std::string
     return false;
 }
 
+// Timer restarts itself if connection is still not established
+void wifi_reconnect_timer_callback(TimerHandle_t timer) {
+    WirelessHandler *wirelessHandler = (WirelessHandler *)pvTimerGetTimerID(timer);
+    wirelessHandler->connect(wirelessHandler->get_setting(Settings::WIFI_SSID),
+                             wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
+
+    if (wirelessHandler->isConnected() == false) { xTimerStart(timer, pdMS_TO_TICKS(RECONNECT_TIMER_PERIOD)); }
+}
+
 // ----------------------------------------------------------
 // ------------------------TASKS-----------------------------
 // ----------------------------------------------------------
@@ -101,7 +123,6 @@ void init_task(void *pvParameters) {
     int retries = 0;
 
     auto handlers = std::make_shared<Handlers>();
-    handlers->wirelessHandler = std::make_shared<WirelessHandler>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcardHandler
@@ -125,26 +146,56 @@ void init_task(void *pvParameters) {
     }
 #endif
 
-    // TODO: read settings from sd card
+    handlers->wirelessHandler = std::make_shared<WirelessHandler>(handlers->sdcardHandler.get());
+
+#ifdef SAVE_TEST_SETTINGS_TO_SDCARD
+    std::map<Settings, std::string> settings;
+    settings[Settings::WIFI_SSID] = TEST_WIFI_SSID;
+    settings[Settings::WIFI_PASSWORD] = TEST_WIFI_PASSWORD;
+    settings[Settings::WEB_DOMAIN] = TEST_WEB_SERVER;
+    settings[Settings::WEB_PORT] = TEST_WEB_PORT;
+    settings[Settings::WEB_TOKEN] = TEST_WEB_TOKEN;
+
+    if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+        DEBUG("Failed to save settings to SD card");
+        esp_restart();
+    } else {
+        DEBUG("Settings saved to SD card");
+        esp_restart();
+    }
+#endif
+
+    // Read settings from SD card
+    std::map<Settings, std::string> settings;
+    if (handlers->sdcardHandler->read_all_settings(settings) != 0) {
+        DEBUG("Failed to read settings from SD card");
+        esp_restart();
+    }
+
+    // Set settings in wirelessHandler
+    handlers->wirelessHandler->set_all_settings(settings);
+    DEBUG("Settings read from SD card");
+
+#ifdef PRINT_SETTINGS_READ_FROM_SDCARD
+    for (auto const &setting : settings) {
+        DEBUG("Setting: ", setting.first, " Value: ", setting.second);
+    }
+#endif
 
     // Initialize Wi-Fi
-    handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
-    while (!handlers->wirelessHandler->isConnected() && retries < RETRIES) {
-        DEBUG("Failed to connect to Wi-Fi. Retrying in 3 seconds...");
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        handlers->wirelessHandler->connect(WIFI_SSID, WIFI_PASSWORD);
-        retries++;
-    }
-    retries = 0;
-
-    if (!handlers->wirelessHandler->isConnected()) {
-        // TODO: Request new settings from pico
+    if (handlers->wirelessHandler->init() != ESP_OK) {
+        DEBUG("Failed to initialize Wi-Fi");
+        esp_restart();
     }
 
-    DEBUG("Connected to Wi-Fi");
+    // Attempt to connect to wifi
+    handlers->wirelessHandler->connect(handlers->wirelessHandler->get_setting(Settings::WIFI_SSID),
+                                       handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
+
+
 
     // Initialize request handler
-    handlers->requestHandler = std::make_shared<RequestHandler>(WEB_SERVER, WEB_PORT, WEB_TOKEN,
+    handlers->requestHandler = std::make_shared<RequestHandler>(TEST_WEB_SERVER, TEST_WEB_PORT, TEST_WEB_TOKEN,
                                                                 handlers->wirelessHandler, handlers->sdcardHandler);
 
     // Initialize camera
@@ -170,6 +221,26 @@ void init_task(void *pvParameters) {
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
+
+    // Start reconnect loop if not connected
+    if (handlers->wirelessHandler->isConnected() == false) {
+        DEBUG("Failed to connect to Wi-Fi network");
+
+        TimerHandle_t reconnect_timer =
+            xTimerCreate("wifi_reconnect_timer", pdMS_TO_TICKS(RECONNECT_TIMER_PERIOD), pdFALSE,
+                         handlers->wirelessHandler.get(), wifi_reconnect_timer_callback);
+        xTimerStart(reconnect_timer, 0);
+
+        while (handlers->wirelessHandler->isConnected() == false && retries < 3) {
+            vTaskDelay(pdMS_TO_TICKS(RECONNECT_TIMER_PERIOD));
+            retries++;
+        }
+
+        if (handlers->wirelessHandler->isConnected() == false) {
+            DEBUG("Failed to connect to Wi-Fi network after ", retries, " retries, restarting...");
+            esp_restart();
+        }
+    }
 
     // Send ESP initialized message to Pico
     msg::Message msg = msg::esp_init(true);
@@ -232,8 +303,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
-                    requestHandler->sendRequest(request, &response);
-
+                    // requestHandler->sendRequest(request, &response);
+                    requestHandler->sendRequestTLS(request, &response);
                     // Parse the response
                     DEBUG("Response: ", response.str_buffer);
                     string = response.str_buffer;
@@ -282,8 +353,8 @@ void send_request_to_websrv_task(void *pvParameters) {
                     // Send the request and enqueue the response
                     DEBUG("Sending POST request: ");
 
-                    requestHandler->sendRequest(string, &response);
-
+                    // requestHandler->sendRequest(string, &response);
+                    requestHandler->sendRequestTLS(request, &response);
                     // Clear variables
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
@@ -293,7 +364,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::POST:
                     DEBUG("Request type ", request.requestType, " received.");
-                    requestHandler->sendRequest(string, &response);
+                    // requestHandler->sendRequest(string, &response);
+                    requestHandler->sendRequestTLS(request, &response);
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
@@ -304,7 +376,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::GET_TIME:
                     DEBUG("GET_TIME request received");
-                    requestHandler->sendRequest(request, &response);
+                    // requestHandler->sendRequest(request, &response);
+                    requestHandler->sendRequestTLS(request, &response);
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
