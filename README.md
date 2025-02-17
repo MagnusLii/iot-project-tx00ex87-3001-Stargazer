@@ -61,7 +61,7 @@ Stuff to send:
 
 -   Datetime (Pico requests, ESP responds)<br>
     `$<2>,<1>,<CRC>;`<br>
-    `$<2>,<Timestamp(int)>,<CRC>;`<br> or `$<1>,<Bool>,<CRC>;` nack if not ready to send timestamp.
+    `$<2>,<Timestamp(int)>,<CRC>;` or `$<1>,<Bool>,<CRC>;` nack if not ready to send timestamp.<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   ESP init ready state message (ESP sends to pico when it's done initializing)<br>
