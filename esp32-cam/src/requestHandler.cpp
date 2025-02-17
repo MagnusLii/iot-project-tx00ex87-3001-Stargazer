@@ -14,6 +14,7 @@
 #include "lwip/sys.h"
 #include "nvs_flash.h"
 #include "requestHandler.hpp"
+#include "scopedMutex.hpp"
 #include "sd-card.hpp"
 #include "sdkconfig.h"
 #include "socket.h"
@@ -270,17 +271,13 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
-    if (this->wirelessHandler->isConnected() == false) {
+    if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
     }
 
-    // Lock mutex
     DEBUG("Taking request mutex");
-    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
-        DEBUG("Failed to take request mutex");
-        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
-    }
+    ScopedMutex lock(this->requestMutex);
 
     addrinfo *dns_lookup_results = nullptr;
     in_addr *ip_address = nullptr;
@@ -296,18 +293,13 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         .ai_canonname = nullptr,    // Default
         .ai_next = nullptr          // Default
     };
-    timeval receiving_timeout;
-    receiving_timeout.tv_sec = 10; // Timeout for receiving data in seconds
-    receiving_timeout.tv_usec = 0; // Timeout in microseconds
+    timeval receiving_timeout{.tv_sec = 10, .tv_usec = 0}; // Timeout for receiving data
 
     // Perform DNS lookup for the server
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
     if (err != 0 || dns_lookup_results == nullptr) {
         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
+        vTaskDelay(pdMS_TO_TICKS(1000));
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
@@ -319,11 +311,8 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
     if (socket_descriptor < 0) {
         DEBUG("... Failed to allocate socket.");
-        freeaddrinfo(dns_lookup_results); // Cleanup DNS results
+        freeaddrinfo(dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(1000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
     DEBUG("... allocated socket");
@@ -334,22 +323,16 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(5000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("... connected");
 
     // Send the request data to the server
-    freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
+    freeaddrinfo(dns_lookup_results);
     if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
         DEBUG("... socket send failed");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(5000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("... socket send success");
@@ -359,9 +342,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
         DEBUG("... failed to set socket receiving timeout");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(4000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
     DEBUG("... set socket receiving timeout success");
@@ -374,7 +354,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
             total_len += len;
             if (total_len >= BUFFER_SIZE - 1) break;
         } else if (len == 0) {
-            // Connection closed by the server
             DEBUG("Connection closed by peer.");
             break;
         } else {
@@ -393,9 +372,6 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
 
     if (total_len == 0) {
         DEBUG("Failed to receive any data from the server");
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
@@ -404,109 +380,71 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request,
     response->str_buffer[BUFFER_SIZE - 1] = '\0';
 
     DEBUG("Response: ", response->str_buffer);
+    parseResponseIntoJson(response, total_len); // Parse the response into JSON
 
-    parseResponseIntoJson(response, total_len); // Parse the response into json
-
-    DEBUG("Unlocking request mutex");
-    xSemaphoreGive(this->requestMutex); // Unlock mutex
     return RequestHandlerReturnCode::SUCCESS;
 }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
-    if (this->wirelessHandler->isConnected() == false) {
+    if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
     }
 
-    // Lock mutex
-    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
-        DEBUG("Failed to take request mutex");
-        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
-    }
+    DEBUG("Taking request mutex");
+    ScopedMutex lock(this->requestMutex);
 
     addrinfo *dns_lookup_results = nullptr;
     in_addr *ip_address = nullptr;
     int socket_descriptor = 0;
     char receive_buffer[BUFFER_SIZE];
-    const addrinfo hints = {
-        .ai_flags = 0,              // Default settings for the DNS lookup
-        .ai_family = AF_INET,       // Use IPv4
-        .ai_socktype = SOCK_STREAM, // Use TCP
-        .ai_protocol = 0,           // Any protocol
-        .ai_addrlen = 0,            // Default
-        .ai_addr = nullptr,         // Default
-        .ai_canonname = nullptr,    // Default
-        .ai_next = nullptr          // Default
-    };
-    timeval receiving_timeout;
-    receiving_timeout.tv_sec = 5;  // Timeout for receiving data in seconds
-    receiving_timeout.tv_usec = 0; // Timeout in microseconds
+    const addrinfo hints = {.ai_flags = 0, .ai_family = AF_INET, .ai_socktype = SOCK_STREAM, .ai_protocol = 0};
+    timeval receiving_timeout{.tv_sec = 5, .tv_usec = 0};
 
-    // Perform DNS lookup for the server
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
     if (err != 0 || dns_lookup_results == nullptr) {
-        DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Retry delay
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
+        DEBUG("DNS lookup failed err=", err);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
-    // Extract and print resolved IP address
     ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
     DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
 
-    // Create a TCP socket
     socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
     if (socket_descriptor < 0) {
-        DEBUG("... Failed to allocate socket.");
-        freeaddrinfo(dns_lookup_results); // Cleanup DNS results
+        DEBUG("Failed to allocate socket.");
+        freeaddrinfo(dns_lookup_results);
         vTaskDelay(pdMS_TO_TICKS(1000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
-    DEBUG("... allocated socket");
+    DEBUG("Allocated socket");
 
-    // Establish a connection with the server
     if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
-        DEBUG("... socket connect failed errno=", errno);
+        DEBUG("Socket connect failed errno=", errno);
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Retry delay
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
+        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
-    DEBUG("... connected");
+    DEBUG("Connected");
 
-    // Send the request data to the server
-    freeaddrinfo(dns_lookup_results); // DNS results are no longer needed
+    freeaddrinfo(dns_lookup_results);
     if (write(socket_descriptor, request.c_str(), request.length() + 1) < 0) {
-        DEBUG("... socket send failed");
+        DEBUG("Socket send failed");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(5000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
-    DEBUG("... socket send success");
+    DEBUG("Socket send success");
 
-    // Set a timeout for receiving data from the server
     if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
-        DEBUG("... failed to set socket receiving timeout");
+        DEBUG("Failed to set socket receiving timeout");
         close(socket_descriptor);
         vTaskDelay(pdMS_TO_TICKS(4000));
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
     }
-    DEBUG("... set socket receiving timeout success");
+    DEBUG("Set socket receiving timeout success");
 
     int total_len = 0;
     for (int attempt = 0; attempt < RETRIES; attempt++) {
@@ -516,13 +454,12 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
             total_len += len;
             if (total_len >= BUFFER_SIZE - 1) break;
         } else if (len == 0) {
-            // Connection closed by the server
             DEBUG("Connection closed by peer.");
             break;
         } else {
             if (errno == EAGAIN) {
                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
-                continue; // Retry the read
+                continue;
             } else {
                 DEBUG("Socket error: errno=", errno);
                 break;
@@ -531,27 +468,19 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     }
 
     receive_buffer[total_len] = '\0';
-    DEBUG("Final response: ", receive_buffer);
     close(socket_descriptor);
 
     if (total_len == 0) {
         DEBUG("Failed to receive any data from the server");
-
-        DEBUG("Unlocking request mutex");
-        xSemaphoreGive(this->requestMutex); // Unlock mutex
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
-    // Send the response to a message queue
     strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
     response->str_buffer[BUFFER_SIZE - 1] = '\0';
 
     DEBUG("Response: ", response->str_buffer);
+    parseResponseIntoJson(response, total_len);
 
-    parseResponseIntoJson(response, total_len); // Parse the response into json
-
-    DEBUG("Unlocking request mutex");
-    xSemaphoreGive(this->requestMutex); // Unlock mutex
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -562,15 +491,11 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage reque
     }
 
     DEBUG("Taking request mutex");
-    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
-        DEBUG("Failed to take request mutex");
-        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
-    }
+    ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
 
     TLSWrapper tls;
     if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
         DEBUG("TLS connection failed");
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("TLS connection established");
@@ -579,7 +504,6 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage reque
     if (tls.send(request.str_buffer, request.buffer_length) < 0) {
         DEBUG("TLS send failed");
         tls.close();
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("TLS send success");
@@ -592,7 +516,6 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage reque
 
     if (total_len <= 0) {
         DEBUG("TLS receive failed");
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
@@ -604,8 +527,7 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage reque
 
     parseResponseIntoJson(response, total_len);
 
-    DEBUG("Unlocking request mutex");
-    xSemaphoreGive(this->requestMutex);
+    DEBUG("Returning success");
     return RequestHandlerReturnCode::SUCCESS;
 }
 
@@ -616,15 +538,11 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     }
 
     DEBUG("Taking request mutex");
-    if (xSemaphoreTake(this->requestMutex, portMAX_DELAY) != pdTRUE) {
-        DEBUG("Failed to take request mutex");
-        return RequestHandlerReturnCode::FAILED_MUTEX_AQUISITION;
-    }
+    ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
 
     TLSWrapper tls;
     if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
         DEBUG("TLS connection failed");
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("TLS connection established");
@@ -633,7 +551,6 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     if (tls.send(request.c_str(), request.length()) < 0) {
         DEBUG("TLS send failed");
         tls.close();
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("TLS send success");
@@ -646,7 +563,6 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
 
     if (total_len <= 0) {
         DEBUG("TLS receive failed");
-        xSemaphoreGive(this->requestMutex);
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
@@ -658,8 +574,7 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
 
     parseResponseIntoJson(response, total_len);
 
-    DEBUG("Unlocking request mutex");
-    xSemaphoreGive(this->requestMutex);
+    DEBUG("Returning success");
     return RequestHandlerReturnCode::SUCCESS;
 }
 
