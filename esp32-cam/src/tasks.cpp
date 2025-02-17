@@ -203,9 +203,6 @@ void init_task(void *pvParameters) {
         std::make_shared<CameraHandler>(handlers->sdcardHandler, handlers->requestHandler->getWebSrvRequestQueue());
     handlers->cameraHandler = cameraHandler;
 
-    // Set timezone
-    set_tz(); // TODO: modify to set provided tz, and add verification to check if tz is set.
-
     // Create Timers
     TimerHandle_t getRequestTmr = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
                                                handlers->requestHandler.get(), get_request_timer_callback);
@@ -294,8 +291,12 @@ void send_request_to_websrv_task(void *pvParameters) {
 
     while (true) {
         // Wait for a request to be available
-        // TODO: add mutex
         if (xQueueReceive(requestHandler->getWebSrvRequestQueue(), &request, portMAX_DELAY) == pdTRUE) {
+
+            while(handlers->wirelessHandler->isConnected() == false) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+
             switch (request.requestType) {
                 case RequestType::UNDEFINED:
                     DEBUG("Undefined request received");
@@ -518,6 +519,16 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::DATETIME:
+                        DEBUG("Datetime request received");
+
+                        // check if time is synced
+                        if (handlers->requestHandler->getTimeSyncedStatus() == false) {
+                            DEBUG("Time not synced, cannot respond to datetime request");
+                            // TODO: maybe we should respond with an error message?
+                            break;
+                        }
+
+
                         if (msg.content[0] == "1") {
                             msg = msg::datetime_response(get_datetime());
                             convert_to_string(msg, string);
