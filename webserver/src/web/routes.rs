@@ -215,6 +215,7 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
 pub struct DiagnosticQuery {
     name: Option<String>,
     page: Option<u32>,
+    status: Option<u8>,
 }
 
 pub async fn diagnostics(
@@ -230,14 +231,13 @@ pub async fn diagnostics(
             DiagnosticQuery {
                 name: None,
                 page: None,
+                status: None,
             }
         }
     };
 
     let mut valid_query = false;
     if let Ok(devices) = diagnostics::get_diagnostics_names(&state.db).await {
-        println!("Devices: {:?}", devices);
-
         let mut html_devices = "<option value=\"\">All</option>".to_string();
 
         if let Some(name) = &query.name {
@@ -268,14 +268,17 @@ pub async fn diagnostics(
     }
 
     if !valid_query {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
         html = html.replace(
             "<!--DIAGNOSTICS-->",
             "<tr><td colspan=\"4\">Invalid name filter</td></tr>",
         );
     } else if let Ok(diagnostics) =
-        diagnostics::get_diagnostics(query.name, query.page, &state.db).await
+        diagnostics::get_diagnostics(query.name, query.page, query.status, &state.db).await
     {
         let html_diagnostics = diagnostics
+            .data
             .iter()
             .map(|diagnostic| {
                 format!(
@@ -285,8 +288,29 @@ pub async fn diagnostics(
             })
             .collect::<Vec<String>>()
             .join("\n");
+
+        let html_count = format!(
+            "<a id=\"page_count\" class=\"not-link\" data-page=\"{}\" data-pages=\"{}\">{} / {}</a>",
+            diagnostics.page, diagnostics.pages, diagnostics.page, diagnostics.pages
+        );
+
+        let html_statuses = if let Some(status) = query.status {
+            match status {
+                1 => "<option value=\"\">All</option><option value=\"1\" selected>Info</option><option value=\"2\">Warning</option><option value=\"3\">Error</option>".to_string(),
+                2 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\" selected>Warning</option><option value=\"3\">Error</option>".to_string(),
+                3 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\">Warning</option><option value=\"3\" selected>Error</option>".to_string(),
+                _ => diagnostics::STATUS_DEFAULT.to_string(),
+            }
+        } else {
+            diagnostics::STATUS_DEFAULT.to_string()
+        };
+
+        html = html.replace("<!--STATUSES-->", &html_statuses);
+        html = html.replace("<!--PAGINATION-->", &html_count);
         html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
     } else {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
         html = html.replace(
             "<!--DIAGNOSTICS-->",
             "<tr><td colspan=\"4\">Could not load diagnostics</td></tr>",

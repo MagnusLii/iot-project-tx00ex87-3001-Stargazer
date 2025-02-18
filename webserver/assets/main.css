@@ -410,6 +410,20 @@ body {
     height: 100%;
 }
 
+/* DIAGNOSTICS */
+
+#diagnostics {
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid var(--color-3);
+    margin: auto;
+}
+
+#diagnostics th {
+    background-color: var(--color-3);
+    height: 40px;
+}
+
 /* GALLERY */
 
 #gallery-container {

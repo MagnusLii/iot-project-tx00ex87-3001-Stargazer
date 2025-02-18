@@ -35,19 +35,34 @@
                     <select id="diagnostics-filter" onchange="filterDiagnostics();">
                         <!--NAMES-->
                     </select>
+                    <label for="diagnostics-filter-status">Filter by status:</label>
+                    <select id="diagnostics-filter-status" onchange="filterDiagnostics();">
+                        <!--STATUSES-->
+                    </select>
                 </div>
             </div>
             <div class="row">
                 <div id="diagnostics-column" class="col-12">
-                    <table id="diagnostics">
-                        <tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Message</th>
-                            <th>Time</th>
-                        </tr>
-                        <!--DIAGNOSTICS-->
-                    </table>
+                    <div id="diagnostics-container">
+                        <table id="diagnostics">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Message</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="diagnostics-list">
+                                <!--DIAGNOSTICS-->
+                            </tbody>
+                        </table>
+                        <div id="pagination">
+                            <button onclick="prevPage();">Previous</button>
+                            <!--PAGINATION-->
+                            <button onclick="nextPage();">Next</button>
+                        </div>
+                    </div>
                 </div>
             </div>
     </body>
