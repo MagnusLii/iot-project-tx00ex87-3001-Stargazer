@@ -23,11 +23,15 @@ function nextPage() {
         page = pages;
     }
 
+    let url = `/control/diagnostics`;
     if (query_params.has("name")) {
-        window.location.href = `/control/diagnostics?name=${query_params.get("name")}&page=${page + 1}`
-    } else {
-        window.location.href = `/control/diagnostics?page=${page + 1}`
+        url += `?name=${query_params.get("name")}`;
     }
+    if (query_params.has("status")) {
+        url += `&status=${query_params.get("status")}`;
+    }
+
+    window.location.href = `${url}&page=${page + 1}`
 }
 
 function prevPage() {
@@ -39,9 +43,14 @@ function prevPage() {
     } else if (page <= 0) {
         page = 1;
     }
+
+    let url = `/control/diagnostics`;
     if (query_params.has("name")) {
-        window.location.href = `/control/diagnostics?name=${query_params.get("name")}&page=${page - 1}`
-    } else {
-        window.location.href = `/control/diagnostics?page=${page - 1}`
+        url += `?name=${query_params.get("name")}`;
     }
+    if (query_params.has("status")) {
+        url += `&status=${query_params.get("status")}`;
+    }
+
+    window.location.href = `${url}&page=${page - 1}`
 }
