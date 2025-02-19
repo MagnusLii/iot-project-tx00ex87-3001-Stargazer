@@ -2,13 +2,13 @@
 
 
 ## Requirements
--   PicoSDK 2.0
--   picotool 2.0
+-   PicoSDK 2.1.1
+-   Pico Extras 2.1.1
+-   picotool 2.1.1
 -   ESPidf 5.3.1
 -   Docker/podman
 -   ESP32-cam AIthinker board
 -   Pico/PicoW board
--   
 
 
 
