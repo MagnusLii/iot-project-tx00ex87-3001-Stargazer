@@ -22,13 +22,19 @@ RUN echo "root:root" | chpasswd
 
 
 ARG SDK_PATH=/usr/share/pico_sdk
-RUN git clone --depth 1 --branch 2.0.0 https://github.com/raspberrypi/pico-sdk.git $SDK_PATH \
+RUN git clone --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git $SDK_PATH \
     && cd $SDK_PATH \
     && git submodule update --init
 
 ENV PICO_SDK_PATH=$SDK_PATH
 
-RUN git clone --depth 1 --branch 2.0.0 https://github.com/raspberrypi/picotool.git /home/picotool \
+ARG EXTRAS_PATH=/usr/share/pico_extras
+RUN git clone --depth 1 --branch sdk-2.1.1 https://github.com/raspberrypi/pico-extras.git $EXTRAS_PATH \
+    && cd $EXTRAS_PATH
+
+ENV PICO_EXTRAS_PATH=$EXTRAS_PATH
+
+RUN git clone --depth 1 --branch 2.1.1 https://github.com/raspberrypi/picotool.git /home/picotool \
     && cd /home/picotool \
     && mkdir build \
     && cd /home/picotool/build \
@@ -37,6 +43,8 @@ RUN git clone --depth 1 --branch 2.0.0 https://github.com/raspberrypi/picotool.g
     && rm -rf /home/picotool
 
 RUN echo 'export PICO_SDK_PATH="'$SDK_PATH'"' > /root/.profile
+
+RUN echo 'export PICO_EXTRAS_PATH="'$EXTRAS_PATH'"' >> /root/.profile
 
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
