@@ -374,25 +374,26 @@ int SDcardHandler::read_all_settings(std::map<Settings, std::string> &settings) 
     std::string full_filename_str = this->mount_point + "/settings.txt";
     std::string temp_settings;
     DEBUG("Opening file: ", full_filename_str.c_str());
-    FILE *fptr = fopen(full_filename_str.c_str(), "r");
 
+    FILE *fptr = fopen(full_filename_str.c_str(), "r");
     if (!fptr) {
         DEBUG("Failed to open file for reading");
         return 1; // File opening failure
     }
 
-    char read_buffer[100];
+    std::string line;
+    char read_buffer[256];
 
-    for (int i = 0; i <= (int)Settings::CRC; i++) {
-        if (!fgets(read_buffer, 100, fptr)) {
+    for (int i = 0; i <= static_cast<int>(Settings::CRC); i++) {
+        if (!fgets(read_buffer, sizeof(read_buffer), fptr)) {
             DEBUG("Failed to read line from file");
             fclose(fptr);
             return 2; // File reading failure
         }
-        read_buffer[strcspn(read_buffer, "\n")] = 0;
-        temp_settings += read_buffer;
-        temp_settings += "\n";
-        DEBUG("Read: ", read_buffer);
+        line = read_buffer;
+        line.erase(line.find_last_not_of("\r\n") + 1); // Trim newlines
+        temp_settings += line + "\n";
+        DEBUG("Read: ", line.c_str());
     }
 
     fclose(fptr);
@@ -405,13 +406,13 @@ int SDcardHandler::read_all_settings(std::map<Settings, std::string> &settings) 
     DEBUG("CRC check passed");
 
     size_t pos = 0;
-    for (int i = 0; i < (int)Settings::CRC; i++) {
+    for (int i = 0; i < static_cast<int>(Settings::CRC); i++) {
         pos = temp_settings.find("\n");
         if (pos == std::string::npos) {
             DEBUG("Malformed settings data");
             return 4; // Malformed settings data
         }
-        settings[(Settings)i] = temp_settings.substr(0, pos).c_str();
+        settings[static_cast<Settings>(i)] = temp_settings.substr(0, pos);
         temp_settings.erase(0, pos + 1);
     }
 
