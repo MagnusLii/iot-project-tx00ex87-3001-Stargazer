@@ -393,7 +393,12 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     in_addr *ip_address = nullptr;
     int socket_descriptor = 0;
     char receive_buffer[BUFFER_SIZE];
-    const addrinfo hints = {.ai_flags = 0, .ai_family = AF_INET, .ai_socktype = SOCK_STREAM, .ai_protocol = 0};
+    
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints)); // Clear the structure
+    hints.ai_family = AF_INET; // Use IPv4
+    hints.ai_socktype = SOCK_STREAM; // TCP socket
+
     timeval receiving_timeout{.tv_sec = 5, .tv_usec = 0};
 
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
