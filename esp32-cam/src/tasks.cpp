@@ -147,9 +147,9 @@ void init_task(void *pvParameters) {
 #endif // ENABLE_CLEARING_SD_CARD
 
     handlers->wirelessHandler = std::make_shared<WirelessHandler>(handlers->sdcardHandler.get());
-    
+
     // Read settings from SD card
-    std::map<Settings, std::string> settings;
+    std::unordered_map<Settings, std::string> settings;
 
 #ifdef SAVE_TEST_SETTINGS_TO_SDCARD
     settings[Settings::WIFI_SSID] = TEST_WIFI_SSID;
@@ -163,13 +163,21 @@ void init_task(void *pvParameters) {
         esp_restart();
     } else {
         DEBUG("Settings saved to SD card");
-        esp_restart();
+        while (true) {
+            vTaskDelay(portMAX_DELAY);
+        } // Wait forever
     }
 #endif // SAVE_TEST_SETTINGS_TO_SDCARD
 
     if (handlers->sdcardHandler->read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings from SD card");
-        esp_restart();
+
+        DEBUG("Setting settings to default values");
+        settings[Settings::WIFI_SSID] = "DEFAULT_WIFI_SSID";
+        settings[Settings::WIFI_PASSWORD] = "DEFAULT_WIFI_PASSWORD";
+        settings[Settings::WEB_DOMAIN] = "DEFAULT_WEB_SERVER";
+        settings[Settings::WEB_PORT] = "DEFAULT_WEB_PORT";
+        settings[Settings::WEB_TOKEN] = "DEFAULT_WEB_TOKEN";
     }
 
     // Set settings in wirelessHandler
@@ -215,7 +223,7 @@ void init_task(void *pvParameters) {
     xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 16384, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
-    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 4096, handlers.get(), TaskPriorities::MEDIUM, nullptr);
+    xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 8192, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
     // Start reconnect loop if not connected
     if (handlers->wirelessHandler->isConnected() == false) {
@@ -277,7 +285,7 @@ void send_request_to_websrv_task(void *pvParameters) {
     // Used for server communication
     QueueMessage request;
     QueueMessage response = {"\0", 0, "\0", 0, RequestType::UNDEFINED};
-    std::map<std::string, std::string> parsed_results;
+    std::unordered_map<std::string, std::string> parsed_results;
     std::string string;
 
     // Used for sending instructions to the Pico
@@ -498,6 +506,9 @@ void handle_uart_data_task(void *pvParameters) {
     std::string string;
     msg::Message msg;
 
+    std::unordered_map<Settings, std::string> settings;
+    handlers->sdcardHandler->read_all_settings(settings);
+
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
                           portMAX_DELAY) == pdTRUE) {
@@ -659,15 +670,71 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::WIFI:
-                        // TODO:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // Update Wi-Fi settings
+                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                               Settings::WIFI_SSID);
+                        handlers->wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
+                                                               Settings::WIFI_PASSWORD);
+
+                        // Save settings to SD card
+                        settings[Settings::WIFI_SSID] = msg.content[0];
+                        settings[Settings::WIFI_PASSWORD] = msg.content[1];
+
+                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                            DEBUG("Failed to save Wi-Fi settings to SD card");
+                        }
+
+                        // Attempt to reconnect to Wi-Fi
+                        handlers->wirelessHandler->connect(
+                            handlers->wirelessHandler->get_setting(Settings::WIFI_SSID),
+                            handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
+
+                        // Clear variables
+                        string.clear();
                         break;
 
                     case msg::MessageType::SERVER:
-                        // TODO:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // Update server settings
+                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                               Settings::WEB_DOMAIN);
+                        handlers->wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
+                                                               Settings::WEB_PORT);
+
+                        // Save settings to SD card
+                        settings[Settings::WEB_DOMAIN] = msg.content[0];
+                        settings[Settings::WEB_PORT] = msg.content[1];
+
+                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                            DEBUG("Failed to save server settings to SD card");
+                        }
+
+                        // Clear variables
+                        string.clear();
                         break;
 
                     case msg::MessageType::API:
-                        // TODO:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // Update API token
+                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                               Settings::WEB_TOKEN);
+
+                        // Save settings to SD card
+                        settings[Settings::WEB_TOKEN] = msg.content[0];
+
+                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                            DEBUG("Failed to save API token to SD card");
+                        }
+
+                        // Clear variables
+                        string.clear();
                         break;
 
                     default:
