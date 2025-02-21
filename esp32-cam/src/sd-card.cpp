@@ -50,12 +50,16 @@ SDcardHandler::SDcardHandler(std::string mount_point_arg, int max_open_files, in
 
 SDcardHandler::~SDcardHandler() {
     if (this->sd_card_status == ESP_OK) {
-        esp_vfs_fat_sdcard_unmount(mount_point.c_str(), NULL);
+        esp_vfs_fat_sdcard_unmount(mount_point.c_str(), this->esp_sdcard);
         DEBUG("SD card unmounted from ", mount_point.c_str());
     }
 
-    if (this->file_mutex) { vSemaphoreDelete(this->file_mutex); }
+    if (this->file_mutex) {
+        vSemaphoreDelete(this->file_mutex);
+        this->file_mutex = nullptr;
+    }
 }
+
 
 /**
  * @brief Mounts the SD card at the specified mount point.
