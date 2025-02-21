@@ -7,7 +7,8 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "sd-card.hpp"
-#include "map"
+#include <unordered_map>
+
 
 #define WIFI_AUTHMODE WIFI_AUTH_WPA2_PSK
 #define WIFI_CONNECTED_BIT BIT0
@@ -24,10 +25,10 @@ class WirelessHandler {
 
         const char* get_setting(Settings settingID);
         int set_setting(const char* buffer, const size_t buffer_len, Settings settingID);
-        bool set_all_settings(std::map <Settings, std::string> settings);
+        bool set_all_settings(std::unordered_map <Settings, std::string> settings);
 
-        int save_settings_to_sdcard(std::map <Settings, std::string> settings);
-        int read_settings_from_sdcard(std::map <Settings, std::string> settings);
+        int save_settings_to_sdcard(std::unordered_map <Settings, std::string> settings);
+        int read_settings_from_sdcard(std::unordered_map <Settings, std::string> settings);
 
     private:
         static void ip_event_cb_lambda(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data){
@@ -43,7 +44,7 @@ class WirelessHandler {
         void wifi_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);   
 
 
-        std::map<Settings, std::string> settings;
+        std::unordered_map<Settings, std::string> settings;
 
         int WIFI_RETRY_ATTEMPTS;
         esp_netif_t *netif;

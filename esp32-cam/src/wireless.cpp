@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <string.h>
+#include <unordered_map>
+
 
 #define WIFI_AUTHMODE WIFI_AUTH_WPA2_PSK
 
@@ -233,15 +235,15 @@ int WirelessHandler::set_setting(const char *buffer, const size_t buffer_len, Se
     return 0;
 }
 
-bool WirelessHandler::set_all_settings(std::map<Settings, std::string> settings) {
+bool WirelessHandler::set_all_settings(std::unordered_map<Settings, std::string> settings) {
     this->settings = settings;
     return true;
 }
 
-int WirelessHandler::save_settings_to_sdcard(std::map<Settings, std::string> settings) {
+int WirelessHandler::save_settings_to_sdcard(std::unordered_map<Settings, std::string> settings) {
     return this->sdcardHandler->save_all_settings(settings);
 }
 
-int WirelessHandler::read_settings_from_sdcard(std::map<Settings, std::string> settings) {
+int WirelessHandler::read_settings_from_sdcard(std::unordered_map<Settings, std::string> settings) {
     return this->sdcardHandler->read_all_settings(settings);
 }

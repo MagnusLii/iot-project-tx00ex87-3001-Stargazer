@@ -355,7 +355,7 @@ bool SDcardHandler::check_crc(const std::string &data) {
     return (crc == crc_calc);
 }
 
-int SDcardHandler::save_all_settings(const std::map<Settings, std::string> settings) {
+int SDcardHandler::save_all_settings(const std::unordered_map<Settings, std::string> settings) {
     DEBUG("Saving all settings");
 
     std::string temp_settings;
@@ -373,7 +373,7 @@ int SDcardHandler::save_all_settings(const std::map<Settings, std::string> setti
     return 0; // Success
 }
 
-int SDcardHandler::read_all_settings(std::map<Settings, std::string> &settings) {
+int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &settings) {
     DEBUG("Reading all settings");
     std::string full_filename_str = this->mount_point + "/settings.txt";
     std::string temp_settings;
@@ -424,7 +424,7 @@ int SDcardHandler::read_all_settings(std::map<Settings, std::string> &settings) 
 }
 
 int SDcardHandler::save_setting(const Settings settingID, const std::string &value) {
-    std::map<Settings, std::string> settings;
+    std::unordered_map<Settings, std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
         return 1; // Failed to read settings
@@ -440,7 +440,7 @@ int SDcardHandler::save_setting(const Settings settingID, const std::string &val
 }
 
 int SDcardHandler::read_setting(const Settings settingID, std::string &value) {
-    std::map<Settings, std::string> settings;
+    std::unordered_map<Settings, std::string> settings;
     if (read_all_settings(settings) != 0) {
         DEBUG("Failed to read settings");
         return 1; // Failed to read settings

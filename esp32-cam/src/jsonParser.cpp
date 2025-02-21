@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 
-int JsonParser::parse(const std::string &json, std::map<std::string, std::string> *result) {
+int JsonParser::parse(const std::string &json, std::unordered_map<std::string, std::string> *result) {
     if (!result) return 1; // Null pointer
     result->clear();
 
