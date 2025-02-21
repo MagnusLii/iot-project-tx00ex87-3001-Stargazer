@@ -345,6 +345,7 @@ void SDcardHandler::add_crc(std::string &data) {
  * @note The CRC value is expected to be the last part of the data, separated by a comma.
  */
 bool SDcardHandler::check_crc(const std::string &data) {
+    DEBUG("Checking CRC of data: ", data.c_str());
     std::string copy = data;
     size_t pos = copy.find_last_of(',');
     if (pos == std::string::npos) { return false; }
@@ -352,6 +353,7 @@ bool SDcardHandler::check_crc(const std::string &data) {
     uint16_t crc = std::stoi(crc_str);
     copy = copy.substr(0, pos);
     uint16_t crc_calc = crc16(copy);
+    DEBUG("CRC: ", crc, " CRC calc: ", crc_calc);
     return (crc == crc_calc);
 }
 
@@ -361,6 +363,7 @@ int SDcardHandler::save_all_settings(const std::unordered_map<Settings, std::str
     std::string temp_settings;
     for (int i = 0; i < (int)Settings::CRC; i++) {
         temp_settings += settings.at((Settings)i);
+        temp_settings += "\n";
     }
 
     add_crc(temp_settings);
@@ -386,7 +389,7 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
     }
 
     std::string line;
-    char read_buffer[256];
+    char read_buffer[LINE_READ_BUFFER_SIZE];
 
     for (int i = 0; i <= static_cast<int>(Settings::CRC); i++) {
         if (!fgets(read_buffer, sizeof(read_buffer), fptr)) {
@@ -395,8 +398,7 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
             return 2; // File reading failure
         }
         line = read_buffer;
-        line.erase(line.find_last_not_of("\r\n") + 1); // Trim newlines
-        temp_settings += line + "\n";
+        temp_settings += line;
         DEBUG("Read: ", line.c_str());
     }
 

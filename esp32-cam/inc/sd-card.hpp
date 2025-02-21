@@ -9,6 +9,8 @@
 #include "sdmmc_cmd.h"
 #include <unordered_map>
 
+#define LINE_READ_BUFFER_SIZE 256
+
 enum class Settings {
     WIFI_SSID,
     WIFI_PASSWORD,
