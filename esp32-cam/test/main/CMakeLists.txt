@@ -3,6 +3,8 @@ set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 file(GLOB_RECURSE SRC_FILES "${ROOT_DIR}/src/*.c"
                             "${ROOT_DIR}/src/*.cpp"
+                            "${ROOT_DIR}/src/test-cases/*.c"
+                            "${ROOT_DIR}/src/test-cases/*.cpp"
                             "${ROOT_DIR}/../common/src/*.cpp")
 
 file(GLOB INCLUDE_DIRS
