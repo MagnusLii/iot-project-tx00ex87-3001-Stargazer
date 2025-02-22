@@ -163,9 +163,6 @@ void init_task(void *pvParameters) {
         esp_restart();
     } else {
         DEBUG("Settings saved to SD card");
-        while (true) {
-            vTaskDelay(portMAX_DELAY);
-        } // Wait forever
     }
 #endif // SAVE_TEST_SETTINGS_TO_SDCARD
 
