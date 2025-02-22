@@ -47,10 +47,12 @@ class RequestHandler {
                    std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
     // TODO: Add destructor
 
-    RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id, std::string base64_image_data);
+    RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id,
+                                                    std::string base64_image_data);
     void createUserInstructionsGETRequest(std::string *requestPtr);
     void createTimestampGETRequest(std::string *requestPtr);
-    RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, int numOfVariableArgs, ...);
+    RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
+                                                      int numOfVariableArgs, ...);
     int parseHttpReturnCode(const char *responseString);
     QueueMessage *getUserInstructionsGETRequestptr();
     QueueMessage *getTimestampGETRequestptr();
@@ -60,13 +62,13 @@ class RequestHandler {
     QueueHandle_t getWebSrvRequestQueue();
     QueueHandle_t getWebSrvResponseQueue();
 
-    RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage* response);
-    RequestHandlerReturnCode sendRequest(std::string request, QueueMessage* response);
+    RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage *response);
+    RequestHandlerReturnCode sendRequest(std::string request, QueueMessage *response);
     RequestHandlerReturnCode sendRequestTLS(const QueueMessage request, QueueMessage *response);
     RequestHandlerReturnCode sendRequestTLS(const std::string &request, QueueMessage *response);
 
-    int parseResponseIntoJson(QueueMessage* responseBuffer, const int buffer_size);
-    int64_t parseTimestamp(const std::string& response);
+    int parseResponseIntoJson(QueueMessage *responseBuffer, const int buffer_size);
+    int64_t parseTimestamp(const std::string &response);
 
     bool getTimeSyncedStatus();
     void setTimeSyncedStatus(bool status);
@@ -77,8 +79,8 @@ class RequestHandler {
     std::string webServerToken;
 
     std::shared_ptr<WirelessHandler> wirelessHandler; // TODO: remove dependency on direct access to wirelessHandler
-    std::shared_ptr<SDcardHandler> sdcardHandler; // TODO: remove dependency on direct access to sdcardHandler
-    
+    std::shared_ptr<SDcardHandler> sdcardHandler;     // TODO: remove dependency on direct access to sdcardHandler
+
     QueueHandle_t webSrvRequestQueue;  // Queue for sending requests to the web server
     QueueHandle_t webSrvResponseQueue; // Queue where responses from the web server are forwarded
 
