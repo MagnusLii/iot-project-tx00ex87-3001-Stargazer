@@ -137,16 +137,13 @@ esp_err_t WirelessHandler::disconnect(void) {
 }
 
 esp_err_t WirelessHandler::deinit(void) {
+    ScopedMutex lock(this->wifi_mutex);
     DEBUG("Deinitializing Wi-Fi");
-    xSemaphoreTake(this->wifi_mutex, portMAX_DELAY);
 
     DEBUG("Deinitializing Wi-Fi");
     esp_err_t ret = esp_wifi_stop();
     if (ret == ESP_ERR_WIFI_NOT_INIT) {
         DEBUG("Wi-Fi not initialized");
-        // TODO: handle error
-
-        xSemaphoreGive(this->wifi_mutex);
         return ret;
     }
 
@@ -158,8 +155,6 @@ esp_err_t WirelessHandler::deinit(void) {
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, this->wifi_event_handler));
 
     DEBUG("Wi-Fi deinitialized\n");
-
-    xSemaphoreGive(this->wifi_mutex);
     return ESP_OK;
 }
 
