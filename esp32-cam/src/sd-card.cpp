@@ -354,12 +354,7 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
     std::string line;
     char read_buffer[LINE_READ_BUFFER_SIZE];
 
-    for (int i = 0; i <= static_cast<int>(Settings::CRC); i++) {
-        if (!fgets(read_buffer, sizeof(read_buffer), fptr)) {
-            DEBUG("Failed to read line from file");
-            fclose(fptr);
-            return 2; // File reading failure
-        }
+    while (fgets(read_buffer, sizeof(read_buffer), fptr)) {
         line = read_buffer;
         temp_settings += line;
         DEBUG("Read: ", line.c_str());
@@ -377,10 +372,21 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
     size_t pos = 0;
     for (int i = 0; i < static_cast<int>(Settings::CRC); i++) {
         pos = temp_settings.find("\n");
+
         if (pos == std::string::npos) {
             DEBUG("Malformed settings data");
-            return 4; // Malformed settings data
+            return 4;
         }
+
+        if (i == static_cast<int>(Settings::WEB_CERTIFICATE)) {
+            pos = temp_settings.find("-----END CERTIFICATE-----");
+            if (pos == std::string::npos) {
+                DEBUG("Malformed certificate data");
+                return 5;
+            }
+            pos += 25;
+        }
+
         settings[static_cast<Settings>(i)] = temp_settings.substr(0, pos);
         temp_settings.erase(0, pos + 1);
     }

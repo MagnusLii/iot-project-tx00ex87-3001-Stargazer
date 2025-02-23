@@ -18,6 +18,7 @@ enum class Settings {
     WEB_DOMAIN,
     WEB_PORT,
     WEB_TOKEN,
+    WEB_CERTIFICATE,
     CRC // Keep as final element
 };
 
