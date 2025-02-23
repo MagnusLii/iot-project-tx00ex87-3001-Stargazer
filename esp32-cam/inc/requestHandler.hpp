@@ -19,11 +19,11 @@ enum class WebServerResponseType {
 };
 
 struct QueueMessage {
-    char str_buffer[BUFFER_SIZE];
-    int buffer_length;
-    char imageFilename[BUFFER_SIZE];
-    int image_id;
-    RequestType requestType;
+    char str_buffer[BUFFER_SIZE] = {0};
+    int buffer_length = 0;
+    char imageFilename[BUFFER_SIZE] = {0};
+    int image_id = 0;
+    RequestType requestType = RequestType::UNDEFINED;
 };
 
 enum class RequestHandlerReturnCode {
@@ -59,6 +59,7 @@ class RequestHandler {
 
     const char *getWebServerCString();
     const char *getWebPortCString();
+    const char *getWebServerTokenCString();
     QueueHandle_t getWebSrvRequestQueue();
     QueueHandle_t getWebSrvResponseQueue();
 

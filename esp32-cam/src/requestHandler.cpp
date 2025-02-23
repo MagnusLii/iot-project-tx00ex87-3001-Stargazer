@@ -64,6 +64,11 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
         return RequestHandlerReturnCode::INVALID_ARGUMENT;
     }
 
+    std::string content = "{"
+                          "\"token\":\"" +
+                          this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"data\":\"" +
+                          base64_image_data + "\"" + "}\r\n";
+
     *requestPtr = "POST "
                   "/api/upload"
                   " HTTP/1.0\r\n"
@@ -73,25 +78,11 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: keep-alive\r\n"
                   "Content-Type: application/json\r\n"
-                  "Content-Length: "
+                  "Content-Length: " +
+                  std::to_string(content.length()) +
                   "\r\n"
-                  "\r\n";
-
-    std::string content = "{"
-                          "\"token\":\"" +
-                          this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"data\":\"" +
-                          base64_image_data + "\"" + "}\r\n";
-
-    size_t content_len_start = requestPtr->find("Content-Length: ");
-
-    DEBUG("Content: ", content.c_str());
-    DEBUG("content len: ", content.length());
-
-    std::string size_str = std::to_string(content.length());
-
-    requestPtr->insert(content_len_start + 16, size_str);
-
-    *requestPtr += content;
+                  "\r\n" +
+                  content;
 
     DEBUG("Request: ", requestPtr->c_str());
 
@@ -249,6 +240,8 @@ const char *RequestHandler::getWebServerCString() { return this->webServer.c_str
  */
 const char *RequestHandler::getWebPortCString() { return this->webPort.c_str(); }
 
+const char *RequestHandler::getWebServerTokenCString() { return this->webServerToken.c_str(); }
+
 /**
  * Retrieves the queue handle used for web server request messages.
  *
@@ -265,121 +258,6 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
-RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
-    if (!this->wirelessHandler->isConnected()) {
-        DEBUG("Wireless is not connected");
-        return RequestHandlerReturnCode::NOT_CONNECTED;
-    }
-
-    DEBUG("Taking request mutex");
-    ScopedMutex lock(this->requestMutex);
-
-    addrinfo *dns_lookup_results = nullptr;
-    in_addr *ip_address = nullptr;
-    int socket_descriptor = 0;
-    char receive_buffer[BUFFER_SIZE];
-    const addrinfo hints = {
-        .ai_flags = 0,              // Default settings for the DNS lookup
-        .ai_family = AF_INET,       // Use IPv4
-        .ai_socktype = SOCK_STREAM, // Use TCP
-        .ai_protocol = 0,           // Any protocol
-        .ai_addrlen = 0,            // Default
-        .ai_addr = nullptr,         // Default
-        .ai_canonname = nullptr,    // Default
-        .ai_next = nullptr          // Default
-    };
-    timeval receiving_timeout{.tv_sec = 10, .tv_usec = 0}; // Timeout for receiving data
-
-    // Perform DNS lookup for the server
-    int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
-    if (err != 0 || dns_lookup_results == nullptr) {
-        DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
-    }
-
-    // Extract and print resolved IP address
-    ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
-    DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
-
-    // Create a TCP socket
-    socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
-    if (socket_descriptor < 0) {
-        DEBUG("... Failed to allocate socket.");
-        freeaddrinfo(dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
-    }
-    DEBUG("... allocated socket");
-
-    // Establish a connection with the server
-    if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
-        DEBUG("... socket connect failed errno=", errno);
-        close(socket_descriptor);
-        freeaddrinfo(dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
-    }
-    DEBUG("... connected");
-
-    // Send the request data to the server
-    freeaddrinfo(dns_lookup_results);
-    if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
-        DEBUG("... socket send failed");
-        close(socket_descriptor);
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
-    }
-    DEBUG("... socket send success");
-
-    // Set a timeout for receiving data from the server
-    if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
-        DEBUG("... failed to set socket receiving timeout");
-        close(socket_descriptor);
-        vTaskDelay(pdMS_TO_TICKS(4000));
-        return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
-    }
-    DEBUG("... set socket receiving timeout success");
-
-    int total_len = 0;
-    for (int attempt = 0; attempt < RETRIES; attempt++) {
-        int len = recv(socket_descriptor, receive_buffer + total_len, BUFFER_SIZE - 1 - total_len, 0);
-
-        if (len > 0) {
-            total_len += len;
-            if (total_len >= BUFFER_SIZE - 1) break;
-        } else if (len == 0) {
-            DEBUG("Connection closed by peer.");
-            break;
-        } else {
-            if (errno == EAGAIN) {
-                vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
-                continue; // Retry the read
-            } else {
-                DEBUG("Socket error: errno=", errno);
-                break;
-            }
-        }
-    }
-
-    receive_buffer[total_len] = '\0';
-    close(socket_descriptor);
-
-    if (total_len == 0) {
-        DEBUG("Failed to receive any data from the server");
-        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
-    }
-
-    // Send the response to a message queue
-    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
-    response->str_buffer[BUFFER_SIZE - 1] = '\0';
-
-    DEBUG("Response: ", response->str_buffer);
-    parseResponseIntoJson(response, total_len); // Parse the response into JSON
-
-    return RequestHandlerReturnCode::SUCCESS;
-}
-
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
@@ -392,12 +270,12 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     addrinfo *dns_lookup_results = nullptr;
     in_addr *ip_address = nullptr;
     int socket_descriptor = 0;
-    char receive_buffer[BUFFER_SIZE];
-    
+    char receive_buffer[BUFFER_SIZE] = {0};
+
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints)); // Clear the structure
-    hints.ai_family = AF_INET; // Use IPv4
-    hints.ai_socktype = SOCK_STREAM; // TCP socket
+    hints.ai_family = AF_INET;        // Use IPv4
+    hints.ai_socktype = SOCK_STREAM;  // TCP socket
 
     timeval receiving_timeout{.tv_sec = 5, .tv_usec = 0};
 
@@ -452,14 +330,14 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
         if (len > 0) {
             total_len += len;
-            if (total_len >= BUFFER_SIZE - 1) break;
+            if (total_len >= BUFFER_SIZE - 1) break; // Prevent buffer overflow
         } else if (len == 0) {
             DEBUG("Connection closed by peer.");
             break;
         } else {
             if (errno == EAGAIN) {
                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
-                continue;
+                continue; // Retry the read
             } else {
                 DEBUG("Socket error: errno=", errno);
                 break;
@@ -484,52 +362,124 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     return RequestHandlerReturnCode::SUCCESS;
 }
 
-RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {
-    if (!this->wirelessHandler->isConnected()) {
-        DEBUG("Wireless is not connected");
-        return RequestHandlerReturnCode::NOT_CONNECTED;
-    }
-
-    DEBUG("Taking request mutex");
-    ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
-
-    TLSWrapper tls;
-    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
-        DEBUG("TLS connection failed");
-        return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
-    }
-    DEBUG("TLS connection established");
-
-    // Send request
-    if (tls.send(request.str_buffer, request.buffer_length) < 0) {
-        DEBUG("TLS send failed");
-        tls.close();
-        return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
-    }
-    DEBUG("TLS send success");
-
-    // Receive response
-    char receive_buffer[BUFFER_SIZE] = {0};
-    int total_len = tls.receive(receive_buffer, BUFFER_SIZE - 1);
-
-    tls.close();
-
-    if (total_len <= 0) {
-        DEBUG("TLS receive failed");
-        return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
-    }
-
-    receive_buffer[total_len] = '\0';
-    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
-    response->str_buffer[BUFFER_SIZE - 1] = '\0';
-
-    DEBUG("Response: ", response->str_buffer);
-
-    parseResponseIntoJson(response, total_len);
-
-    DEBUG("Returning success");
-    return RequestHandlerReturnCode::SUCCESS;
+RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
+    return this->sendRequest(std::string(request.str_buffer, request.buffer_length), response);
 }
+
+// RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
+//     if (!this->wirelessHandler->isConnected()) {
+//         DEBUG("Wireless is not connected");
+//         return RequestHandlerReturnCode::NOT_CONNECTED;
+//     }
+
+//     DEBUG("Taking request mutex");
+//     ScopedMutex lock(this->requestMutex);
+
+//     addrinfo *dns_lookup_results = nullptr;
+//     in_addr *ip_address = nullptr;
+//     int socket_descriptor = 0;
+//     char receive_buffer[BUFFER_SIZE];
+//     const addrinfo hints = {
+//         .ai_flags = 0,              // Default settings for the DNS lookup
+//         .ai_family = AF_INET,       // Use IPv4
+//         .ai_socktype = SOCK_STREAM, // Use TCP
+//         .ai_protocol = 0,           // Any protocol
+//         .ai_addrlen = 0,            // Default
+//         .ai_addr = nullptr,         // Default
+//         .ai_canonname = nullptr,    // Default
+//         .ai_next = nullptr          // Default
+//     };
+//     timeval receiving_timeout{.tv_sec = 10, .tv_usec = 0}; // Timeout for receiving data
+
+//     // Perform DNS lookup for the server
+//     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
+//     if (err != 0 || dns_lookup_results == nullptr) {
+//         DEBUG("DNS lookup failed err=", err, " dns_lookup_results=", dns_lookup_results);
+//         vTaskDelay(pdMS_TO_TICKS(1000));
+//         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
+//     }
+
+//     // Extract and print resolved IP address
+//     ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
+//     DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
+
+//     // Create a TCP socket
+//     socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
+//     if (socket_descriptor < 0) {
+//         DEBUG("... Failed to allocate socket.");
+//         freeaddrinfo(dns_lookup_results);
+//         vTaskDelay(pdMS_TO_TICKS(1000));
+//         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
+//     }
+//     DEBUG("... allocated socket");
+
+//     // Establish a connection with the server
+//     if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
+//         DEBUG("... socket connect failed errno=", errno);
+//         close(socket_descriptor);
+//         freeaddrinfo(dns_lookup_results);
+//         vTaskDelay(pdMS_TO_TICKS(5000));
+//         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
+//     }
+//     DEBUG("... connected");
+
+//     // Send the request data to the server
+//     freeaddrinfo(dns_lookup_results);
+//     if (write(socket_descriptor, request.str_buffer, request.buffer_length) < 0) {
+//         DEBUG("... socket send failed");
+//         close(socket_descriptor);
+//         vTaskDelay(pdMS_TO_TICKS(5000));
+//         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
+//     }
+//     DEBUG("... socket send success");
+
+//     // Set a timeout for receiving data from the server
+//     if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
+//         DEBUG("... failed to set socket receiving timeout");
+//         close(socket_descriptor);
+//         vTaskDelay(pdMS_TO_TICKS(4000));
+//         return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
+//     }
+//     DEBUG("... set socket receiving timeout success");
+
+//     int total_len = 0;
+//     for (int attempt = 0; attempt < RETRIES; attempt++) {
+//         int len = recv(socket_descriptor, receive_buffer + total_len, BUFFER_SIZE - 1 - total_len, 0);
+
+//         if (len > 0) {
+//             total_len += len;
+//             if (total_len >= BUFFER_SIZE - 1) break;
+//         } else if (len == 0) {
+//             DEBUG("Connection closed by peer.");
+//             break;
+//         } else {
+//             if (errno == EAGAIN) {
+//                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
+//                 continue; // Retry the read
+//             } else {
+//                 DEBUG("Socket error: errno=", errno);
+//                 break;
+//             }
+//         }
+//     }
+
+//     receive_buffer[total_len] = '\0';
+//     close(socket_descriptor);
+
+//     if (total_len == 0) {
+//         DEBUG("Failed to receive any data from the server");
+//         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+//     }
+
+//     // Send the response to a message queue
+//     strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+//     response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+//     DEBUG("Response: ", response->str_buffer);
+//     parseResponseIntoJson(response, total_len); // Parse the response into JSON
+
+//     return RequestHandlerReturnCode::SUCCESS;
+// }
 
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &request, QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
@@ -578,6 +528,57 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {
+    return this->sendRequestTLS(std::string(request.str_buffer, request.buffer_length), response);
+}
+
+// RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {
+//     if (!this->wirelessHandler->isConnected()) {
+//         DEBUG("Wireless is not connected");
+//         return RequestHandlerReturnCode::NOT_CONNECTED;
+//     }
+
+//     DEBUG("Taking request mutex");
+//     ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
+
+//     TLSWrapper tls;
+//     if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
+//         DEBUG("TLS connection failed");
+//         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
+//     }
+//     DEBUG("TLS connection established");
+
+//     // Send request
+//     if (tls.send(request.str_buffer, request.buffer_length) < 0) {
+//         DEBUG("TLS send failed");
+//         tls.close();
+//         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
+//     }
+//     DEBUG("TLS send success");
+
+//     // Receive response
+//     char receive_buffer[BUFFER_SIZE] = {0};
+//     int total_len = tls.receive(receive_buffer, BUFFER_SIZE - 1);
+
+//     tls.close();
+
+//     if (total_len <= 0) {
+//         DEBUG("TLS receive failed");
+//         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
+//     }
+
+//     receive_buffer[total_len] = '\0';
+//     strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+//     response->str_buffer[BUFFER_SIZE - 1] = '\0';
+
+//     DEBUG("Response: ", response->str_buffer);
+
+//     parseResponseIntoJson(response, total_len);
+
+//     DEBUG("Returning success");
+//     return RequestHandlerReturnCode::SUCCESS;
+// }
+
 int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const int buffer_size) {
     std::string response(responseBuffer->str_buffer, buffer_size);
 
@@ -614,6 +615,20 @@ int64_t RequestHandler::parseTimestamp(const std::string &response) {
     if (start_pos == std::string::npos) {
         DEBUG("Content field not found");
         return -1; // "Content" field not found
+    }
+
+    // test end of str
+    if (start_pos + 4 >= http_response.length()) {
+        DEBUG("Timestamp field not found");
+        return -2;
+    }
+
+    // test if number.
+    for (size_t i = start_pos + 4; i < http_response.length(); i++) {
+        if (http_response[i] < '0' || http_response[i] > '9') {
+            DEBUG("Timestamp is not a number");
+            return -3;
+        }
     }
 
     std::string value = http_response.substr(start_pos + 4);
