@@ -86,7 +86,6 @@ esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open
                                                      .disk_status_check_enable = false,
                                                      .use_one_fat = false};
 
-    const char *mount_point = mount_point_arg.c_str();
     this->mount_point = mount_point_arg;
 
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
@@ -98,7 +97,7 @@ esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open
     gpio_set_pull_mode((gpio_num_t)D2, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode((gpio_num_t)D3, GPIO_PULLUP_ONLY);
 
-    return esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &this->esp_sdcard);
+    return esp_vfs_fat_sdmmc_mount(this->mount_point.c_str(), &host, &slot_config, &mount_config, &this->esp_sdcard);
 }
 
 /**
