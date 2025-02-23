@@ -25,12 +25,8 @@
 #include <sstream>
 #include <string.h>
 
-RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
-                               std::shared_ptr<WirelessHandler> wirelessHandler,
+RequestHandler::RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler,
                                std::shared_ptr<SDcardHandler> sdcardHandler) {
-    this->webServer = webServer;
-    this->webPort = webPort;
-    this->webServerToken = webServerToken;
     this->wirelessHandler = wirelessHandler;
     this->sdcardHandler = sdcardHandler;
     this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
@@ -52,6 +48,12 @@ RequestHandler::RequestHandler(std::string webServer, std::string webPort, std::
     this->getTimestampRequest.requestType = RequestType::GET_TIME;
 }
 
+RequestHandler::~RequestHandler() {
+    vQueueDelete(this->webSrvRequestQueue);
+    vQueueDelete(this->webSrvResponseQueue);
+    vSemaphoreDelete(this->requestMutex);
+}
+
 RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                                 std::string base64_image_data) {
     if (requestPtr == nullptr) {
@@ -65,24 +67,32 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
     }
 
     std::string content = "{"
-                          "\"token\":\"" +
-                          this->webServerToken + "\"," + "\"id\":" + std::to_string(image_id) + "," + "\"data\":\"" +
-                          base64_image_data + "\"" + "}\r\n";
+                          "\"token\":\"";
+    content.append(this->wirelessHandler->get_setting(Settings::WEB_TOKEN));
+
+    content.append("\",\"id\":");
+    content.append(std::to_string(image_id));
+    content.append(",\"data\":\"");
+    content.append(base64_image_data);
+    content.append("\"}\r\n");
 
     *requestPtr = "POST "
                   "/api/upload"
                   " HTTP/1.0\r\n"
-                  "Host: " +
-                  this->webServer + ":" + this->webPort +
-                  "\r\n"
-                  "User-Agent: esp-idf/1.0 esp32\r\n"
-                  "Connection: keep-alive\r\n"
-                  "Content-Type: application/json\r\n"
-                  "Content-Length: " +
-                  std::to_string(content.length()) +
-                  "\r\n"
-                  "\r\n" +
-                  content;
+                  "Host: ";
+
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_DOMAIN));
+    requestPtr->append(":");
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
+    requestPtr->append("\r\n"
+                       "User-Agent: esp-idf/1.0 esp32\r\n"
+                       "Connection: keep-alive\r\n"
+                       "Content-Type: application/json\r\n"
+                       "Content-Length: ");
+    requestPtr->append(std::to_string(content.length()));
+    requestPtr->append("\r\n"
+                       "\r\n");
+    requestPtr->append(content);
 
     DEBUG("Request: ", requestPtr->c_str());
 
@@ -105,27 +115,32 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
  */
 void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
-                  "/api/command?token=" +
-                  this->webServerToken +
-                  " HTTP/1.0\r\n"
-                  "Host: " +
-                  this->webServer + ":" + this->webPort +
-                  "\r\n"
-                  "User-Agent: esp-idf/1.0 esp32\r\n"
-                  "Connection: keep-alive\r\n"
-                  "\r\n";
+                  "/api/command?token=";
+
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_TOKEN));
+    requestPtr->append(" HTTP/1.0\r\n"
+                       "Host: ");
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_DOMAIN));
+    requestPtr->append(":");
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
+    requestPtr->append("\r\n"
+                       "User-Agent: esp-idf/1.0 esp32\r\n"
+                       "Connection: keep-alive\r\n"
+                       "\r\n");
 }
 
 void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
                   "/api/time"
                   " HTTP/1.0\r\n"
-                  "Host: " +
-                  this->webServer + ":" + this->webPort +
-                  "\r\n"
-                  "User-Agent: esp-idf/1.0 esp32\r\n"
-                  "Connection: keep-alive\r\n"
-                  "\r\n";
+                  "Host: ";
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_DOMAIN));
+    requestPtr->append(":");
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
+    requestPtr->append("\r\n"
+                       "User-Agent: esp-idf/1.0 esp32\r\n"
+                       "Connection: keep-alive\r\n"
+                       "\r\n");
 }
 
 // The function reads all variable arguments as const char*, no \" is added to the values so should be added by the
@@ -158,17 +173,19 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
 
     *requestPtr = "POST " + std::string(endpoint) +
                   " HTTP/1.0\r\n"
-                  "Host: " +
-                  this->webServer + ":" + this->webPort +
-                  "\r\n"
-                  "User-Agent: esp-idf/1.0 esp32\r\n"
-                  "Connection: keep-alive\r\n"
-                  "Content-Type: application/json\r\n"
-                  "Content-Length: " +
-                  std::to_string(content.length()) +
-                  "\r\n"
-                  "\r\n" +
-                  content;
+                  "Host: ";
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_DOMAIN));
+    requestPtr->append(":");
+    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
+    requestPtr->append("\r\n"
+                       "User-Agent: esp-idf/1.0 esp32\r\n"
+                       "Connection: keep-alive\r\n"
+                       "Content-Type: application/json\r\n"
+                       "Content-Length: ");
+    requestPtr->append(std::to_string(content.length()));
+    requestPtr->append("\r\n"
+                       "\r\n");
+    requestPtr->append(content);
 
     DEBUG("Request: ", requestPtr->c_str());
 
@@ -230,7 +247,7 @@ QueueMessage *RequestHandler::getTimestampGETRequestptr() { return &this->getTim
  * @return const char* - A pointer to a null-terminated string representing the web server's address.
  *                       This is used for DNS resolution and establishing a connection to the server.
  */
-const char *RequestHandler::getWebServerCString() { return this->webServer.c_str(); }
+const char *RequestHandler::getWebServerCString() { return this->wirelessHandler->get_setting(Settings::WEB_DOMAIN); }
 
 /**
  * Retrieves the web server's port as a C-style string.
@@ -238,9 +255,15 @@ const char *RequestHandler::getWebServerCString() { return this->webServer.c_str
  * @return const char* - A pointer to a null-terminated string representing the web server's port.
  *                       This is used for establishing a connection to the server.
  */
-const char *RequestHandler::getWebPortCString() { return this->webPort.c_str(); }
+const char *RequestHandler::getWebPortCString() { return this->wirelessHandler->get_setting(Settings::WEB_PORT); }
 
-const char *RequestHandler::getWebServerTokenCString() { return this->webServerToken.c_str(); }
+const char *RequestHandler::getWebServerTokenCString() {
+    return this->wirelessHandler->get_setting(Settings::WEB_TOKEN);
+}
+
+const char *RequestHandler::getWebServerCertCsring() {
+    return this->wirelessHandler->get_setting(Settings::WEB_CERTIFICATE);
+}
 
 /**
  * Retrieves the queue handle used for web server request messages.
@@ -376,7 +399,7 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
 
     TLSWrapper tls;
-    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString())) {
+    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString(), this->getWebServerCertCsring())) {
         DEBUG("TLS connection failed");
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }

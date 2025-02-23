@@ -43,9 +43,8 @@ enum class RequestHandlerReturnCode {
 
 class RequestHandler {
   public:
-    RequestHandler(std::string webServer, std::string webPort, std::string webServerToken,
-                   std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
-    // TODO: Add destructor
+    RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
+    ~RequestHandler();
 
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                     std::string base64_image_data);
@@ -60,6 +59,7 @@ class RequestHandler {
     const char *getWebServerCString();
     const char *getWebPortCString();
     const char *getWebServerTokenCString();
+    const char *getWebServerCertCsring();
     QueueHandle_t getWebSrvRequestQueue();
     QueueHandle_t getWebSrvResponseQueue();
 
@@ -75,12 +75,8 @@ class RequestHandler {
     void setTimeSyncedStatus(bool status);
 
   private:
-    std::string webServer;
-    std::string webPort;
-    std::string webServerToken;
-
-    std::shared_ptr<WirelessHandler> wirelessHandler; // TODO: remove dependency on direct access to wirelessHandler
-    std::shared_ptr<SDcardHandler> sdcardHandler;     // TODO: remove dependency on direct access to sdcardHandler
+    std::shared_ptr<WirelessHandler> wirelessHandler;
+    std::shared_ptr<SDcardHandler> sdcardHandler;
 
     QueueHandle_t webSrvRequestQueue;  // Queue for sending requests to the web server
     QueueHandle_t webSrvResponseQueue; // Queue where responses from the web server are forwarded
