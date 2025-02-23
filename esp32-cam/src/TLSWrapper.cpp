@@ -6,9 +6,6 @@
 #include "mbedtls/ssl.h"
 #include "testMacros.hpp"
 
-// #define DISABLE_CERTIFICATE_VERIFICATION
-// #define TLS_DEBUG
-
 TLSWrapper::TLSWrapper() {
     mbedtls_net_init(&net_ctx);
     mbedtls_ssl_init(&ssl);
@@ -37,7 +34,7 @@ TLSWrapper::~TLSWrapper() {
     mbedtls_entropy_free(&entropy);
 }
 
-bool TLSWrapper::connect(const char *host, const char *port) {
+bool TLSWrapper::connect(const char *host, const char *port, const char *root_cert) {
     int ret;
 
     if (mbedtls_net_connect(&net_ctx, host, port, MBEDTLS_NET_PROTO_TCP) != 0) {
@@ -57,7 +54,6 @@ bool TLSWrapper::connect(const char *host, const char *port) {
     mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_NONE);
 #else
     mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED);
-    static const char *root_cert = TEST_CERTIFICATE; // TODO: read cert from sdcard
     mbedtls_x509_crt ca_cert;
     mbedtls_x509_crt_init(&ca_cert);
     ret = mbedtls_x509_crt_parse(&ca_cert, (const unsigned char *)root_cert, strlen(root_cert) + 1);

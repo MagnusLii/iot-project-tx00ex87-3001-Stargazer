@@ -7,12 +7,15 @@
 #include "mbedtls/entropy.h"
 #include <cstring>
 
+// #define DISABLE_CERTIFICATE_VERIFICATION
+// #define TLS_DEBUG
+
 class TLSWrapper {
 public:
     TLSWrapper();
     ~TLSWrapper();
 
-    bool connect(const char *host, const char *port);
+    bool connect(const char *host, const char *port, const char *root_cert);
     int send(const char *data, size_t len);
     int receive(char *buffer, size_t maxLen);
     void close();
@@ -25,6 +28,8 @@ private:
     mbedtls_entropy_context entropy;
 };
 
-void mbedtls_debug(void *ctx, int level, const char *file, int line, const char *str);
+#ifdef TLS_DEBUG
+void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str);
+#endif // TLS_DEBUG
 
 #endif // TLSWRAPPER_H
