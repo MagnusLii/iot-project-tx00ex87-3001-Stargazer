@@ -13,28 +13,11 @@
 #include <string.h>
 #include <string>
 
-/**
- * @brief Initializes the SDcardHandler object and attempts to mount the SD card.
- *
- * This constructor tries to mount the SD card at the specified mount point up to 3 times.
- * If successful, it creates a mutex for file operations. If the mount fails, an error message is logged
- * and sd_card_status is set to ESP_FAIL.
- *
- * @param mount_point_arg The mount point where the SD card should be mounted.
- * @param max_open_files The maximum number of files that can be open simultaneously.
- * @param CMD The command pin used for SD card communication.
- * @param D0, D1, D2, D3 Data pins used for SD card communication.
- *
- * @return None
- *
- * @note The function will log the SD card status on each attempt and will return after successful mounting or failure
- * after retries.
- */
-SDcardHandler::SDcardHandler(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2, int D3) {
+SDcardHandler::SDcardHandler(Sd_card_mount_settings settings) {
     for (int i = 0; i < 3; i++) {
-        this->sd_card_status = this->mount_sd_card(mount_point_arg, max_open_files, CMD, D0, D1, D2, D3);
+        this->sd_card_status = this->mount_sd_card(settings);
         if (this->sd_card_status == ESP_OK) {
-            DEBUG("SD card mounted at ", mount_point.c_str());
+            DEBUG("SD card mounted at ", settings.mount_point.c_str());
             this->file_mutex = xSemaphoreCreateMutex();
             return;
         }
@@ -43,15 +26,15 @@ SDcardHandler::SDcardHandler(std::string mount_point_arg, int max_open_files, in
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    DEBUG("Failed to mount SD card after ", RETRIES, " retries, error: ", esp_err_to_name(sd_card_status));
+    DEBUG("Failed to mount SD card after 3 retries, error: ", esp_err_to_name(sd_card_status));
     this->sd_card_status = ESP_FAIL;
     return;
 }
 
 SDcardHandler::~SDcardHandler() {
     if (this->sd_card_status == ESP_OK) {
-        esp_vfs_fat_sdcard_unmount(mount_point.c_str(), this->esp_sdcard);
-        DEBUG("SD card unmounted from ", mount_point.c_str());
+        esp_vfs_fat_sdcard_unmount(this->mount_point.c_str(), this->esp_sdcard);
+        DEBUG("SD card unmounted from ", this->mount_point.c_str());
     }
 
     if (this->file_mutex) {
@@ -60,42 +43,23 @@ SDcardHandler::~SDcardHandler() {
     }
 }
 
-
-/**
- * @brief Mounts the SD card at the specified mount point.
- *
- * This function configures and attempts to mount the SD card with the given parameters.
- * It sets up the necessary GPIO pins and mount configurations, and then tries to mount the SD card using the specified
- * settings.
- *
- * @param mount_point_arg The mount point where the SD card should be mounted.
- * @param max_open_files The maximum number of files that can be open simultaneously.
- * @param CMD The command pin used for SD card communication.
- * @param D0, D1, D2, D3 Data pins used for SD card communication.
- *
- * @return esp_err_t The result of the mounting attempt (ESP_OK on success, or an error code on failure).
- *
- * @note This function configures GPIO pull-up resistors for the SD card pins before attempting to mount.
- */
-esp_err_t SDcardHandler::mount_sd_card(std::string mount_point_arg, int max_open_files, int CMD, int D0, int D1, int D2,
-                                       int D3) {
-
+esp_err_t SDcardHandler::mount_sd_card(Sd_card_mount_settings settings) {
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
-                                                     .max_files = max_open_files,
+                                                     .max_files = settings.max_open_files,
                                                      .allocation_unit_size = 16 * 1024,
                                                      .disk_status_check_enable = false,
                                                      .use_one_fat = false};
 
-    this->mount_point = mount_point_arg;
+    this->mount_point = settings.mount_point;
 
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 
-    gpio_set_pull_mode((gpio_num_t)CMD, GPIO_PULLUP_ONLY);
-    gpio_set_pull_mode((gpio_num_t)D0, GPIO_PULLUP_ONLY);
-    gpio_set_pull_mode((gpio_num_t)D1, GPIO_PULLUP_ONLY);
-    gpio_set_pull_mode((gpio_num_t)D2, GPIO_PULLUP_ONLY);
-    gpio_set_pull_mode((gpio_num_t)D3, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)settings.CMD, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)settings.D0, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)settings.D1, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)settings.D2, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)settings.D3, GPIO_PULLUP_ONLY);
 
     return esp_vfs_fat_sdmmc_mount(this->mount_point.c_str(), &host, &slot_config, &mount_config, &this->esp_sdcard);
 }

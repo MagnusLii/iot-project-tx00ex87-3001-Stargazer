@@ -126,7 +126,8 @@ void init_task(void *pvParameters) {
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
     // Initialize sdcardHandler
-    handlers->sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
+    Sd_card_mount_settings sd_card_settings;
+    handlers->sdcardHandler = std::make_shared<SDcardHandler>(sd_card_settings);
     if (handlers->sdcardHandler->get_sd_card_status() != ESP_OK) {
         DEBUG("Failed to initialize SD card");
         esp_restart();
