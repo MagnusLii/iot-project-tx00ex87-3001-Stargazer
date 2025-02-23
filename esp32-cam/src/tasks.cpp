@@ -133,7 +133,6 @@ void init_task(void *pvParameters) {
         esp_restart();
     }
 
-    // TODO: clear the sd card if needed
     uint32_t free_space = handlers->sdcardHandler->get_sdcard_free_space();
     if (free_space < 100000) {
         DEBUG("SD card storage getting low. Backup and clear the SD card.");
@@ -394,7 +393,6 @@ void send_request_to_websrv_task(void *pvParameters) {
                     // Parse the response
                     if (sync_time(requestHandler->parseTimestamp(response.str_buffer)) !=
                         timeSyncLibReturnCodes::SUCCESS) {
-                        // TODO: add error handling
                         DEBUG("Failed to sync time");
                         break;
                     }
@@ -526,7 +524,9 @@ void handle_uart_data_task(void *pvParameters) {
                         // check if time is synced
                         if (handlers->requestHandler->getTimeSyncedStatus() == false) {
                             DEBUG("Time not synced, cannot respond to datetime request");
-                            // TODO: maybe we should respond with an error message?
+
+                            espPicoCommHandler->send_ACK_msg(false);
+                            string.clear();
                             break;
                         }
 
