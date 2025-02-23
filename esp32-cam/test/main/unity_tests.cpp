@@ -5,8 +5,8 @@
 #include "unity.h"
 
 // #define JSON_PARSER_TESTS
-// #define SDCARD_TESTS
-#define REQUESTHANDLER_TESTS
+#define SDCARD_TESTS
+// #define REQUESTHANDLER_TESTS
 // #define ALL_TESTS
 
 #ifdef ALL_TESTS

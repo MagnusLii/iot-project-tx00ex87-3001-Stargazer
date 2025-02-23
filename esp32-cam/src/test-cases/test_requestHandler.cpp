@@ -4,10 +4,10 @@
 #include "wireless.hpp"
 
 void test_createImagePOSTRequest() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     std::string request;
     std::string base64_image_data = "base64_image_data";
@@ -35,17 +35,13 @@ void test_createImagePOSTRequest() {
 
     TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, ret);
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_createUserInstructionsGETRequest() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     std::string request;
     requestHandler->createUserInstructionsGETRequest(&request);
@@ -59,17 +55,13 @@ void test_createUserInstructionsGETRequest() {
                            "\r\n";
 
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_createTimestampGETRequest() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     std::string request;
     requestHandler->createTimestampGETRequest(&request);
@@ -83,17 +75,13 @@ void test_createTimestampGETRequest() {
                            "\r\n";
 
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_createGenericPOSTRequest() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     std::string request;
     RequestHandlerReturnCode ret =
@@ -118,17 +106,13 @@ void test_createGenericPOSTRequest() {
 
     TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, ret);
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_parseHttpReturnCode() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     const char response1[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 13\r\n\r\nHello, World!";
     const char response2[] = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 9\r\n\r\nNot Found";
@@ -143,17 +127,13 @@ void test_parseHttpReturnCode() {
     TEST_ASSERT_EQUAL(500, requestHandler->parseHttpReturnCode(response3));
     TEST_ASSERT_EQUAL(301, requestHandler->parseHttpReturnCode(response4));
     TEST_ASSERT_EQUAL(403, requestHandler->parseHttpReturnCode(response5));
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_parseResponseIntoJson() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     QueueMessage responseBuffer;
     responseBuffer.buffer_length = 0;
@@ -173,17 +153,13 @@ void test_parseResponseIntoJson() {
             "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 9\r\n\r\nNot Found", 81);
     responseBuffer.str_buffer[81] = '\0';
     TEST_ASSERT_EQUAL(1, requestHandler->parseResponseIntoJson(&responseBuffer, 81));
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void test_parseTimestamp() {
-    auto sdcardHandler = std::make_shared<SDcardHandler>("/sdcard");
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler.get());
-    auto requestHandler =
-        std::make_shared<RequestHandler>("example.com", "80", "token123", wirelessHandler, sdcardHandler);
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
 
     const std::string response1 =
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 30\r\n\r\n1234567890";
@@ -204,10 +180,6 @@ void test_parseTimestamp() {
     TEST_ASSERT_EQUAL(-2, requestHandler->parseTimestamp(response4));
     TEST_ASSERT_EQUAL(-3, requestHandler->parseTimestamp(response5));
     TEST_ASSERT_EQUAL(-1, requestHandler->parseTimestamp(response6));
-
-    requestHandler.reset();
-    wirelessHandler.reset();
-    sdcardHandler.reset();
 }
 
 void run_all_request_handler_tests() {
