@@ -144,8 +144,13 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     if (planet != MOON) {
         double sun_E = eccentric_anomaly(sun.e, sun.M);
         rect_coordinates sun_xy = to_rectangular_coordinates(sun.a, sun.e, sun_E);
-        sun_xy.z = 0;
-        xyz = xyz + sun_xy;
+        double sun_v = true_anomaly(sun_xy);
+        double sun_r = distance(sun_xy);
+        double sun_lon = sun_v + sun.w;
+        double sun_x = sun_r * cos(sun_lon);
+        double sun_y = sun_r * sin(sun_lon);
+        xyz.x = xyz.x + sun_x;
+        xyz.y = xyz.y + sun_y;
     }
     xyz = rotate_through_obliquity_of_eplectic(xyz, obliquity);
     spherical_coordinates sc = to_spherical_coordinates(xyz);
