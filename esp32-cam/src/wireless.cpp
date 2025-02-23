@@ -18,10 +18,10 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-WirelessHandler::WirelessHandler(SDcardHandler *sdcardhandler, int wifi_retry_limit) {
+WirelessHandler::WirelessHandler(std::shared_ptr<SDcardHandler> sdcardhandler) {
     this->sdcardHandler = sdcardhandler;
 
-    this->WIFI_RETRY_ATTEMPTS = wifi_retry_limit;
+    this->WIFI_RETRY_ATTEMPTS = WIFI_RETRY_LIMIT;
 
     this->netif = NULL;
     this->s_wifi_event_group = NULL;

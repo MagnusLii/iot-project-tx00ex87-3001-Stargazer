@@ -147,7 +147,7 @@ void init_task(void *pvParameters) {
     }
 #endif // ENABLE_CLEARING_SD_CARD
 
-    handlers->wirelessHandler = std::make_shared<WirelessHandler>(handlers->sdcardHandler.get());
+    handlers->wirelessHandler = std::make_shared<WirelessHandler>(handlers->sdcardHandler);
 
     // Read settings from SD card
     std::unordered_map<Settings, std::string> settings;

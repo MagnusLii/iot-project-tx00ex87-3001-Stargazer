@@ -8,15 +8,17 @@
 #include "esp_netif.h"
 #include "sd-card.hpp"
 #include <unordered_map>
+#include <memory>
 
 
 #define WIFI_AUTHMODE WIFI_AUTH_WPA2_PSK
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
+#define WIFI_RETRY_LIMIT 3
 
 class WirelessHandler {
     public:
-        WirelessHandler(SDcardHandler* sdcardhandler, int wifi_retry_limit = 3);
+        WirelessHandler(std::shared_ptr<SDcardHandler> sdcardhandler);
         esp_err_t init(void);
         esp_err_t connect(const char *ssid, const char *password);
         esp_err_t disconnect(void);
@@ -53,7 +55,7 @@ class WirelessHandler {
         EventGroupHandle_t s_wifi_event_group;
         SemaphoreHandle_t wifi_mutex;
 
-        SDcardHandler *sdcardHandler;
+        std::shared_ptr<SDcardHandler> sdcardHandler;
 };
 
 #endif
