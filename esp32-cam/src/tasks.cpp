@@ -41,7 +41,7 @@
 // Enables clearing the SD card when space is low
 #define ENABLE_CLEARING_SD_CARD
 
-// #define SAVE_TEST_SETTINGS_TO_SDCARD
+#define SAVE_TEST_SETTINGS_TO_SDCARD
 
 // #define PRINT_SETTINGS_READ_FROM_SDCARD
 
@@ -158,6 +158,7 @@ void init_task(void *pvParameters) {
     settings[Settings::WEB_DOMAIN] = TEST_WEB_SERVER;
     settings[Settings::WEB_PORT] = TEST_WEB_PORT;
     settings[Settings::WEB_TOKEN] = TEST_WEB_TOKEN;
+    settings[Settings::WEB_CERTIFICATE] = TEST_CERTIFICATE;
 
     if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
         DEBUG("Failed to save settings to SD card");
@@ -199,8 +200,7 @@ void init_task(void *pvParameters) {
                                        handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
 
     // Initialize request handler
-    handlers->requestHandler = std::make_shared<RequestHandler>(TEST_WEB_SERVER, TEST_WEB_PORT, TEST_WEB_TOKEN,
-                                                                handlers->wirelessHandler, handlers->sdcardHandler);
+    handlers->requestHandler = std::make_shared<RequestHandler>(handlers->wirelessHandler, handlers->sdcardHandler);
 
     // Initialize camera
     auto cameraHandler =
@@ -404,11 +404,6 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Set time synced status
                     requestHandler->setTimeSyncedStatus(true);
-
-                    // TODO: forward to pico?
-                    // uart_msg = msg::datetime_response(get_datetime());
-                    // convert_to_string(uart_msg, uart_msg_str);
-                    // espPicoCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
 
                     // Clear variables
                     response.buffer_length = 0;
