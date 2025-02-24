@@ -4,8 +4,15 @@
 #include "debug.hpp"
 #include <hardware/regs/clocks.h>
 
+static void alarm_sleep_callback(uint alarm_id) {
+    DEBUG("Woken by timer \n");
+    uart_default_tx_wait_blocking();
+    hardware_alarm_set_callback(alarm_id, NULL);
+    hardware_alarm_unclaim(alarm_id);
+}
+
 // remember to call sleep_power_up() after sleeping to enable the clocks and generators
-bool sleep_for(uint hours, uint mins, hardware_alarm_callback_t callback) {
+bool sleep_for(uint hours, uint mins) {
 
     if (mins > 60) {
         while (mins >= 60) {
@@ -22,16 +29,19 @@ bool sleep_for(uint hours, uint mins, hardware_alarm_callback_t callback) {
     // Turn off all clocks except the RTC ones (I hope)
     clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_CLK_RTC_RTC_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS;
     // Turn off all the clocks except the ones relating to UART, USB and Timer (I hope)
-    clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN0_CLK_RTC_RTC_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS;
+    clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS |
+                               CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS |
+                               CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS |
+                               CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
 
-    int alarm_num = hardware_alarm_claim_unused(true);
-    hardware_alarm_set_callback(alarm_num, callback);
-    absolute_time_t t = make_timeout_time_ms(total_time);
-    if (hardware_alarm_set_target(alarm_num, t)) {
-        hardware_alarm_set_callback(alarm_num, NULL);
-        hardware_alarm_unclaim(alarm_num);
-        return false;
-    }
+    // int alarm_num = hardware_alarm_claim_unused(true);
+    // hardware_alarm_set_callback(alarm_num, alarm_sleep_callback);
+    // absolute_time_t t = make_timeout_time_ms(total_time);
+    // if (hardware_alarm_set_target(alarm_num, t)) {
+    //     hardware_alarm_set_callback(alarm_num, NULL);
+    //     hardware_alarm_unclaim(alarm_num);
+    //     return false;
+    // }
     stdio_flush();
 
     // Enable deep sleep at the proc
@@ -72,7 +82,7 @@ void sleep_until_certain_time(const std::shared_ptr<Clock> &clock, const datetim
         uint sleep_timer = (target_time_unix - current_time_unix) * 1000;
 
         // Turn off all clocks except the RTC ones (I hope)
-        clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS;
+        clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS | CLOCKS_SLEEP_EN0_CLK_RTC_RTC_BITS;
         // Turn off all the clocks except the ones relating to UART, USB and Timer (I hope)
         clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS |
                                CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS |

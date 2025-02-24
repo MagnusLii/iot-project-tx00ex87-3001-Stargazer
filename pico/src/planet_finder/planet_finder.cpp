@@ -203,7 +203,7 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
     std::cout << "end" << std::endl;
 }
 
-Command Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+Command Celestial::get_interest_point_command(Interest_point point, const datetime_t &start_date) {
     Command zenith = get_zenith_time(start_date);
     if (point == ZENITH) return zenith;
 

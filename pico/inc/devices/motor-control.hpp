@@ -18,6 +18,7 @@ class MotorControl {
     public:
       MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared_ptr<StepperMotor> vertical, int optopin_horizontal=-1, int optopin_vertical=-1);
       bool turn_to_coordinates(azimuthal_coordinates coords);
+      void off(void);
 
       void calibrate(void);
       bool isCalibrated(void) const;

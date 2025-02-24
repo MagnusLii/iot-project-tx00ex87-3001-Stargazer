@@ -37,6 +37,11 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
     return true;
 }
 
+void MotorControl::off(void) {
+    horizontal_calibrated = false;
+    vertical_calibrated = false;
+}
+
 //// PRIVATE ////
 
 void MotorControl::init_optoforks(void) {

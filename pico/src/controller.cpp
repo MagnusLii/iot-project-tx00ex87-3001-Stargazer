@@ -2,13 +2,29 @@
 
 #include "debug.hpp"
 #include "message.hpp"
+#include "sleep_functions.hpp"
+
+#include <algorithm>
+
+
+bool compare_time(const Command &first, const Command &second) {
+    if (first.time.year < second.time.year) return false;
+    else if (first.time.year > second.time.year) return true;
+    if (first.time.month < second.time.month) return false;
+    else if (first.time.month > second.time.month) return true;
+    if (first.time.day < second.time.day) return false;
+    else if (first.time.day > second.time.day) return true;
+    if (first.time.hour < second.time.hour) return false;
+    else if (first.time.hour > second.time.hour) return true;
+    if (first.time.min < second.time.min) return false;
+    else if (first.time.min > second.time.min) return true;
+    return false;
+}
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
-                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<StepperMotor> motor_horizontal,
-                       std::shared_ptr<StepperMotor> motor_vertical,
+                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
                        std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), motor_horizontal(motor_horizontal),
-      motor_vertical(motor_vertical), msg_queue(msg_queue) {
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue) {
     state = COMM_READ;
 }
 
@@ -24,9 +40,13 @@ void Controller::run() {
         }
     }
     int image_id = 1;  // TODO: ^
-
+    char buffer[256] = {0};
     DEBUG("Starting main loop");
     while (true) {
+        if (stdio_get_until(buffer, 1, delayed_by_ms(get_absolute_time(), 50)) != PICO_ERROR_TIMEOUT) {
+            std::cout << buffer << std::endl;
+            std::cout << "got peek" << std::endl;
+        }
         DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
@@ -37,6 +57,8 @@ void Controller::run() {
                 else if (instr_msg_queue.size() > 0) state = INSTR_PROCESS;
                 else if (check_motor) state = MOTOR_WAIT;
                 else if (waiting_for_camera) state = COMM_READ;
+                else if (mctrl->isCalibrating()) state = COMM_READ;
+                else if (mctrl->isCalibrated()) state = MOTOR_CONTROL;
                 else state = SLEEP;
                 break;
             case COMM_PROCESS:
@@ -45,13 +67,16 @@ void Controller::run() {
             case INSTR_PROCESS:
                 instr_process();
                 break;
+            case MOTOR_CALIBRATE:
+                    mctrl->calibrate();
+                    state = COMM_READ;
+                break;
             case MOTOR_CONTROL:
-                // TODO: Control motors to adjust the camera in the direction of the object
-                // motor_horizontal->turn_to_radians(commands[0].coords.azimuth);
-                // motor_vertical->turn_to_radians(commands[0].coords.altitude);
+                // TODO: check if its actually the time to do stuff
+                mctrl->turn_to_coordinates(commands.front().coords);
                 check_motor = true;
             case MOTOR_WAIT:
-                if (motor_horizontal->isRunning() || motor_vertical->isRunning()) state = COMM_READ;
+                if (mctrl->isRunning()) state = COMM_READ;
                 else {
                     state = CAMERA_EXECUTE;
                     check_motor = false;
@@ -62,14 +87,20 @@ void Controller::run() {
                 waiting_for_camera = true;
                 break;
             case MOTOR_OFF:
-                // motor_horizontal->off();
-                // motor_vertical->off();
+                waiting_for_camera = false;
+                mctrl->off();
             case SLEEP: // TODO: Go here after full round of nothing to do?
                 DEBUG("Sleeping");
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    sleep_ms(1000);
+                    sleep_for(10, 9);
+                    if (clock->is_alarm_ringing()) {
+                        clock->clear_alarm();
+                        state = MOTOR_CONTROL;
+                    } else {
+                        state = COMM_READ;
+                    }
                     // goes to state COMM_READ OR MOTOR_CONTROL
                     // TODO: Sleeping
                 }
@@ -167,14 +198,14 @@ void Controller::instr_process() {
             if (position < 1 || position > 3) error = true;
         } else error = true;
         if (!error) {
-            Command command;
             Celestial celestial(planet);
-            // void set_observer_coordinates(gps->get_coordinates());
-            // command = celestial.get_interest_point_command(position, clock->get_datetime());
+            celestial.set_observer_coordinates(gps->get_coordinates());
+            commands.push_back(celestial.get_interest_point_command((Interest_point)position, clock->get_datetime()));
             // TODO: correct azimuth
-            commands.push_back(command);
-            // sort
-            // clock->set_alarm();
+            std::sort(commands.begin(), commands.end(), compare_time);
+            if (commands.size() > 0) clock->add_alarm(commands[0].time);
+        } else {
+            DEBUG("Error in instruction.");
         }
     }
     instr_msg_queue.pop();

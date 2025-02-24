@@ -161,6 +161,11 @@ void StepperMotor::stop() {
     pio_sm_set_enabled(pioInstance, stateMachine, true);
 }
 
+void StepperMotor::off() {
+    // TODO: make this work
+    return;
+}
+
 int StepperMotor::read_steps_left(void) {
     uint8_t pc = pio_sm_get_pc(pioInstance, stateMachine); // Get the current program counter
     uint8_t loop_offset = programOffset + stepper_clockwise_offset_loop;

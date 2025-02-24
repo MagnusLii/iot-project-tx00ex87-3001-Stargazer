@@ -7,6 +7,7 @@
 #include "compass.hpp"
 #include "gps.hpp"
 #include "stepper-motor.hpp"
+#include "motor-control.hpp"
 #include "convert.hpp"
 #include "planet_finder.hpp"
 #include "structs.hpp"
@@ -28,6 +29,7 @@ class Controller {
         CHECK_QUEUES,
         COMM_PROCESS,
         INSTR_PROCESS,
+        MOTOR_CALIBRATE,
         MOTOR_CONTROL,
         MOTOR_WAIT,
         MOTOR_OFF,
@@ -37,8 +39,7 @@ class Controller {
 
   public:
     Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
-                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<StepperMotor> motor_horizontal,
-                       std::shared_ptr<StepperMotor> motor_vertical,
+                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
                        std::shared_ptr<std::queue<msg::Message>> msg_queue);
 
     void run();
@@ -69,8 +70,7 @@ class Controller {
     std::shared_ptr<GPS> gps;
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
-    std::shared_ptr<StepperMotor> motor_horizontal;
-    std::shared_ptr<StepperMotor> motor_vertical;
+    std::shared_ptr<MotorControl> mctrl;
 
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };
