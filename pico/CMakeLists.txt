@@ -16,7 +16,7 @@ set(COMMON_DIR ../common)
 pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
-    src/test_main.cpp
+    src/main.cpp
     src/commbridge.cpp
     src/controller.cpp
     src/hardware/uart/PicoUart.cpp
