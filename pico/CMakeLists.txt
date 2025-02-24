@@ -16,15 +16,15 @@ set(COMMON_DIR ../common)
 pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
-    src/main.cpp
+    src/test_main.cpp
     src/commbridge.cpp
     src/controller.cpp
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
-    src/devices/gps.cpp
-    src/devices/compass.cpp
     src/hardware/clock.cpp
     src/hardware/sleep_functions.cpp
+    src/devices/gps.cpp
+    src/devices/compass.cpp
     src/devices/stepper-motor.cpp
     src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
@@ -110,12 +110,11 @@ target_link_libraries(${PROJECT_NAME}_test
     hardware_gpio
     hardware_rtc
     hardware_pio
+    hardware_rosc
+    hardware_sleep
     message
     crc
     convert
-    hardware_pio
-    hardware_rosc
-    hardware_sleep
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")

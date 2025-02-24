@@ -3,6 +3,7 @@
 #include "debug.hpp"
 int main() {
     stdio_init_all();
+    /*
     std::cout << "abc" << std::endl;
     std::vector<uint> pins1{2, 3, 6, 13};
     std::vector<uint> pins2{16,17,18,19};
@@ -34,7 +35,7 @@ int main() {
 
     mctrl.calibrate();
     while (mctrl.isCalibrating()) ;
-
+    */
     return 0;
 }
 

@@ -9,13 +9,16 @@
 #include "stepper-motor.hpp"
 #include "convert.hpp"
 #include "planet_finder.hpp"
+#include "structs.hpp"
 
 // Maybe move this to another file
+/*
 struct Command {
     uint64_t id;
     azimuthal_coordinates coords;
     datetime_t time;
 };
+*/
 
 class Controller {
   public:

@@ -1,6 +1,7 @@
 #include "controller.hpp"
 
 #include "debug.hpp"
+#include "message.hpp"
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<StepperMotor> motor_horizontal,
@@ -22,7 +23,6 @@ void Controller::run() {
             return;
         }
     }
-    int object_id = 1; // TODO: remove this
     int image_id = 1;  // TODO: ^
 
     DEBUG("Starting main loop");
@@ -58,7 +58,7 @@ void Controller::run() {
                 }
                 break;
             case CAMERA_EXECUTE:
-                commbridge->send(msg::picture(object_id, image_id));
+                commbridge->send(msg::picture(image_id));
                 waiting_for_camera = true;
                 break;
             case MOTOR_OFF:
@@ -129,7 +129,7 @@ void Controller::comm_process() {
                 DEBUG("Received datetime");
                 clock->update(msg.content[0]);
                 break;
-            case msg::ESP_INIT: // Send ACK response back to ESP
+            case msg::DEVICE_STATUS: // Send ACK response back to ESP
                 DEBUG("Received ESP init");
                 commbridge->send(msg::response(true));
                 break;
