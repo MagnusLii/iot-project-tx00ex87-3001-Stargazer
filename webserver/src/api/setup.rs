@@ -37,9 +37,11 @@ pub async fn create_diagnostics_table(db: &SqlitePool) {
         "CREATE TABLE IF NOT EXISTS diagnostics (
             id INTEGER PRIMARY KEY,
             token TEXT NOT NULL,
-            status TEXT NOT NULL,
+            status INTEGER NOT NULL,
             message TEXT,
+            time INTEGER DEFAULT (unixepoch('now')),
             FOREIGN KEY (token) REFERENCES keys (api_token)
+            FOREIGN KEY (status) REFERENCES diagnostics_status (id)   
         )",
     )
     .execute(db)
@@ -115,6 +117,32 @@ async fn populate_position_table(db: &SqlitePool) {
         (1, 'Rising'),
         (2, 'Zenith'),
         (3, 'Setting')",
+    )
+    .execute(db)
+    .await
+    .unwrap();
+}
+
+pub async fn create_diagnostics_status_table(db: &SqlitePool) {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS diagnostics_status (
+            id INTEGER PRIMARY KEY,
+            status TEXT NOT NULL
+        )",
+    )
+    .execute(db)
+    .await
+    .unwrap();
+
+    populate_diagnostics_status_table(db).await;
+}
+
+async fn populate_diagnostics_status_table(db: &SqlitePool) {
+    sqlx::query(
+        "INSERT INTO diagnostics_status VALUES 
+        (1, 'Info'),
+        (2, 'Warning'),
+        (3, 'Error')",
     )
     .execute(db)
     .await
