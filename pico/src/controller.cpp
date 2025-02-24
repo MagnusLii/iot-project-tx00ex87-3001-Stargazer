@@ -7,18 +7,13 @@
 #include <algorithm>
 
 
-bool compare_time(const Command &first, const Command &second) {
-    if (first.time.year < second.time.year) return false;
-    else if (first.time.year > second.time.year) return true;
-    if (first.time.month < second.time.month) return false;
-    else if (first.time.month > second.time.month) return true;
-    if (first.time.day < second.time.day) return false;
-    else if (first.time.day > second.time.day) return true;
-    if (first.time.hour < second.time.hour) return false;
-    else if (first.time.hour > second.time.hour) return true;
-    if (first.time.min < second.time.min) return false;
-    else if (first.time.min > second.time.min) return true;
-    return false;
+bool compare_time(const Command& a, const Command& b) {
+    if (a.time.year != b.time.year) return a.time.year < b.time.year;
+    if (a.time.month != b.time.month) return a.time.month < b.time.month;
+    if (a.time.day != b.time.day) return a.time.day < b.time.day;
+    if (a.time.hour != b.time.hour) return a.time.hour < b.time.hour;
+    if (a.time.min != b.time.min) return a.time.min < b.time.min;
+    return a.time.sec < b.time.sec;
 }
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
@@ -44,10 +39,55 @@ void Controller::run() {
     DEBUG("Starting main loop");
     while (true) {
         if (stdio_get_until(buffer, 1, delayed_by_ms(get_absolute_time(), 50)) != PICO_ERROR_TIMEOUT) {
-            std::cout << buffer << std::endl;
-            std::cout << "got peek" << std::endl;
+            Command command;
+            bool done = false;
+            bool first = true;
+            while (!done) {
+                std::cin.getline(buffer + (first ? 1 : 0), 255);
+                first = false;
+                std::string strong(buffer);
+                std::string cmd;
+                std::stringstream strung(strong);
+                strung >> cmd;
+                if (cmd == "d") {
+                    int year, month, day, hour, min;
+                    strung >> year >> month >> day >> hour >> min;
+                    command.time.year = year;
+                    command.time.month = month;
+                    command.time.day = day;
+                    command.time.hour = hour;
+                    command.time.min = min;
+                    command.time.sec = 0;
+                    DEBUG((int)command.time.year, (int)command.time.month, (int)command.time.day, (int)command.time.hour, (int)command.time.min);
+                } else if (cmd == "c") {
+                    double alti, azi;
+                    strung >> alti >> azi;
+                    command.coords.altitude = alti * M_PI / 180.0;
+                    command.coords.azimuth = azi * M_PI / 180.0;
+                    DEBUG(command.coords.altitude, command.coords.azimuth);
+                } else if (cmd == "done") {
+                    DEBUG("done");
+                    done = true;
+                    commands.push_back(command);
+                    msg::Message mes = msg::instructions(2, 69, 2);
+                    instr_msg_queue.push(mes);
+                    state = COMM_READ;
+                } else if (cmd == "clock") {
+                    int toime;
+                    strung >> toime;
+                    DEBUG(toime);
+                    clock->update(toime);
+                } else if (cmd == "oc") {
+                    double lat, lon;
+                    strung >> lat >> lon;
+                    DEBUG(lat, lon);
+                    #ifdef ENABLE_DEBUG
+                    gps->debug_set_coordinates(lat, lon);
+                    #endif
+                }
+            }
         }
-        DEBUG("State: ", state);
+        // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
@@ -90,14 +130,14 @@ void Controller::run() {
                 waiting_for_camera = false;
                 mctrl->off();
             case SLEEP: // TODO: Go here after full round of nothing to do?
-                DEBUG("Sleeping");
+                // DEBUG("Sleeping");
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    sleep_for(10, 9);
+                    // sleep_for(10, 9);
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
-                        state = MOTOR_CONTROL;
+                        state = MOTOR_CALIBRATE;
                     } else {
                         state = COMM_READ;
                     }
@@ -203,6 +243,7 @@ void Controller::instr_process() {
             commands.push_back(celestial.get_interest_point_command((Interest_point)position, clock->get_datetime()));
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
+            DEBUG((int)commands.front().time.day);
             if (commands.size() > 0) clock->add_alarm(commands[0].time);
         } else {
             DEBUG("Error in instruction.");

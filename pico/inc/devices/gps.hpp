@@ -27,7 +27,9 @@ class GPS {
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
     void set_mode(Mode mode);
-
+    #ifdef ENABLE_DEBUG
+    void debug_set_coordinates(double lat, double lon);
+    #endif
   private:
     enum class SentenceState {
         EMPTY,

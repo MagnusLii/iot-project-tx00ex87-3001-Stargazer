@@ -99,6 +99,13 @@ void GPS::set_mode(Mode mode) {
     }
 }
 
+#ifdef ENABLE_DEBUG
+void GPS::debug_set_coordinates(double lat, double lon) {
+    latitude = lat;
+    longitude = lon;
+}
+#endif
+
 int GPS::parse_gpgga() {
     std::stringstream ss(gps_sentence);
     std::string token;
