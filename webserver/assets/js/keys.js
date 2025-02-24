@@ -1,14 +1,19 @@
 "use strict";
 
 function generateKey() {
+    const name = document.getElementById("name-key").value;
+    if (name == "") {
+        alert("Please enter a name");
+        return;
+    }
+
     fetch(`/control/keys`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ "name": document.getElementById("name-key").value })
+        body: JSON.stringify({ "name": name })
     }).then(response => response.text()).then(data => {
-        console.log(data);
         document.getElementById("ro-key").value = data;
     }).catch(() => {
         alert("Issue generating key");

@@ -1,5 +1,4 @@
 #include "message.hpp"
-#include <cstdint>
 
 namespace msg {
 
@@ -43,8 +42,8 @@ MessageType verify_message_type(std::string &str) {
             return RESPONSE;
         case DATETIME:
             return DATETIME;
-        case ESP_INIT:
-            return ESP_INIT;
+        case DEVICE_STATUS:
+            return DEVICE_STATUS;
         case INSTRUCTIONS:
             return INSTRUCTIONS;
         case PICTURE:
@@ -98,11 +97,11 @@ Message datetime_response(int datetime) {
     return Message{.type = DATETIME, .content = {std::to_string(datetime)}};
 }
 
-Message esp_init(bool success) {
-    if (success) {
-        return Message{.type = ESP_INIT, .content = {"1"}};
+Message device_status(bool ok) {
+    if (ok) {
+        return Message{.type = DEVICE_STATUS, .content = {"1"}};
     } else {
-        return Message{.type = ESP_INIT, .content = {"0"}};
+        return Message{.type = DEVICE_STATUS, .content = {"0"}};
     }
 }
 
@@ -110,31 +109,32 @@ Message instructions(int object_id, int image_id, int position_id) {
     return Message{.type = INSTRUCTIONS, .content = {std::to_string(object_id), std::to_string(image_id), std::to_string(position_id)}};
 }
 
+Message instructions(const std::string object_id, const std::string image_id, const std::string position_id) {
+    return Message{.type = INSTRUCTIONS, .content = {object_id, image_id, position_id}};
+}
+
 Message cmd_status(int image_id, int status, int datetime) {
     return Message{.type = CMD_STATUS, .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
-Message instructions(const std::string celestial_obj_id, const std::string instruction_identifier_id, const std::string image_position_id) {
-    return Message{.type = INSTRUCTIONS, .content = {celestial_obj_id, instruction_identifier_id, image_position_id}};
+
+Message picture(int image_id) {
+    return Message{.type = PICTURE, .content = {std::to_string(image_id)}};
 }
 
-Message picture(int object_id, int image_id) { // NOTE: Do we actually need to send the object id back to the ESP?
-    return Message{.type = PICTURE, .content = {std::to_string(object_id), std::to_string(image_id)}};
+Message diagnostics(int status, const std::string diagnostic) {
+    return Message{.type = DIAGNOSTICS, .content = {std::to_string(status), diagnostic}};
 }
 
-Message diagnostics(/* diagnostics */) {
-    return Message{.type = DIAGNOSTICS, .content = {/* diagnostics example */ "TBD"}};
-}
-
-Message wifi(std::string ssid, std::string password) {
+Message wifi(const std::string ssid, const std::string password) {
     return Message{.type = WIFI, .content = {ssid, password}};
 }
 
-Message server(std::string server_addr) {
+Message server(const std::string server_addr) {
     return Message{.type = SERVER, .content = {server_addr}};
 }
 
-Message api(std::string api_token) {
+Message api(const std::string api_token) {
     return Message{.type = API, .content = {api_token}};
 }
 

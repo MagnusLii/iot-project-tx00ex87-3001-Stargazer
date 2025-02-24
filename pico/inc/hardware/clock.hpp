@@ -2,10 +2,11 @@
 
 #include "hardware/rtc.h"
 #include "pico/stdlib.h"
-#include "pico/util/datetime.h"
 #include "pico/time.h"
-#include <string>
+#include "pico/util/datetime.h"
+
 #include <ctime>
+#include <string>
 
 class Clock {
   public:
@@ -15,8 +16,15 @@ class Clock {
     void update(time_t timestamp);
     datetime_t get_datetime();
     bool is_synced();
+    void add_alarm(datetime_t datetime);
+    bool is_alarm_ringing();
+    void clear_alarm();
+
+  private:
+    friend void alarm_handler();
 
   private:
     time_t last_timestamp = 0;
     bool synced = false;
+    bool alarm_wakeup = false;
 };

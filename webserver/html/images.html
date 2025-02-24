@@ -30,7 +30,7 @@
                 </div>
             </div>
             <div class="row">
-                <div id="gallery-column" class="col-12">
+                <div id="gallery-column" class="col-6">
                     <label for="gallery-page-size-select">Page size:</label>
                     <select id="gallery-page-size-select" onchange="changePageSize();">
                         <!--PSIZE-->
@@ -40,10 +40,19 @@
                         <option value="24">24</option>
                     </select>
                 </div>
+                <div id="gallery-column" class="col-6 right">
+                    <label for="gallery-view-select">View:</label>
+                    <select id="gallery-view-select" onchange="changeView();">
+                        <option value="1">Small</option>
+                        <option value="2" selected>Medium</option>
+                        <option value="3">Large</option>
+                        <option value="4">Full</option>
+                    </select>
+                </div>
             </div>
             <div class="row">
                 <div id="gallery-column" class="col-12">
-                    <div class="gallery-container">
+                    <div id="gallery-container" class="view-grid-medium">
                         <!--IMAGES-->
                     </div>
                 </div>
@@ -52,15 +61,18 @@
                 <div id="gallery-column" class="col-12">
                     <div id="gallery-pagination">
                         <button id="gallery-previous" onclick="prevPage();">Previous</button>
-                        <a id="gallery-current" class="not-link" data-page=<!--PAGE_TEXT--></a>
+                        <a id="gallery-current" class="not-link" <!--PAGE_TEXT--></a>
                         <button id="gallery-next" onclick="nextPage();">Next</button>
                     </div>
                 </div>
             </div>
         </div>
-        <div id="image-modal" class="modal">
+        <div id="image-modal" class="modal" style="display: none;">
             <span id="image-modal-close" class="close">&times;</span>
-            <img class="modal-content" id="image-modal-content">
+            <figure class="modal-content" id="image-modal-content">
+                <img id="image-modal-image">
+                <figcaption id="image-modal-caption"></figcaption>
+            </figure>
         </div>
     </body>
 </html>

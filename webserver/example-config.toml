@@ -1,4 +1,10 @@
 address = "127.0.0.1"
-port = 8080
-db_dir = "db"
-assets_dir = "assets"
+port_http = 8080
+port_https = 8443
+enable_http = true
+#enable_http_api = true     # Override that takes effect when disable_http is true
+enable_https = false
+#enable_https_api = true    # Override that takes effect when disable_https is true
+db_dir = "./db"
+assets_dir = "./assets"
+certs_dir = "./certs"

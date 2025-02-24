@@ -5,7 +5,7 @@ use crate::{
     SharedState,
 };
 use axum::{
-    extract::{Query, State},
+    extract::{rejection::QueryRejection, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
@@ -38,41 +38,49 @@ pub struct GalleryQuery {
 }
 pub async fn gallery(
     State(state): State<SharedState>,
-    Query(query): Query<GalleryQuery>,
+    query: Result<Query<GalleryQuery>, QueryRejection>,
 ) -> impl IntoResponse {
-    let mut html = include_str!("../../html/images.html").to_string();
-    println!("Query: {:?}", query);
-
     let mut page: u32 = 1;
     let mut page_size: u32 = 8;
 
-    if let Some(p) = query.page {
-        if p > 0 {
-            page = p
+    match query {
+        Ok(q) => {
+            let params = q.0;
+            println!("Query: {:?}", params);
+
+            if let Some(p) = params.page {
+                if p > 0 {
+                    page = p
+                }
+            }
+            if let Some(sz) = params.psize {
+                if sz >= 4 && sz <= 24 {
+                    page_size = sz
+                }
+            }
         }
+        Err(e) => eprintln!("Error parsing query: {}", e),
     }
-    if let Some(p) = query.psize {
-        if p >= 4 && p <= 24 {
-            page_size = p
-        }
-    }
+
+    let mut html = include_str!("../../html/images.html").to_string();
 
     images::check_images(&state.db, &state.image_dir, false)
         .await
         .unwrap();
 
     if let Ok(count) = images::get_image_count(&state.db).await {
-        html = html.replace("<!--COUNT-->", &count.to_string());
-
         let mut last_on_page = (page * page_size) as u64;
         if last_on_page > count {
             last_on_page = count;
         }
 
+        html = html.replace("<!--COUNT-->", &count.to_string());
+
         let total_pages = (count + page_size as u64 - 1) / page_size as u64;
 
         let page_text = format!(
-            "\"{}\">{} - {} (of {} total)",
+            "data-page=\"{}\" data-pages=\"{}\">{} - {} (of {} total)",
+            page,
             total_pages,
             (page - 1) * page_size + 1,
             last_on_page,
@@ -81,21 +89,29 @@ pub async fn gallery(
         html = html.replace("<!--PAGE_TEXT-->", &page_text);
     } else {
         html = html.replace("<!--COUNT-->", "??");
-        html = html.replace("<!--PAGE_TEXT-->", "\"?\">? - ? (of ?? total)");
+        html = html.replace(
+            "<!--PAGE_TEXT-->",
+            "data-page=\"1\" data-pages=\"1\">? - ? (of ?? total)",
+        );
     }
 
-    let psize_ph_text = format!(
+    let psize_selected = format!(
         "<option value=\"{}\" disabled selected>{}</option>",
         page_size, page_size
     );
-    html = html.replace("<!--PSIZE-->", &psize_ph_text);
+    html = html.replace("<!--PSIZE-->", &psize_selected);
 
     match images::get_image_info(&state.db, page, page_size).await {
         Ok(images) => {
             if images.len() > 0 {
                 let html_images = images
                     .iter()
-                    .map(|image| format!("<img class=\"photo\" src=\"{}\"/>", image.web_path))
+                    .map(|image| {
+                        format!(
+                            "<img class=\"photo\" src=\"{}\" alt=\"{}\"/>",
+                            image.web_path, image.name
+                        )
+                    })
                     .collect::<Vec<String>>()
                     .join("\n");
 
@@ -184,7 +200,7 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
         .iter()
         .map(|key| {
             format!(
-                "<li value=\"{}\">{}: {}</li><button onclick=\"deleteKey({})\">Delete</button>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
                 key.id, key.name, key.api_token, key.id
             )
         })
@@ -198,49 +214,141 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
 #[derive(Debug, Deserialize)]
 pub struct DiagnosticQuery {
     name: Option<String>,
+    page: Option<u32>,
+    status: Option<u8>,
 }
 
 pub async fn diagnostics(
     State(state): State<SharedState>,
-    Query(name): Query<DiagnosticQuery>,
+    query: Result<Query<DiagnosticQuery>, QueryRejection>,
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
 
-    let html_diagnostics = diagnostics::get_diagnostics(name.name, &state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|diagnostic| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-                diagnostic.name, diagnostic.status, diagnostic.message
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    let query = match query {
+        Ok(q) => q.0,
+        Err(e) => {
+            eprintln!("Error parsing query: {}", e);
+            DiagnosticQuery {
+                name: None,
+                page: None,
+                status: None,
+            }
+        }
+    };
+
+    let mut valid_query = false;
+    if let Ok(devices) = diagnostics::get_diagnostics_names(&state.db).await {
+        let mut html_devices = "<option value=\"\">All</option>".to_string();
+
+        if let Some(name) = &query.name {
+            html_devices += &devices
+                .iter()
+                .map(|device| {
+                    if &device.name == name {
+                        valid_query = true;
+                        format!(
+                            "<option value=\"{}\" selected>{}</option>",
+                            device.name, device.name
+                        )
+                    } else {
+                        format!("<option value=\"{}\">{}</option>", device.name, device.name)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+        } else {
+            valid_query = true;
+            html_devices += &devices
+                .iter()
+                .map(|device| format!("<option value=\"{}\">{}</option>", device.name, device.name))
+                .collect::<Vec<String>>()
+                .join("\n");
+        }
+        html = html.replace("<!--NAMES-->", &html_devices);
+    }
+
+    if !valid_query {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Invalid name filter</td></tr>",
+        );
+    } else if let Ok(diagnostics) =
+        diagnostics::get_diagnostics(query.name, query.page, query.status, &state.db).await
+    {
+        let html_diagnostics = diagnostics
+            .data
+            .iter()
+            .map(|diagnostic| {
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let html_count = format!(
+            "<a id=\"page_count\" class=\"not-link\" data-page=\"{}\" data-pages=\"{}\">{} / {}</a>",
+            diagnostics.page, diagnostics.pages, diagnostics.page, diagnostics.pages
+        );
+
+        let html_statuses = if let Some(status) = query.status {
+            match status {
+                1 => "<option value=\"\">All</option><option value=\"1\" selected>Info</option><option value=\"2\">Warning</option><option value=\"3\">Error</option>".to_string(),
+                2 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\" selected>Warning</option><option value=\"3\">Error</option>".to_string(),
+                3 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\">Warning</option><option value=\"3\" selected>Error</option>".to_string(),
+                _ => diagnostics::STATUS_DEFAULT.to_string(),
+            }
+        } else {
+            diagnostics::STATUS_DEFAULT.to_string()
+        };
+
+        html = html.replace("<!--STATUSES-->", &html_statuses);
+        html = html.replace("<!--PAGINATION-->", &html_count);
+        html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    } else {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Could not load diagnostics</td></tr>",
+        );
+    }
 
     (StatusCode::OK, Html(html))
 }
 
 pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
+    let forbidden = include_str!("../../html/user_management_403.html").to_string();
     if let Some(user) = auth_session.user {
         if user.superuser != true {
-            return (
-                StatusCode::FORBIDDEN,
-                Html(include_str!("../../html/403.html").to_string()),
-            );
+            return (StatusCode::FORBIDDEN, Html(forbidden));
         }
+    } else {
+        return (StatusCode::FORBIDDEN, Html(forbidden));
     }
 
     let mut html = include_str!("../../html/user_management.html").to_string();
 
-    if let Ok(users) = auth_session.backend.get_users().await {
+    if let Ok(admins) = auth_session.backend.get_users(Some(true)).await {
+        let html_admins = admins
+            .iter()
+            .map(|user| format!("<li value=\"{}\">{}</li>", user.id, user.username))
+            .collect::<Vec<String>>()
+            .join("\n");
+        html = html.replace("<!--ADMINS-->", &html_admins);
+    } else {
+        html = html.replace("<!--ADMINS-->", "<section>Error loading admins</section>");
+    }
+
+    if let Ok(users) = auth_session.backend.get_users(Some(false)).await {
         let html_users = users
             .iter()
             .map(|user| {
                 format!(
-                    "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button>",
+                    "<li value=\"{}\">{}<button onclick=\"deleteUser({})\">Delete</button></li>",
                     user.id, user.username, user.id
                 )
             })

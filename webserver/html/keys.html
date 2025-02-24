@@ -30,20 +30,35 @@
         </div>
         <div id="control-content" class="main-content">
             <div class="row">
-                <div id="keys-column" class="col-12">
-                    <p>Keys page</p>
-                    <br>
+                <div id="keys-column" class="col-6">
                     <div id="gen-key">
-                        <label for="name-key">Name:</label>
-                        <input type="text" id="name-key">
-                        <button value="Generate new key" onclick="generateKey()">Generate new key</button>
-                        <input type="text" id="ro-key" value="" readonly>
-                        <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+                        <h3>Generate new key</h3>
+                        <div class="row">
+                            <label for="name-key">Name:</label>
+                            <input type="text" id="name-key">
+                            <button value="generate" onclick="generateKey()">Generate</button>
+                        </div>
+                        <div class="row">
+                            <label for="ro-key">Key:</label>
+                            <input type="text" id="ro-key" value="" placeholder="Press <Generate> for key" readonly>
+                            <button value="Copy" onclick="navigator.clipboard.writeText(document.getElementById('ro-key').value);">Copy</button>
+                        </div>
                     </div>
-                    <br>
-                    <ol id="keys">
-                        <!--API_KEYS-->
-                    </ol>
+                </div>
+                <div id="keys-column" class="col-6">
+                    <table id="api-key-table">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Key</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="api-key-list">
+                            <!--API_KEYS-->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

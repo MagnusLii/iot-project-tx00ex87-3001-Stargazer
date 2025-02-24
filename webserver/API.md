@@ -52,6 +52,10 @@ The JSON should contain the following fields:
 - `token`: The API token (string)
 - `id`: The ID of the command (int)
 - `status`: The command status (int)
+```
+Command status: (-)1 = Fetch, (-)2 = Calculate, ((-)3 = Picture)
+Negative sign indicates error in said stage.
+```
 
 Optional fields:
 - `time`: The estimated time to take the photo (int) [NOTE: unix epoch time sent along with status 2]
@@ -64,10 +68,10 @@ curl -H "Content-Type: application/json" --request POST --data "{\"token\":\"ae0
 ## `/api/diagnostics`
 Send diagnostics to the webserver.
 
-[NOTE: TBD] The JSON should contain the following fields:
+The JSON should contain the following fields:
 
 - `token`: The API token (string)
-- `status`: The status (string)
+- `status`: The status (int)
 - `message`: The message (string)
 
 ## `/api/time`
