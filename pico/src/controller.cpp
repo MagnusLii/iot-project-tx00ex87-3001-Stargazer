@@ -118,13 +118,14 @@ void Controller::run() {
             case MOTOR_WAIT:
                 if (mctrl->isRunning()) state = COMM_READ;
                 else {
-                    state = CAMERA_EXECUTE;
+                    state = COMM_READ;
                     check_motor = false;
+                    commbridge->send(msg::picture(image_id));
+                    waiting_for_camera = true;
                 }
                 break;
             case CAMERA_EXECUTE:
-                commbridge->send(msg::picture(image_id));
-                waiting_for_camera = true;
+                
                 break;
             case MOTOR_OFF:
                 waiting_for_camera = false;
