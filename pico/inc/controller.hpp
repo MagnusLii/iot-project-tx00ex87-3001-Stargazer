@@ -5,21 +5,12 @@
 #include "clock.hpp"
 #include "commbridge.hpp"
 #include "compass.hpp"
-#include "gps.hpp"
-#include "stepper-motor.hpp"
-#include "motor-control.hpp"
 #include "convert.hpp"
+#include "gps.hpp"
+#include "motor-control.hpp"
 #include "planet_finder.hpp"
+#include "stepper-motor.hpp"
 #include "structs.hpp"
-
-// Maybe move this to another file
-/*
-struct Command {
-    uint64_t id;
-    azimuthal_coordinates coords;
-    datetime_t time;
-};
-*/
 
 class Controller {
   public:
@@ -34,13 +25,12 @@ class Controller {
         MOTOR_WAIT,
         MOTOR_OFF,
         CAMERA_EXECUTE,
-
     };
 
   public:
     Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
-                       std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
-                       std::shared_ptr<std::queue<msg::Message>> msg_queue);
+               std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
+               std::shared_ptr<std::queue<msg::Message>> msg_queue);
 
     void run();
 
@@ -51,6 +41,7 @@ class Controller {
     void instr_process();
     void motor_control();
     void camera_execute();
+    bool config_mode();
 
   private:
     msg::MessageType last_sent = msg::UNASSIGNED;
@@ -65,7 +56,6 @@ class Controller {
 
     std::vector<Command> commands;
 
-
     std::shared_ptr<Clock> clock;
     std::shared_ptr<GPS> gps;
     std::shared_ptr<Compass> compass;
@@ -74,7 +64,6 @@ class Controller {
 
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };
-
 
 // void sleep() {
 //   goto_sleep()

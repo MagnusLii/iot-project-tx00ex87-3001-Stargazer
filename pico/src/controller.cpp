@@ -5,9 +5,11 @@
 #include "sleep_functions.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <pico/time.h>
+#include <pico/types.h>
 
-
-bool compare_time(const Command& a, const Command& b) {
+bool compare_time(const Command &a, const Command &b) {
     if (a.time.year != b.time.year) return a.time.year < b.time.year;
     if (a.time.month != b.time.month) return a.time.month < b.time.month;
     if (a.time.day != b.time.day) return a.time.day < b.time.day;
@@ -34,72 +36,30 @@ void Controller::run() {
             return;
         }
     }
-    int image_id = 1;  // TODO: ^
-    char buffer[256] = {0};
+    int image_id = 1; // TODO: ^
     DEBUG("Starting main loop");
     while (true) {
-        if (stdio_get_until(buffer, 1, delayed_by_ms(get_absolute_time(), 50)) != PICO_ERROR_TIMEOUT) {
-            Command command;
-            bool done = false;
-            bool first = true;
-            while (!done) {
-                std::cin.getline(buffer + (first ? 1 : 0), 255);
-                first = false;
-                std::string strong(buffer);
-                std::string cmd;
-                std::stringstream strung(strong);
-                strung >> cmd;
-                if (cmd == "d") {
-                    int year, month, day, hour, min;
-                    strung >> year >> month >> day >> hour >> min;
-                    command.time.year = year;
-                    command.time.month = month;
-                    command.time.day = day;
-                    command.time.hour = hour;
-                    command.time.min = min;
-                    command.time.sec = 0;
-                    DEBUG((int)command.time.year, (int)command.time.month, (int)command.time.day, (int)command.time.hour, (int)command.time.min);
-                } else if (cmd == "c") {
-                    double alti, azi;
-                    strung >> alti >> azi;
-                    command.coords.altitude = alti * M_PI / 180.0;
-                    command.coords.azimuth = azi * M_PI / 180.0;
-                    DEBUG(command.coords.altitude, command.coords.azimuth);
-                } else if (cmd == "done") {
-                    DEBUG("done");
-                    done = true;
-                    commands.push_back(command);
-                    msg::Message mes = msg::instructions(2, 69, 2);
-                    instr_msg_queue.push(mes);
-                    state = COMM_READ;
-                } else if (cmd == "clock") {
-                    int toime;
-                    strung >> toime;
-                    DEBUG(toime);
-                    clock->update(toime);
-                } else if (cmd == "oc") {
-                    double lat, lon;
-                    strung >> lat >> lon;
-                    DEBUG(lat, lon);
-                    #ifdef ENABLE_DEBUG
-                    gps->debug_set_coordinates(lat, lon);
-                    #endif
-                }
-            }
-        }
+        if (config_mode()) { DEBUG("Exited config mode"); }
         // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
                 commbridge->read_and_parse(1000, true);
             case CHECK_QUEUES:
-                if (msg_queue->size() > 0) state = COMM_PROCESS;
-                else if (instr_msg_queue.size() > 0) state = INSTR_PROCESS;
-                else if (check_motor) state = MOTOR_WAIT;
-                else if (waiting_for_camera) state = COMM_READ;
-                else if (mctrl->isCalibrating()) state = COMM_READ;
-                else if (mctrl->isCalibrated()) state = MOTOR_CONTROL;
-                else state = SLEEP;
+                if (msg_queue->size() > 0)
+                    state = COMM_PROCESS;
+                else if (instr_msg_queue.size() > 0)
+                    state = INSTR_PROCESS;
+                else if (check_motor)
+                    state = MOTOR_WAIT;
+                else if (waiting_for_camera)
+                    state = COMM_READ;
+                else if (mctrl->isCalibrating())
+                    state = COMM_READ;
+                else if (mctrl->isCalibrated())
+                    state = MOTOR_CONTROL;
+                else
+                    state = SLEEP;
                 break;
             case COMM_PROCESS:
                 comm_process();
@@ -108,15 +68,16 @@ void Controller::run() {
                 instr_process();
                 break;
             case MOTOR_CALIBRATE:
-                    mctrl->calibrate();
-                    state = COMM_READ;
+                mctrl->calibrate();
+                state = COMM_READ;
                 break;
             case MOTOR_CONTROL:
                 // TODO: check if its actually the time to do stuff
                 mctrl->turn_to_coordinates(commands.front().coords);
                 check_motor = true;
             case MOTOR_WAIT:
-                if (mctrl->isRunning()) state = COMM_READ;
+                if (mctrl->isRunning())
+                    state = COMM_READ;
                 else {
                     state = CAMERA_EXECUTE;
                     check_motor = false;
@@ -160,9 +121,9 @@ bool Controller::init() {
 
     gps->set_mode(GPS::Mode::FULL_ON);
     commbridge->send(msg::datetime_request());
-    //compass->calibrate();
-    // Motor calibration
-    // TODO: use compass to correct azimuth of commands
+    // compass->calibrate();
+    //  Motor calibration
+    //  TODO: use compass to correct azimuth of commands
     while (!result && attempts < 9) {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
         gps->locate_position(2);
@@ -175,7 +136,7 @@ bool Controller::init() {
     return result;
 }
 
-//void Controller::comm_read() {}
+// void Controller::comm_read() {}
 
 void Controller::comm_process() {
     DEBUG("Processing messages");
@@ -187,13 +148,9 @@ void Controller::comm_process() {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
                 DEBUG("Received response");
                 if (msg.content[0] == "1") {
-                    if (last_sent == msg::PICTURE) {
-                        state = MOTOR_OFF;
-                    }
+                    if (last_sent == msg::PICTURE) { state = MOTOR_OFF; }
                 } else {
-                    if (last_sent == msg::PICTURE) {
-                        state = COMM_READ;
-                    }
+                    if (last_sent == msg::PICTURE) { state = COMM_READ; }
                 }
                 break;
             case msg::DATETIME:
@@ -228,15 +185,19 @@ void Controller::instr_process() {
         int planet_num;
         Planets planet;
         if (str_to_int(instr.content[0], planet_num)) {
-            if (planet_num >= 1 && planet_num <= 9) planet = (Planets)planet_num;
-            else error = true;
-        } else error = true;
+            if (planet_num >= 1 && planet_num <= 9)
+                planet = (Planets)planet_num;
+            else
+                error = true;
+        } else
+            error = true;
         int id;
         if (!str_to_int(instr.content[1], id)) error = true;
         int position;
         if (str_to_int(instr.content[2], position)) {
             if (position < 1 || position > 3) error = true;
-        } else error = true;
+        } else
+            error = true;
         if (!error) {
             Celestial celestial(planet);
             celestial.set_observer_coordinates(gps->get_coordinates());
@@ -257,4 +218,124 @@ void Controller::instr_process() {
 void Controller::motor_control() {
     DEBUG("Controlling motors");
     // TODO: Control motors to adjust the camera in the direction of the object
+}
+
+bool Controller::config_mode() {
+    const int64_t INITIAL_TIMEOUT = 50;
+    const int64_t TIMEOUT = 60000;
+
+    if (int ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), INITIAL_TIMEOUT)) != PICO_ERROR_TIMEOUT) {
+        DEBUG("Stdio input detected. Entering config mode...");
+        std::string input = "";
+        bool exit = false;
+
+        std::cout << "Stargazer config mode - type \"help\" for available commands" << std::endl;
+        bool newline = true;
+        while (!exit) {
+            if (newline) {
+                std::cout << ">";
+                newline = false;
+            }
+
+            while (
+                ((ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), TIMEOUT))) != PICO_ERROR_TIMEOUT) &&
+                newline == false) {
+
+                if (ch == PICO_ERROR_TIMEOUT) {
+                    std::cout << " Timeout" << std::endl;
+                    exit = true;
+                } else {
+                    char c = static_cast<char>(ch);
+                    if (c == '\r' || c == '\n') {
+                        newline = true;
+                    } else if (std::isalnum(c) || c == ' ') {
+                        input += c;
+                        std::cout << c;
+                    }
+                }
+            }
+
+            if (newline) {
+                std::stringstream ss(input);
+                std::string token;
+                ss >> token;
+                if (token == "help") {
+                    std::cout << "help - print this help message" << std::endl;
+                    std::cout << "exit - exit config mode" << std::endl;
+                    std::cout << "time [unixtime] - view or set current time" << std::endl;
+                    std::cout << "coord [<lat> <lon>] - view or set current coordinates" << std::endl;
+                    std::cout << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
+                              << std::endl;
+#ifdef ENABLE_DEBUG
+                    std::cout
+                        << "command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly to the queue"
+                        << std::endl;
+#endif
+                } else if (token == "exit") {
+                    exit = true;
+                    std::cout << "Exiting config mode" << std::endl;
+                } else if (token == "time") {
+                    time_t timestamp = 0;
+                    if (ss >> timestamp) {
+                        clock->update(timestamp);
+                        datetime_t now = clock->get_datetime();
+                        std::cout << "Time set to " << now.year << "-" << +now.month << "-" << +now.day << " "
+                                  << +now.hour << ":" << +now.min << std::endl;
+                    } else {
+                        datetime_t now = clock->get_datetime();
+                        std::cout << "Time is " << now.year << "-" << +now.month << "-" << +now.day << " " << +now.hour
+                                  << ":" << +now.min << std::endl;
+                    }
+                } else if (token == "coord") {
+                    double lat = 0.0, lon = 0.0;
+                    if (ss >> lat >> lon) {
+                        gps->set_coordinates(lat, lon);
+                        std::cout << "Coordinates set to " << lat << ", " << lon << std::endl;
+                    } else {
+                        Coordinates coords = gps->get_coordinates();
+                        if (!coords.status) {
+                            std::cout << "Coordinates are not available" << std::endl;
+                        } else {
+                            std::cout << "Coordinates are " << coords.latitude << ", " << coords.longitude << std::endl;
+                        }
+                    }
+                } else if (token == "instruction") {
+                    int object = 0, command = 0, position = 0;
+                    if (ss >> object >> command >> position) {
+                        msg::Message instruction = {
+                            .type = msg::INSTRUCTIONS,
+                            .content = {std::to_string(object), std::to_string(command), std::to_string(position)}};
+                        instr_msg_queue.push(instruction);
+                        std::cout << "Instruction added to queue: " << object << ", " << command << ", " << position
+                                  << std::endl;
+                    } else {
+                        std::cout << "Invalid instruction" << std::endl;
+                    }
+                } 
+#ifdef ENABLE_DEBUG
+                else if (token == "command") {
+                    int16_t year = 0;
+                    int8_t month = 0, day = 0, hour = 0, min = 0;
+                    double alt = 0.0, azi = 0.0;
+                    if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
+                        Command command = {
+                            .coords = {alt, azi},                            
+                            .time = {year, month, day, hour, min, 0},
+                        };
+
+                        commands.push_back(command);
+                        std::cout << "Command added to queue: " << year << ", " << month << ", " << day << ", " << hour
+                                  << ", " << min << ", " << alt << ", " << azi << std::endl;
+                    } else {
+                        std::cout << "Invalid command" << std::endl;
+                    }
+                }
+#endif
+                std::cout << std::endl;
+            }
+        }
+        return true;
+    } else {
+        return false;
+    }
 }

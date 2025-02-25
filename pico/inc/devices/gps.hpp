@@ -27,9 +27,7 @@ class GPS {
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
     void set_mode(Mode mode);
-    #ifdef ENABLE_DEBUG
-    void debug_set_coordinates(double lat, double lon);
-    #endif
+    void set_coordinates(double lat, double lon);
   private:
     enum class SentenceState {
         EMPTY,
@@ -47,8 +45,8 @@ class GPS {
     void alwayslocate_mode();
 
   private:
-    double latitude;
-    double longitude;
+    double latitude = 0.0;
+    double longitude = 0.0;
     bool status = false; // false if coordinates not found
     bool gpgga = false;
     bool gpgll = false;
