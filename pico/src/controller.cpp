@@ -229,33 +229,39 @@ bool Controller::config_mode() {
         std::string input = "";
         bool exit = false;
 
-        std::cout << "Stargazer config mode - type \"help\" for available commands" << std::endl;
+        std::cout << "Stargazer config mode - type \"help\" for available commands" << std::endl << "> ";
+        std::cout.flush();
         bool newline = true;
         while (!exit) {
-            if (newline) {
-                std::cout << ">";
+            //DEBUG("Newline: ", newline);
+            if (newline == true) {
                 newline = false;
             }
 
-            while (
-                ((ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), TIMEOUT))) != PICO_ERROR_TIMEOUT) &&
+            char last_c = '\0';
+            if (((ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), TIMEOUT))) != PICO_ERROR_TIMEOUT) &&
                 newline == false) {
 
                 if (ch == PICO_ERROR_TIMEOUT) {
-                    std::cout << " Timeout" << std::endl;
                     exit = true;
+                    std::cout << " Timeout" << std::endl;
                 } else {
                     char c = static_cast<char>(ch);
-                    if (c == '\r' || c == '\n') {
+                    if ((c == '\r' || c == '\n') && last_c != '\r' && last_c != '\n') {
+                        last_c = c;
                         newline = true;
-                    } else if (std::isalnum(c) || c == ' ') {
+                        std::cout << std::endl;
+                    } else if (std::isalnum(c) || c == ' ' || c == '.') {
+                        last_c = c;
                         input += c;
                         std::cout << c;
+                        std::cout.flush();
                     }
                 }
             }
 
             if (newline) {
+                //DEBUG(input);
                 std::stringstream ss(input);
                 std::string token;
                 ss >> token;
@@ -287,7 +293,7 @@ bool Controller::config_mode() {
                                   << ":" << +now.min << std::endl;
                     }
                 } else if (token == "coord") {
-                    double lat = 0.0, lon = 0.0;
+                    double lat, lon;
                     if (ss >> lat >> lon) {
                         gps->set_coordinates(lat, lon);
                         std::cout << "Coordinates set to " << lat << ", " << lon << std::endl;
@@ -311,7 +317,7 @@ bool Controller::config_mode() {
                     } else {
                         std::cout << "Invalid instruction" << std::endl;
                     }
-                } 
+                }
 #ifdef ENABLE_DEBUG
                 else if (token == "command") {
                     int16_t year = 0;
@@ -319,7 +325,7 @@ bool Controller::config_mode() {
                     double alt = 0.0, azi = 0.0;
                     if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
                         Command command = {
-                            .coords = {alt, azi},                            
+                            .coords = {alt, azi},
                             .time = {year, month, day, hour, min, 0},
                         };
 
@@ -331,7 +337,9 @@ bool Controller::config_mode() {
                     }
                 }
 #endif
-                std::cout << std::endl;
+                input.clear();
+                std::cout << std::endl << "> ";
+                std::cout.flush();
             }
         }
         return true;
