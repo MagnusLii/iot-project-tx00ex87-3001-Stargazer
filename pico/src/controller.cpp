@@ -169,7 +169,7 @@ bool Controller::init() {
         if (gps->get_coordinates().status && clock->is_synced()) { result = true; }
         attempts++;
 
-        result = true; // TODO: Remove
+        //result = true; // TODO: Remove
     }
 
     return result;
