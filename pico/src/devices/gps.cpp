@@ -13,7 +13,7 @@ int GPS::locate_position(uint16_t timeout_s) {
     int empty_reads = 0;
     uint8_t read_buffer[256] = {0};
 
-    status = false;
+    //status = false;
     do {
         uart->read(read_buffer, sizeof(read_buffer));
         if (read_buffer[0] != 0) {

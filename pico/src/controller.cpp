@@ -32,6 +32,7 @@ void Controller::run() {
             initialized = true;
             DEBUG("Initialized");
         } else {
+            if (config_mode()) { DEBUG("Exited config mode"); }
             DEBUG("Failed to initialize");
             return;
         }
@@ -40,7 +41,7 @@ void Controller::run() {
     DEBUG("Starting main loop");
     while (true) {
         if (config_mode()) { DEBUG("Exited config mode"); }
-        // DEBUG("State: ", state);
+        DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
@@ -127,10 +128,12 @@ bool Controller::init() {
     while (!result && attempts < 9) {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
         gps->locate_position(2);
-        if (gps->get_coordinates().status && clock->is_synced()) { result = true; }
+        if (gps->get_coordinates().status && clock->is_synced()) { result = true; } else {
+            DEBUG("GPS status:", gps->get_coordinates().status);
+            DEBUG("Clock synced:", clock->is_synced());
+        }
         attempts++;
 
-        result = true; // TODO: Remove
     }
 
     return result;
