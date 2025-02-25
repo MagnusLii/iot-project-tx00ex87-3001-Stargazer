@@ -123,6 +123,11 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     # target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
+
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wno-psabi)
+target_compile_options(${PROJECT_NAME}_test PRIVATE -Wall -Wno-psabi)
+target_compile_options(test_planet_finder PRIVATE -Wall -Wno-psabi)
+
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
