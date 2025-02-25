@@ -204,7 +204,7 @@ void Controller::instr_process() {
             commands.push_back(celestial.get_interest_point_command((Interest_point)position, clock->get_datetime()));
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
-            DEBUG((int)commands.front().time.day);
+            DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month, (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
             if (commands.size() > 0) clock->add_alarm(commands[0].time);
         } else {
             DEBUG("Error in instruction.");
@@ -221,10 +221,10 @@ void Controller::motor_control() {
 }
 
 bool Controller::config_mode() {
-    const int64_t INITIAL_TIMEOUT = 50;
+    const int64_t INITIAL_TIMEOUT = 5000;
     const int64_t TIMEOUT = 60000;
 
-    if (int ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), INITIAL_TIMEOUT)) != PICO_ERROR_TIMEOUT) {
+    if (int ch = stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
         DEBUG("Stdio input detected. Entering config mode...");
         std::string input = "";
         bool exit = false;
@@ -239,7 +239,7 @@ bool Controller::config_mode() {
             }
 
             char last_c = '\0';
-            if (((ch = stdio_getchar_timeout_us(delayed_by_ms(get_absolute_time(), TIMEOUT))) != PICO_ERROR_TIMEOUT) &&
+            if (((ch = stdio_getchar_timeout_us(TIMEOUT)) != PICO_ERROR_TIMEOUT) &&
                 newline == false) {
 
                 if (ch == PICO_ERROR_TIMEOUT) {
@@ -320,13 +320,13 @@ bool Controller::config_mode() {
                 }
 #ifdef ENABLE_DEBUG
                 else if (token == "command") {
-                    int16_t year = 0;
-                    int8_t month = 0, day = 0, hour = 0, min = 0;
+                    int year = 0;
+                    int month = 0, day = 0, hour = 0, min = 0;
                     double alt = 0.0, azi = 0.0;
                     if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
                         Command command = {
-                            .coords = {alt, azi},
-                            .time = {year, month, day, hour, min, 0},
+                            .coords = {alt * M_PI / 180.0, azi * M_PI / 180.0},
+                            .time = {(int16_t)year, (int8_t)month, (int8_t)day, 0, (int8_t)hour, (int8_t)min, 0},
                         };
 
                         commands.push_back(command);
