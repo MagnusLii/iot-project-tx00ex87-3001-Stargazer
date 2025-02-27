@@ -130,8 +130,8 @@ Message wifi(const std::string ssid, const std::string password) {
     return Message{.type = WIFI, .content = {ssid, password}};
 }
 
-Message server(const std::string server_addr) {
-    return Message{.type = SERVER, .content = {server_addr}};
+Message server(const std::string address, int port) {
+    return Message{.type = SERVER, .content = {address, std::to_string(port)}};
 }
 
 Message api(const std::string api_token) {
