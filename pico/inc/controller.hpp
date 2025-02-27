@@ -42,6 +42,7 @@ class Controller {
     void motor_control();
     void camera_execute();
     bool config_mode();
+    int input(std::string &input, uint32_t timeout, bool hidden = false);
 
   private:
     msg::MessageType last_sent = msg::UNASSIGNED;

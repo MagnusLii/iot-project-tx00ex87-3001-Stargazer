@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <pico/stdio.h>
 #include <pico/time.h>
 #include <pico/types.h>
 
@@ -128,12 +129,13 @@ bool Controller::init() {
     while (!result && attempts < 9) {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
         gps->locate_position(2);
-        if (gps->get_coordinates().status && clock->is_synced()) { result = true; } else {
+        if (gps->get_coordinates().status && clock->is_synced()) {
+            result = true;
+        } else {
             DEBUG("GPS status:", gps->get_coordinates().status);
             DEBUG("Clock synced:", clock->is_synced());
         }
         attempts++;
-
     }
 
     return result;
@@ -207,7 +209,8 @@ void Controller::instr_process() {
             commands.push_back(celestial.get_interest_point_command((Interest_point)position, clock->get_datetime()));
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
-            DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month, (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
+            DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
+                  (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
             if (commands.size() > 0) clock->add_alarm(commands[0].time);
         } else {
             DEBUG("Error in instruction.");
@@ -225,61 +228,47 @@ void Controller::motor_control() {
 
 bool Controller::config_mode() {
     const int64_t INITIAL_TIMEOUT = 5000;
-    const int64_t TIMEOUT = 60000;
+    const int64_t TIMEOUT = 60000000;
 
-    if (int ch = stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
+    if (stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
         DEBUG("Stdio input detected. Entering config mode...");
-        std::string input = "";
+        std::string input_buffer = "";
         bool exit = false;
 
-        std::cout << "Stargazer config mode - type \"help\" for available commands" << std::endl << "> ";
-        std::cout.flush();
-        bool newline = true;
+        //std::cin.ignore(std::numeric_limits<std::streamsize>::max());
+        std::cout << "Stargazer config mode - type \"help\" for available commands";
         while (!exit) {
-            //DEBUG("Newline: ", newline);
-            if (newline == true) {
-                newline = false;
+            std::cout << std::endl << "> ";
+            std::cout.flush();
+
+            int rc = input(input_buffer, TIMEOUT);
+            if (rc == -1) {
+                exit = true;
+                std::cout << "Exiting config mode" << std::endl;
             }
 
-            char last_c = '\0';
-            if (((ch = stdio_getchar_timeout_us(TIMEOUT)) != PICO_ERROR_TIMEOUT) &&
-                newline == false) {
-
-                if (ch == PICO_ERROR_TIMEOUT) {
-                    exit = true;
-                    std::cout << " Timeout" << std::endl;
-                } else {
-                    char c = static_cast<char>(ch);
-                    if ((c == '\r' || c == '\n') && last_c != '\r' && last_c != '\n') {
-                        last_c = c;
-                        newline = true;
-                        std::cout << std::endl;
-                    } else if (std::isalnum(c) || c == ' ' || c == '.') {
-                        last_c = c;
-                        input += c;
-                        std::cout << c;
-                        std::cout.flush();
-                    }
-                }
-            }
-
-            if (newline) {
-                //DEBUG(input);
-                std::stringstream ss(input);
+            if (rc > 0) {
+                // DEBUG(input);
+                std::stringstream ss(input_buffer);
                 std::string token;
                 ss >> token;
                 if (token == "help") {
-                    std::cout << "help - print this help message" << std::endl;
-                    std::cout << "exit - exit config mode" << std::endl;
-                    std::cout << "time [unixtime] - view or set current time" << std::endl;
-                    std::cout << "coord [<lat> <lon>] - view or set current coordinates" << std::endl;
-                    std::cout << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
-                              << std::endl;
+                    std::cout << "Available commands:" << std::endl
+                              << "help - print this help message" << std::endl
+                              << "exit - exit config mode" << std::endl
+                              << "time [unixtime] - view or set current time" << std::endl
+                              << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
+                              << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
+                              << std::endl
+                              << "wifi <ssid> - set wifi details. You will be prompted for the password" << std::endl
 #ifdef ENABLE_DEBUG
-                    std::cout
-                        << "command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly to the queue"
-                        << std::endl;
+
+                              << "debug_command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly "
+                                 "to the queue"
+                              << std::endl
+                              << "debug_picture <image_id> - send a take picture message to the ESP" << std::endl
 #endif
+                        ;
                 } else if (token == "exit") {
                     exit = true;
                     std::cout << "Exiting config mode" << std::endl;
@@ -320,16 +309,51 @@ bool Controller::config_mode() {
                     } else {
                         std::cout << "Invalid instruction" << std::endl;
                     }
+                } else if (token == "wifi") {
+                    std::string ssid;
+                    if (ss >> ssid) {
+                        std::cout << "Enter the password for " << ssid << ": ";
+                        std::string password = "";
+                        int rc = input(password, TIMEOUT, true);
+                        if (rc >= 0) {
+                            commbridge->send(msg::wifi(ssid, password));
+                            std::fill(password.begin(), password.end(), '*');
+                            std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
+                        }
+                    }
+                } else if (token == "server") {
+                    std::string address;
+                    int port = 0;
+                    if (ss >> address) {
+                        if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
+                        commbridge->send(msg::server(address, port));
+                        std::cout << "Sent server details: " << address << " " << port << std::endl;
+                    } else {
+                        std::cout << "No address specified" << std::endl;
+                    }
+                } else if (token == "token") {
+                    std::string token;
+                    if (ss >> token) {
+                        commbridge->send(msg::api(token));
+                        std::cout << "Sent api token: " << token << std::endl;
+                    } else {
+                        std::cout << "No api token specified" << std::endl;
+                    }
                 }
 #ifdef ENABLE_DEBUG
-                else if (token == "command") {
+                else if (token == "debug_command") {
                     int year = 0;
                     int month = 0, day = 0, hour = 0, min = 0;
                     double alt = 0.0, azi = 0.0;
                     if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
                         Command command = {
                             .coords = {alt * M_PI / 180.0, azi * M_PI / 180.0},
-                            .time = {(int16_t)year, (int8_t)month, (int8_t)day, 0, (int8_t)hour, (int8_t)min, 0},
+                            .time = {.year = (int16_t)year,
+                                     .month = (int8_t)month,
+                                     .day = (int8_t)day,
+                                     .hour = (int8_t)hour,
+                                     .min = (int8_t)min,
+                                     .sec = 0},
                         };
 
                         commands.push_back(command);
@@ -338,15 +362,62 @@ bool Controller::config_mode() {
                     } else {
                         std::cout << "Invalid command" << std::endl;
                     }
+                } else if (token == "debug_picture") {
+                    int image_id = 0;
+                    if (ss >> image_id) {
+                        commbridge->send(msg::picture(image_id));
+                        std::cout << "Sent picture request: " << image_id << std::endl;
+                    } else {
+                        std::cout << "No image id specified" << std::endl;
+                    }
                 }
 #endif
-                input.clear();
-                std::cout << std::endl << "> ";
-                std::cout.flush();
             }
+
+            input_buffer.clear();
         }
         return true;
     } else {
         return false;
     }
+}
+
+int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
+    char last_c = '\0';
+    bool newline = false;
+    int count = 0;
+
+    while (!newline) {
+        int ch = stdio_getchar_timeout_us(timeout);
+        if (ch == PICO_ERROR_TIMEOUT) {
+            count = -1;
+            newline = true;
+            std::cout << std::endl << " Timeout" << std::endl;
+        } else {
+            char c = static_cast<char>(ch);
+            if ((c == '\r' || c == '\n') && last_c != '\r' && last_c != '\n') {
+                last_c = c;
+                newline = true;
+                std::cout << std::endl;
+            } else if (c == '\b') {
+                if (buffer.size() > 0) {
+                    buffer.pop_back();
+                    std::cout << '\b' << ' ' << '\b';
+                    std::cout.flush();
+                }
+            } else if (std::isprint(c)) {
+                last_c = c;
+                buffer += c;
+                count++;
+                if (!hidden) {
+                    std::cout << c;
+                } else {
+                    std::cout << '*';
+                }
+                std::cout.flush();
+            }
+        }
+    }
+
+    return count;
 }
