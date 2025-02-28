@@ -2,6 +2,26 @@
 #include "requestHandler.hpp"
 #include "sd-card.hpp"
 #include "wireless.hpp"
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+void write_test_values_to_settings() {
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+
+    
+    std::unordered_map<Settings, std::string> settings_map;
+    settings_map[Settings::WIFI_SSID] = "wifi_ssid";
+    settings_map[Settings::WIFI_PASSWORD] = "wifi_password";
+    settings_map[Settings::WEB_TOKEN] = "token123";
+    settings_map[Settings::WEB_DOMAIN] = "example.com";
+    settings_map[Settings::WEB_PORT] = "80";
+
+    sdcardHandler->save_all_settings(settings_map);
+
+    sdcardHandler.reset();
+}
 
 void test_createImagePOSTRequest() {
     Sd_card_mount_settings settings;
@@ -35,6 +55,10 @@ void test_createImagePOSTRequest() {
 
     TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, ret);
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void test_createUserInstructionsGETRequest() {
@@ -55,6 +79,10 @@ void test_createUserInstructionsGETRequest() {
                            "\r\n";
 
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void test_createTimestampGETRequest() {
@@ -75,37 +103,10 @@ void test_createTimestampGETRequest() {
                            "\r\n";
 
     TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
-}
 
-void test_createGenericPOSTRequest() {
-    Sd_card_mount_settings settings;
-    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
-    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
-    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
-
-    std::string request;
-    RequestHandlerReturnCode ret =
-        requestHandler->createGenericPOSTRequest(&request, "/api/endpoint", 4, "key1", "value1", "key2", "value2");
-    TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, ret);
-
-    std::string content = "{"
-                          "key1:value1,"
-                          "key2:value2"
-                          "}";
-
-    std::string expected = "POST /api/endpoint HTTP/1.0\r\n"
-                           "Host: example.com:80\r\n"
-                           "User-Agent: esp-idf/1.0 esp32\r\n"
-                           "Connection: keep-alive\r\n"
-                           "Content-Type: application/json\r\n"
-                           "Content-Length: " +
-                           std::to_string(content.length()) +
-                           "\r\n"
-                           "\r\n" +
-                           content;
-
-    TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, ret);
-    TEST_ASSERT_EQUAL_STRING(expected.c_str(), request.c_str());
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void test_parseHttpReturnCode() {
@@ -127,6 +128,10 @@ void test_parseHttpReturnCode() {
     TEST_ASSERT_EQUAL(500, requestHandler->parseHttpReturnCode(response3));
     TEST_ASSERT_EQUAL(301, requestHandler->parseHttpReturnCode(response4));
     TEST_ASSERT_EQUAL(403, requestHandler->parseHttpReturnCode(response5));
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void test_parseResponseIntoJson() {
@@ -153,6 +158,10 @@ void test_parseResponseIntoJson() {
             "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 9\r\n\r\nNot Found", 81);
     responseBuffer.str_buffer[81] = '\0';
     TEST_ASSERT_EQUAL(1, requestHandler->parseResponseIntoJson(&responseBuffer, 81));
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void test_parseTimestamp() {
@@ -180,14 +189,46 @@ void test_parseTimestamp() {
     TEST_ASSERT_EQUAL(-2, requestHandler->parseTimestamp(response4));
     TEST_ASSERT_EQUAL(-3, requestHandler->parseTimestamp(response5));
     TEST_ASSERT_EQUAL(-1, requestHandler->parseTimestamp(response6));
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
+}
+
+void test_createGenericPOSTRequest() {
+    Sd_card_mount_settings settings;
+    auto sdcardHandler = std::make_shared<SDcardHandler>(settings);
+    auto wirelessHandler = std::make_shared<WirelessHandler>(sdcardHandler);
+    auto requestHandler = std::make_shared<RequestHandler>(wirelessHandler, sdcardHandler);
+
+    std::string request;
+    std::string key1 = "key1";
+    std::string value3 = "value1";
+    std::string intValue1 = "1";
+    RequestHandlerReturnCode result = requestHandler->createGenericPOSTRequest(
+        &request, "/test-endpoint", key1.c_str(), std::stoi(intValue1), "key2", 42, "key3", value3.c_str());
+
+    TEST_ASSERT_EQUAL(RequestHandlerReturnCode::SUCCESS, result);
+    TEST_ASSERT_NOT_EQUAL(0, request.length());
+    TEST_ASSERT_NOT_NULL(strstr(request.c_str(), "POST /test-endpoint HTTP/1.0"));
+    std::string expected = "\"key1\":1,";
+    TEST_ASSERT_NOT_NULL(strstr(request.c_str(), expected.c_str()));
+    expected = "\"key2\":42,";
+    TEST_ASSERT_NOT_NULL(strstr(request.c_str(), expected.c_str()));
+    expected = "\"key3\":\"value1\"";
+    TEST_ASSERT_NOT_NULL(strstr(request.c_str(), expected.c_str()));
+
+    requestHandler.reset();
+    wirelessHandler.reset();
+    sdcardHandler.reset();
 }
 
 void run_all_request_handler_tests() {
     RUN_TEST(test_createImagePOSTRequest);
     RUN_TEST(test_createUserInstructionsGETRequest);
     RUN_TEST(test_createTimestampGETRequest);
-    RUN_TEST(test_createGenericPOSTRequest);
     RUN_TEST(test_parseHttpReturnCode);
     RUN_TEST(test_parseResponseIntoJson);
     RUN_TEST(test_parseTimestamp);
+    RUN_TEST(test_createGenericPOSTRequest);
 }

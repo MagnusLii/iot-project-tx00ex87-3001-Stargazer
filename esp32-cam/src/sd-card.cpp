@@ -357,7 +357,7 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
     while (fgets(read_buffer, sizeof(read_buffer), fptr)) {
         line = read_buffer;
         temp_settings += line;
-        DEBUG("Read: ", line.c_str());
+        // DEBUG("Read: ", line.c_str());
     }
 
     fclose(fptr);
@@ -384,7 +384,7 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
                 DEBUG("Malformed certificate data");
                 return 5;
             }
-            pos += 25;
+            pos += strlen("-----END CERTIFICATE-----");
         }
 
         settings[static_cast<Settings>(i)] = temp_settings.substr(0, pos);

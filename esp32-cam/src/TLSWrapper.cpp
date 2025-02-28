@@ -37,6 +37,8 @@ TLSWrapper::~TLSWrapper() {
 bool TLSWrapper::connect(const char *host, const char *port, const char *root_cert) {
     int ret;
 
+    size_t cert_len = strlen(root_cert) + 1;
+
     if (mbedtls_net_connect(&net_ctx, host, port, MBEDTLS_NET_PROTO_TCP) != 0) {
         DEBUG("TCP connection failed");
         return false;
@@ -56,7 +58,7 @@ bool TLSWrapper::connect(const char *host, const char *port, const char *root_ce
     mbedtls_ssl_conf_authmode(&ssl_conf, MBEDTLS_SSL_VERIFY_REQUIRED);
     mbedtls_x509_crt ca_cert;
     mbedtls_x509_crt_init(&ca_cert);
-    ret = mbedtls_x509_crt_parse(&ca_cert, (const unsigned char *)root_cert, strlen(root_cert) + 1);
+    ret = mbedtls_x509_crt_parse(&ca_cert, (const unsigned char *)root_cert, cert_len);
     if (ret != 0) {
         DEBUG("Failed to parse CA certificate, error code: ", ret);
         return false;
@@ -66,7 +68,12 @@ bool TLSWrapper::connect(const char *host, const char *port, const char *root_ce
 #endif // DISABLE_CERTIFICATE_VERIFICATION
 
     mbedtls_ssl_conf_rng(&ssl_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
-    mbedtls_ssl_setup(&ssl, &ssl_conf);
+    ret = mbedtls_ssl_setup(&ssl, &ssl_conf);
+    if (ret != 0) {
+        DEBUG("mbedtls_ssl_setup failed, error code: ", ret);
+        return false;
+    }
+
     mbedtls_ssl_set_bio(&ssl, &net_ctx, mbedtls_net_send, mbedtls_net_recv, nullptr);
 
     const char *hostname = "stargazer.local";

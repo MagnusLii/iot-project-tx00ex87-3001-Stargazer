@@ -45,6 +45,8 @@
 
 // #define PRINT_SETTINGS_READ_FROM_SDCARD
 
+// #define USE_TLS
+
 // ----------------------------------------------------------
 // ----------------SUPPORTING-FUNCTIONS----------------------
 // ----------------------------------------------------------
@@ -217,10 +219,16 @@ void init_task(void *pvParameters) {
     xTimerStart(getTimestampTmr, 0);
 
     // Create tasks
-    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 16384, handlers.get(), TaskPriorities::HIGH,
+    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 40960, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 8192, handlers.get(), TaskPriorities::MEDIUM, nullptr);
+
+    // Send ESP initialized message to Pico
+    msg::Message msg = msg::esp_init(true);
+    std::string msg_str;
+    convert_to_string(msg, msg_str);
+    handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
 
     // Start reconnect loop if not connected
     if (handlers->wirelessHandler->isConnected() == false) {
@@ -230,23 +238,7 @@ void init_task(void *pvParameters) {
             xTimerCreate("wifi_reconnect_timer", pdMS_TO_TICKS(RECONNECT_TIMER_PERIOD), pdFALSE,
                          handlers->wirelessHandler.get(), wifi_reconnect_timer_callback);
         xTimerStart(reconnect_timer, 0);
-
-        while (handlers->wirelessHandler->isConnected() == false && retries < 3) {
-            vTaskDelay(pdMS_TO_TICKS(RECONNECT_TIMER_PERIOD));
-            retries++;
-        }
-
-        if (handlers->wirelessHandler->isConnected() == false) {
-            DEBUG("Failed to connect to Wi-Fi network after ", retries, " retries, restarting...");
-            esp_restart();
-        }
     }
-
-    // Send ESP initialized message to Pico
-    msg::Message msg = msg::esp_init(true);
-    std::string msg_str;
-    convert_to_string(msg, msg_str);
-    handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
 
     // Initialize watchdog for tasks
 #ifdef WATCHDOG_MONITOR_IDLE_TASKS
@@ -307,8 +299,11 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
-                    // requestHandler->sendRequest(request, &response);
+                    #ifdef USE_TLS
                     requestHandler->sendRequestTLS(request, &response);
+                    #else
+                    requestHandler->sendRequest(request, &response);
+                    #endif
                     // Parse the response
                     DEBUG("Response: ", response.str_buffer);
                     string = response.str_buffer;
@@ -356,9 +351,13 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Send the request and enqueue the response
                     DEBUG("Sending POST request: ");
+                
+                    #ifdef USE_TLS
+                    requestHandler->sendRequestTLS(string, &response);
+                    #else
+                    requestHandler->sendRequest(request, &response);
+                    #endif
 
-                    // requestHandler->sendRequest(string, &response);
-                    requestHandler->sendRequestTLS(request, &response);
                     // Clear variables
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
@@ -368,8 +367,12 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::POST:
                     DEBUG("Request type ", request.requestType, " received.");
-                    // requestHandler->sendRequest(string, &response);
-                    requestHandler->sendRequestTLS(request, &response);
+
+                    #ifdef USE_TLS
+                    requestHandler->sendRequestTLS(string, &response);
+                    #else
+                    requestHandler->sendRequest(request, &response);
+                    #endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
@@ -380,8 +383,12 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::GET_TIME:
                     DEBUG("GET_TIME request received");
-                    // requestHandler->sendRequest(request, &response);
+
+                    #ifdef USE_TLS
                     requestHandler->sendRequestTLS(request, &response);
+                    #else
+                    requestHandler->sendRequest(request, &response);
+                    #endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
@@ -544,12 +551,12 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::ESP_INIT:
-                        DEBUG("ESP_INIT message received");
+                        DEBUG("INIT message received");
                         // send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
                         // send diagnostics message
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", 2, "\"status\"",
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "\"status\"",
                                                                            msg.content[0].c_str(), "\"message\"",
                                                                            "\"Pico init status received\"");
 
@@ -578,8 +585,8 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::CMD_STATUS:
                         request.requestType = RequestType::POST;
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", 4, "\"id\"",
-                                                                           msg.content[0].c_str(), "\"status\"",
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", "id",
+                                                                           std::stoi(msg.content[0].c_str()), "status",
                                                                            msg.content[1].c_str());
 
                         DEBUG("Command status message: ", string.c_str());
@@ -640,8 +647,8 @@ void handle_uart_data_task(void *pvParameters) {
 
                         // Create POST request.
                         request.requestType = RequestType::POST;
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", 2, "\"status\"",
-                                                                           msg.content[0].c_str(), "\"message\"",
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "status",
+                                                                           std::stoi(msg.content[0].c_str()), "message",
                                                                            msg.content[1].c_str());
 
                         strncpy(request.str_buffer, string.c_str(), string.size());

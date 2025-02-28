@@ -19,10 +19,10 @@
 #endif
 
 #ifndef GET_REQUEST_TIMER_PERIOD
-#define GET_REQUEST_TIMER_PERIOD 60000
+#define GET_REQUEST_TIMER_PERIOD 10000
 #endif
 
-#ifndef TAKS_WATCHDOG_TIMEOUT
+#ifndef TASK_WATCHDOG_TIMEOUT
 #define TASK_WATCHDOG_TIMEOUT 60000 // HTTP requests can take a while if the connection faces issues
 #endif
 

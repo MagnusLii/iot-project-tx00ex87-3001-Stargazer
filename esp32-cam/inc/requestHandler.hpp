@@ -6,6 +6,9 @@
 #include "wireless.hpp"
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <sstream>
+#include <iostream>
 
 enum class RequestType {
     UNDEFINED,
@@ -50,8 +53,10 @@ class RequestHandler {
                                                     std::string base64_image_data);
     void createUserInstructionsGETRequest(std::string *requestPtr);
     void createTimestampGETRequest(std::string *requestPtr);
-    RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
-                                                      int numOfVariableArgs, ...);
+
+    template <typename... Args>
+    RequestHandlerReturnCode createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, Args... args);
+
     int parseHttpReturnCode(const char *responseString);
     QueueMessage *getUserInstructionsGETRequestptr();
     QueueMessage *getTimestampGETRequestptr();
@@ -75,6 +80,13 @@ class RequestHandler {
     void setTimeSyncedStatus(bool status);
 
   private:
+  // Helper functions for createGenericPOSTRequest
+    template <typename T, typename U, typename... Args>
+    void processArgs(std::ostringstream &content, bool &first, T key, U value, Args... args);
+    void processArgs(std::ostringstream &content, bool &first);
+    template <typename T> std::string formatValue(T value);
+
+
     std::shared_ptr<WirelessHandler> wirelessHandler;
     std::shared_ptr<SDcardHandler> sdcardHandler;
 
@@ -88,5 +100,7 @@ class RequestHandler {
 
     bool timeSynchronized = false;
 };
+
+#include "requestHandler.tpp"
 
 #endif

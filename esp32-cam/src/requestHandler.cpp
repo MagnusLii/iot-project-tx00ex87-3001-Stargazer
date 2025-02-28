@@ -86,7 +86,7 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
     requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
     requestPtr->append("\r\n"
                        "User-Agent: esp-idf/1.0 esp32\r\n"
-                       "Connection: keep-alive\r\n"
+                       "Connection: close\r\n"
                        "Content-Type: application/json\r\n"
                        "Content-Length: ");
     requestPtr->append(std::to_string(content.length()));
@@ -125,7 +125,7 @@ void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
     requestPtr->append("\r\n"
                        "User-Agent: esp-idf/1.0 esp32\r\n"
-                       "Connection: keep-alive\r\n"
+                       "Connection: close\r\n"
                        "\r\n");
 }
 
@@ -139,62 +139,12 @@ void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
     requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
     requestPtr->append("\r\n"
                        "User-Agent: esp-idf/1.0 esp32\r\n"
-                       "Connection: keep-alive\r\n"
+                       "Connection: close\r\n"
                        "\r\n");
 }
 
-// The function reads all variable arguments as const char*, no \" is added to the values so should be added by the
-// caller if meant to be included as strings in the JSON.
-RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
-                                                                  int numOfVariableArgs, ...) {
-    if (requestPtr == nullptr) {
-        DEBUG("Error: requestPtr is null");
-        return RequestHandlerReturnCode::INVALID_ARGUMENT;
-    }
-
-    if (numOfVariableArgs % 2 != 0) {
-        DEBUG("Error: Number of arguments is not divisible by 2");
-        return RequestHandlerReturnCode::INVALID_NUM_OF_ARGS;
-    }
-
-    va_list args;
-    va_start(args, numOfVariableArgs);
-
-    std::string content = "{";
-    for (int i = 0; i < numOfVariableArgs; i += 2) {
-        const char *key = va_arg(args, const char *);
-        const char *value = va_arg(args, const char *);
-        content += std::string(key) + ":" + std::string(value);
-        if (i < numOfVariableArgs - 2) { content += ","; }
-    }
-    content += "}";
-
-    va_end(args);
-
-    *requestPtr = "POST " + std::string(endpoint) +
-                  " HTTP/1.0\r\n"
-                  "Host: ";
-    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_DOMAIN));
-    requestPtr->append(":");
-    requestPtr->append(this->wirelessHandler->get_setting(Settings::WEB_PORT));
-    requestPtr->append("\r\n"
-                       "User-Agent: esp-idf/1.0 esp32\r\n"
-                       "Connection: keep-alive\r\n"
-                       "Content-Type: application/json\r\n"
-                       "Content-Length: ");
-    requestPtr->append(std::to_string(content.length()));
-    requestPtr->append("\r\n"
-                       "\r\n");
-    requestPtr->append(content);
-
-    DEBUG("Request: ", requestPtr->c_str());
-
-    if (requestPtr->empty()) {
-        DEBUG("Error: Request string is empty after construction");
-        return RequestHandlerReturnCode::FAILED_TO_CREATE_REQUEST;
-    }
-
-    return RequestHandlerReturnCode::SUCCESS;
+void RequestHandler::processArgs(std::ostringstream &content, bool &first) {
+    // Base case for recursion - no action needed
 }
 
 /**
@@ -282,6 +232,8 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
+    DEBUG("Sending request: ", request.c_str());
+
     if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
@@ -442,8 +394,6 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage reque
 
 int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const int buffer_size) {
     std::string response(responseBuffer->str_buffer, buffer_size);
-
-    DEBUG("Response: ", response.c_str());
 
     size_t pos = response.find_first_of("{");
     if (pos == std::string::npos) {
