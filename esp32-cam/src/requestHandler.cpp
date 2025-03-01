@@ -232,8 +232,6 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
-    DEBUG("Sending request: ", request.c_str());
-
     if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
@@ -242,93 +240,76 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     DEBUG("Taking request mutex");
     ScopedMutex lock(this->requestMutex);
 
+    struct addrinfo hints = {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
     addrinfo *dns_lookup_results = nullptr;
-    in_addr *ip_address = nullptr;
-    int socket_descriptor = 0;
-    char receive_buffer[BUFFER_SIZE] = {0};
-
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints)); // Clear the structure
-    hints.ai_family = AF_INET;        // Use IPv4
-    hints.ai_socktype = SOCK_STREAM;  // TCP socket
-
-    timeval receiving_timeout{.tv_sec = 5, .tv_usec = 0};
-
     int err = getaddrinfo(this->getWebServerCString(), this->getWebPortCString(), &hints, &dns_lookup_results);
-    if (err != 0 || dns_lookup_results == nullptr) {
-        DEBUG("DNS lookup failed err=", err);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    if (err != 0 || !dns_lookup_results) {
+        DEBUG("DNS lookup failed, err=", err);
         return RequestHandlerReturnCode::DNS_LOOKUP_FAIL;
     }
 
-    ip_address = &((struct sockaddr_in *)dns_lookup_results->ai_addr)->sin_addr;
-    DEBUG("DNS lookup succeeded. IP=", inet_ntoa(*ip_address));
-
-    socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
+    int socket_descriptor = socket(dns_lookup_results->ai_family, dns_lookup_results->ai_socktype, 0);
     if (socket_descriptor < 0) {
-        DEBUG("Failed to allocate socket.");
+        DEBUG("Socket allocation failed, errno=", errno);
         freeaddrinfo(dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(1000));
         return RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL;
     }
-    DEBUG("Allocated socket");
 
     if (connect(socket_descriptor, dns_lookup_results->ai_addr, dns_lookup_results->ai_addrlen) != 0) {
-        DEBUG("Socket connect failed errno=", errno);
+        DEBUG("Socket connect failed, errno=", errno);
         close(socket_descriptor);
         freeaddrinfo(dns_lookup_results);
-        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
-    DEBUG("Connected");
+    
+    freeaddrinfo(dns_lookup_results); // Safe to free now
+    DEBUG("Connected to server");
 
-    freeaddrinfo(dns_lookup_results);
-    if (write(socket_descriptor, request.c_str(), request.length() + 1) < 0) {
-        DEBUG("Socket send failed");
+    if (write(socket_descriptor, request.c_str(), request.size()) < 0) {
+        DEBUG("Socket send failed, errno=", errno);
         close(socket_descriptor);
-        vTaskDelay(pdMS_TO_TICKS(5000));
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
-    DEBUG("Socket send success");
 
-    if (setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout)) < 0) {
-        DEBUG("Failed to set socket receiving timeout");
-        close(socket_descriptor);
-        vTaskDelay(pdMS_TO_TICKS(4000));
-        return RequestHandlerReturnCode::SOCKET_TIMEOUT_FAIL;
-    }
-    DEBUG("Set socket receiving timeout success");
+    timeval receiving_timeout = {.tv_sec = 5, .tv_usec = 0};
+    setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout));
 
+    std::vector<char> receive_buffer(BUFFER_SIZE, 0);
     int total_len = 0;
-    for (int attempt = 0; attempt < RETRIES; attempt++) {
-        int len = recv(socket_descriptor, receive_buffer + total_len, BUFFER_SIZE - 1 - total_len, 0);
+
+    for (int attempt = 0; attempt < RETRIES; ++attempt) {
+        int len = recv(socket_descriptor, receive_buffer.data() + total_len, BUFFER_SIZE - 1 - total_len, 0);
 
         if (len > 0) {
             total_len += len;
-            if (total_len >= BUFFER_SIZE - 1) break; // Prevent buffer overflow
+            if (total_len >= BUFFER_SIZE - 1) break; 
         } else if (len == 0) {
             DEBUG("Connection closed by peer.");
             break;
         } else {
             if (errno == EAGAIN) {
+                DEBUG("Receive timeout, retrying...");
                 vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
-                continue; // Retry the read
-            } else {
-                DEBUG("Socket error: errno=", errno);
-                break;
+                continue;
             }
+            DEBUG("Socket receive failed, errno=", errno);
+            close(socket_descriptor);
+            return RequestHandlerReturnCode::SOCKET_RECEIVE_FAIL;
         }
     }
 
-    receive_buffer[total_len] = '\0';
     close(socket_descriptor);
 
     if (total_len == 0) {
-        DEBUG("Failed to receive any data from the server");
+        DEBUG("No data received from server");
         return RequestHandlerReturnCode::UN_CLASSIFIED_ERROR;
     }
 
-    strncpy(response->str_buffer, receive_buffer, BUFFER_SIZE);
+    receive_buffer[total_len] = '\0';
+    strncpy(response->str_buffer, receive_buffer.data(), BUFFER_SIZE - 1);
     response->str_buffer[BUFFER_SIZE - 1] = '\0';
 
     DEBUG("Response: ", response->str_buffer);
