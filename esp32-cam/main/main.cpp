@@ -52,8 +52,18 @@
 #include "espPicoUartCommHandler.hpp"
 #include "message.hpp"
 
-
 #include "esp_task_wdt.h"
+
+#include "mbedtls/platform.h"
+#include "esp_heap_caps.h"
+
+void* my_calloc(size_t n, size_t size) {
+    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT);
+}
+
+void my_free(void* ptr) {
+    heap_caps_free(ptr);
+}
 
 extern "C" {
 void app_main(void);
@@ -61,6 +71,8 @@ void app_main(void);
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+    mbedtls_platform_set_calloc_free(my_calloc, my_free);
 
 #ifdef RESERVE_UART0_FOR_PICO_COMM
     DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
@@ -71,11 +83,17 @@ void app_main(void) {
 #endif
 
 #ifdef UART_MSG_CRC
-    // msg::Message msg = msg::picture(1, 1);
     // msg::Message msg = msg::response(true);
     // msg::Message msg = msg::datetime_request();
+    // msg::Message msg = msg::datetime_response(1740828909);
+    // msg::Message msg = msg::esp_init(1);
     // msg::Message msg = msg::instructions(2, 1, 1);
-    msg::Message msg = msg::diagnostics(1, "\"test\"");
+    // msg::Message msg = msg::cmd_status(1, 1, 1);
+    // msg::Message msg = msg::picture(1, 1);
+    // msg::Message msg = msg::diagnostics(1, "test");
+    // msg::Message msg = msg::wifi("ssid", "password");
+    // msg::Message msg = msg::server("127.0.0.1:8080");
+    msg::Message msg = msg::api("token-asdfgsdfads-14vfds-245vsd");
     std::string str;
 
     msg::convert_to_string(msg, str);
