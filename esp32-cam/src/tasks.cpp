@@ -122,8 +122,6 @@ void wifi_reconnect_timer_callback(TimerHandle_t timer) {
 // ----------------------------------------------------------
 
 void init_task(void *pvParameters) {
-    int retries = 0;
-
     auto handlers = std::make_shared<Handlers>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
@@ -299,11 +297,11 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::GET_COMMANDS:
                     DEBUG("GET_COMMANDS request received");
-                    #ifdef USE_TLS
+#ifdef USE_TLS
                     requestHandler->sendRequestTLS(request, &response);
-                    #else
+#else
                     requestHandler->sendRequest(request, &response);
-                    #endif
+#endif
                     // Parse the response
                     DEBUG("Response: ", response.str_buffer);
                     string = response.str_buffer;
@@ -351,12 +349,12 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                     // Send the request and enqueue the response
                     DEBUG("Sending POST request: ");
-                
-                    #ifdef USE_TLS
+
+#ifdef USE_TLS
                     requestHandler->sendRequestTLS(string, &response);
-                    #else
+#else
                     requestHandler->sendRequest(request, &response);
-                    #endif
+#endif
 
                     // Clear variables
                     response.buffer_length = 0;
@@ -368,11 +366,11 @@ void send_request_to_websrv_task(void *pvParameters) {
                 case RequestType::POST:
                     DEBUG("Request type ", request.requestType, " received.");
 
-                    #ifdef USE_TLS
+#ifdef USE_TLS
                     requestHandler->sendRequestTLS(string, &response);
-                    #else
+#else
                     requestHandler->sendRequest(request, &response);
-                    #endif
+#endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
@@ -384,11 +382,11 @@ void send_request_to_websrv_task(void *pvParameters) {
                 case RequestType::GET_TIME:
                     DEBUG("GET_TIME request received");
 
-                    #ifdef USE_TLS
+#ifdef USE_TLS
                     requestHandler->sendRequestTLS(request, &response);
-                    #else
+#else
                     requestHandler->sendRequest(request, &response);
-                    #endif
+#endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
                         DEBUG("Request returned non-200 status code");
@@ -403,9 +401,6 @@ void send_request_to_websrv_task(void *pvParameters) {
                         DEBUG("Failed to sync time");
                         break;
                     }
-
-                    // Set timezone
-                    set_tz();
 
                     // Set time synced status
                     requestHandler->setTimeSyncedStatus(true);
