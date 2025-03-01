@@ -45,7 +45,7 @@
 
 // #define PRINT_SETTINGS_READ_FROM_SDCARD
 
-// #define USE_TLS
+#define USE_TLS
 
 // ----------------------------------------------------------
 // ----------------SUPPORTING-FUNCTIONS----------------------
@@ -217,7 +217,7 @@ void init_task(void *pvParameters) {
     xTimerStart(getTimestampTmr, 0);
 
     // Create tasks
-    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 40960, handlers.get(), TaskPriorities::HIGH,
+    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 48960, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 8192, handlers.get(), TaskPriorities::MEDIUM, nullptr);
@@ -458,6 +458,7 @@ void uart_read_task(void *pvParameters) {
                     while (return_code == 0) {
                         // Check we're waiting for a response
                         if (espPicoCommHandler->get_waiting_for_response()) {
+                            DEBUG("Waiting for response");
                             espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
                         }
                         // enqueue extracted message
@@ -498,6 +499,7 @@ void handle_uart_data_task(void *pvParameters) {
 
     std::string string;
     msg::Message msg;
+    size_t pos;
 
     std::unordered_map<Settings, std::string> settings;
     handlers->sdcardHandler->read_all_settings(settings);
@@ -695,11 +697,23 @@ void handle_uart_data_task(void *pvParameters) {
                         // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
+                        // Find ":" in msg.content[0] and copy all info to string
+                        pos = msg.content[0].find_last_of(":");
+                        if (pos != std::string::npos) {
+                            string = msg.content[0].substr(0, pos - 1);
+                            DEBUG("Extracted string: ", string.c_str());
+                        } else {
+                            // TODO: diagnostics msg
+                            DEBUG("':' not found in the message content");
+                            break;
+                        }
+                        
                         // Update server settings
-                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
-                                                               Settings::WEB_DOMAIN);
-                        handlers->wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
-                                                               Settings::WEB_PORT);
+                        handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_DOMAIN);
+                        string = msg.content[0].substr(pos + 1);
+                        DEBUG("Extracted string: ", string.c_str());
+                        handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_PORT);
+
 
                         // Save settings to SD card
                         settings[Settings::WEB_DOMAIN] = msg.content[0];
