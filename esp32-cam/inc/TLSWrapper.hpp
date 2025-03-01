@@ -1,17 +1,17 @@
 #ifndef TLSWRAPPER_H
 #define TLSWRAPPER_H
 
-#include "mbedtls/net_sockets.h"
-#include "mbedtls/ssl.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
+#include "mbedtls/net_sockets.h"
+#include "mbedtls/ssl.h"
 #include <cstring>
 
 // #define DISABLE_CERTIFICATE_VERIFICATION
-// #define TLS_DEBUG
+#define TLS_DEBUG
 
 class TLSWrapper {
-public:
+  public:
     TLSWrapper();
     ~TLSWrapper();
 
@@ -20,12 +20,15 @@ public:
     int receive(char *buffer, size_t maxLen);
     void close();
 
-private:
+  private:
+    bool is_net_ctx_valid();
+
     mbedtls_net_context net_ctx;
     mbedtls_ssl_context ssl;
     mbedtls_ssl_config ssl_conf;
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_entropy_context entropy;
+    mbedtls_x509_crt ca_cert;
 };
 
 #ifdef TLS_DEBUG
