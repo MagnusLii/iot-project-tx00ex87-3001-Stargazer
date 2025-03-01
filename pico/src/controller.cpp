@@ -27,17 +27,19 @@ Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, s
 }
 
 void Controller::run() {
+    if (config_mode()) { DEBUG("Exited config mode"); }
     if (!initialized) {
         DEBUG("Not yet initialized");
         if (init()) {
             initialized = true;
+            gps->set_mode(GPS::Mode::STANDBY);
             DEBUG("Initialized");
         } else {
-            if (config_mode()) { DEBUG("Exited config mode"); }
             DEBUG("Failed to initialize");
             return;
         }
     }
+
     int image_id = 1; // TODO: ^
     DEBUG("Starting main loop");
     while (true) {
@@ -92,11 +94,12 @@ void Controller::run() {
             case MOTOR_OFF:
                 waiting_for_camera = false;
                 mctrl->off();
-            case SLEEP: // TODO: Go here after full round of nothing to do?
+            case SLEEP:
                 // DEBUG("Sleeping");
                 if (double_check) {
                     state = COMM_READ;
                 } else {
+                    sleep_ms(1000);
                     // sleep_for(10, 9);
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
@@ -104,8 +107,6 @@ void Controller::run() {
                     } else {
                         state = COMM_READ;
                     }
-                    // goes to state COMM_READ OR MOTOR_CONTROL
-                    // TODO: Sleeping
                 }
                 break;
             default:
@@ -121,14 +122,14 @@ bool Controller::init() {
     bool result = false;
     int attempts = 0;
 
-    gps->set_mode(GPS::Mode::FULL_ON);
-    commbridge->send(msg::datetime_request());
+    if (!gps->get_coordinates().status) gps->set_mode(GPS::Mode::FULL_ON);
+    if (!clock->is_synced()) commbridge->send(msg::datetime_request());
     // compass->calibrate();
-    //  Motor calibration
     //  TODO: use compass to correct azimuth of commands
     while (!result && attempts < 9) {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
-        gps->locate_position(2);
+        if (!gps->get_coordinates().status) gps->locate_position(2);
+
         if (gps->get_coordinates().status && clock->is_synced()) {
             result = true;
         } else {
@@ -140,8 +141,6 @@ bool Controller::init() {
 
     return result;
 }
-
-// void Controller::comm_read() {}
 
 void Controller::comm_process() {
     DEBUG("Processing messages");
@@ -183,9 +182,9 @@ void Controller::comm_process() {
 
 void Controller::instr_process() {
     DEBUG("Processing instructions");
-    // TODO: Process instructions
     msg::Message instr = instr_msg_queue.front();
     bool error = false;
+
     if (instr.content.size() == 3 && instr.type == msg::INSTRUCTIONS) {
         int planet_num;
         Planets planet;
@@ -196,13 +195,16 @@ void Controller::instr_process() {
                 error = true;
         } else
             error = true;
+
         int id;
         if (!str_to_int(instr.content[1], id)) error = true;
+
         int position;
         if (str_to_int(instr.content[2], position)) {
             if (position < 1 || position > 3) error = true;
         } else
             error = true;
+
         if (!error) {
             Celestial celestial(planet);
             celestial.set_observer_coordinates(gps->get_coordinates());
@@ -216,6 +218,7 @@ void Controller::instr_process() {
             DEBUG("Error in instruction.");
         }
     }
+
     instr_msg_queue.pop();
     double_check = true;
     state = SLEEP;
@@ -235,7 +238,6 @@ bool Controller::config_mode() {
         std::string input_buffer = "";
         bool exit = false;
 
-        //std::cin.ignore(std::numeric_limits<std::streamsize>::max());
         std::cout << "Stargazer config mode - type \"help\" for available commands";
         while (!exit) {
             std::cout << std::endl << "> ";
@@ -261,12 +263,16 @@ bool Controller::config_mode() {
                               << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
                               << std::endl
                               << "wifi <ssid> - set wifi details. You will be prompted for the password" << std::endl
+                              << "server <host> <port> - set the server details" << std::endl
+                              << "token <token> - set the server api token" << std::endl
 #ifdef ENABLE_DEBUG
 
                               << "debug_command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly "
                                  "to the queue"
                               << std::endl
                               << "debug_picture <image_id> - send a take picture message to the ESP" << std::endl
+                              << "debug_rec_msg <message> - add a message to the receive queue" << std::endl
+                              << "debug_send_msg <message_type> <message_content_1> ... - send a message to the ESP"
 #endif
                         ;
                 } else if (token == "exit") {
@@ -313,6 +319,7 @@ bool Controller::config_mode() {
                     std::string ssid;
                     if (ss >> ssid) {
                         std::cout << "Enter the password for " << ssid << ": ";
+                        std::cout.flush();
                         std::string password = "";
                         int rc = input(password, TIMEOUT, true);
                         if (rc >= 0) {
@@ -370,8 +377,49 @@ bool Controller::config_mode() {
                     } else {
                         std::cout << "No image id specified" << std::endl;
                     }
+                } else if (token == "debug_rec_msg") {
+                    std::string msg_str;
+                    msg::Message msg;
+                    if (ss >> msg_str) {
+                        if (size_t pos = msg_str.find(';'); pos != std::string::npos) {
+                            msg_str.erase(pos);
+                        }
+                        if (msg::convert_to_message(msg_str, msg) == 0) {
+                            msg_queue->push(msg);
+                            std::cout << "Message added to receive queue: " << msg_str << std::endl;
+                        } else {
+                            std::cout << "Invalid message (" << rc << "): " << msg_str << std::endl;
+                        }
+                    } else {
+                        std::cout << "No message specified" << std::endl;
+                    }
+                } else if (token == "debug_send_msg") {
+                    msg::Message msg;
+                    std::string type_str;
+                    if (ss >> type_str) {
+                        if (msg.type = msg::verify_message_type(type_str); msg.type != msg::MessageType::UNASSIGNED) {
+                            std::vector<std::string> content;
+                            std::string content_str;
+                            while (ss >> content_str) {
+                                content.push_back(content_str);
+                            }
+
+                            if (content.size() > 0) {
+                                msg.content = content;
+                                commbridge->send(msg);
+                                std::cout << "Sent message with type " << type_str << std::endl;
+                            } else {
+                                std::cout << "No content specified" << std::endl;
+                            }
+                        } else {
+                            std::cout << "Invalid message type" << std::endl;
+                        }
+                    }
                 }
 #endif
+                else {
+                    std::cout << "Invalid command: \"" << token << "\"" << std::endl;
+                }
             }
 
             input_buffer.clear();
@@ -392,7 +440,7 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
         if (ch == PICO_ERROR_TIMEOUT) {
             count = -1;
             newline = true;
-            std::cout << std::endl << " Timeout" << std::endl;
+            std::cout << std::endl << "--Timeout--" << std::endl;
         } else {
             char c = static_cast<char>(ch);
             if ((c == '\r' || c == '\n') && last_c != '\r' && last_c != '\n') {
