@@ -32,6 +32,7 @@ RequestHandler::RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler,
     this->webSrvRequestQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
     this->webSrvResponseQueue = xQueueCreate(QUEUE_SIZE, sizeof(QueueMessage));
     this->requestMutex = xSemaphoreCreateMutex();
+    this->tlsWrapper = std::make_shared<TLSWrapper>();
 
     std::string getRequest;
     this->createUserInstructionsGETRequest(&getRequest);
@@ -264,7 +265,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
         freeaddrinfo(dns_lookup_results);
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
-    
+
     freeaddrinfo(dns_lookup_results); // Safe to free now
     DEBUG("Connected to server");
 
@@ -285,7 +286,7 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
 
         if (len > 0) {
             total_len += len;
-            if (total_len >= BUFFER_SIZE - 1) break; 
+            if (total_len >= BUFFER_SIZE - 1) break;
         } else if (len == 0) {
             DEBUG("Connection closed by peer.");
             break;
@@ -331,26 +332,26 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     DEBUG("Taking request mutex");
     ScopedMutex lock(this->requestMutex); // ScopedMutex will automatically unlock when it goes out of scope
 
-    TLSWrapper tls;
-    if (!tls.connect(this->getWebServerCString(), this->getWebPortCString(), this->getWebServerCertCsring())) {
+    if (!this->tlsWrapper->connect(this->getWebServerCString(), this->getWebPortCString(),
+                                   this->getWebServerCertCsring())) {
         DEBUG("TLS connection failed");
         return RequestHandlerReturnCode::SOCKET_CONNECT_FAIL;
     }
     DEBUG("TLS connection established");
 
     // Send request
-    if (tls.send(request.c_str(), request.length()) < 0) {
+    if (this->tlsWrapper->send(request.c_str(), request.length()) < 0) {
         DEBUG("TLS send failed");
-        tls.close();
+        this->tlsWrapper->close();
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
     DEBUG("TLS send success");
 
     // Receive response
     char receive_buffer[BUFFER_SIZE] = {0};
-    int total_len = tls.receive(receive_buffer, BUFFER_SIZE - 1);
+    int total_len = this->tlsWrapper->receive(receive_buffer, BUFFER_SIZE - 1);
 
-    tls.close();
+    this->tlsWrapper->close();
 
     if (total_len <= 0) {
         DEBUG("TLS receive failed");

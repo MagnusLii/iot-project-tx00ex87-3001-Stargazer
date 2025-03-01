@@ -4,11 +4,12 @@
 #include "defines.hpp"
 #include "sd-card.hpp"
 #include "wireless.hpp"
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
-#include <sstream>
-#include <iostream>
+#include "TLSWrapper.hpp"
 
 enum class RequestType {
     UNDEFINED,
@@ -81,15 +82,15 @@ class RequestHandler {
     void setTimeSyncedStatus(bool status);
 
   private:
-  // Helper functions for createGenericPOSTRequest
+    // Helper functions for createGenericPOSTRequest
     template <typename T, typename U, typename... Args>
     void processArgs(std::ostringstream &content, bool &first, T key, U value, Args... args);
     void processArgs(std::ostringstream &content, bool &first);
     template <typename T> std::string formatValue(T value);
 
-
     std::shared_ptr<WirelessHandler> wirelessHandler;
     std::shared_ptr<SDcardHandler> sdcardHandler;
+    std::shared_ptr<TLSWrapper> tlsWrapper;
 
     QueueHandle_t webSrvRequestQueue;  // Queue for sending requests to the web server
     QueueHandle_t webSrvResponseQueue; // Queue where responses from the web server are forwarded

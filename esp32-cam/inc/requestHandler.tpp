@@ -1,14 +1,14 @@
 #ifndef REQUEST_HANDLER_TPP
 #define REQUEST_HANDLER_TPP
 
-#include <sstream>
-#include <iostream>
-#include <type_traits>
 #include "requestHandler.hpp"
-
+#include <iostream>
+#include <sstream>
+#include <type_traits>
 
 template <typename... Args>
-RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint, Args... args) {
+RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
+                                                                  Args... args) {
     if (requestPtr == nullptr) {
         std::cerr << "Error: requestPtr is null" << std::endl;
         return RequestHandlerReturnCode::INVALID_ARGUMENT;
@@ -31,27 +31,25 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: close\r\n"
                   "Content-Type: application/json\r\n"
-                  "Content-Length: " + std::to_string(content.str().length()) +
-                  "\r\n\r\n" + content.str();
+                  "Content-Length: " +
+                  std::to_string(content.str().length()) + "\r\n\r\n" + content.str();
 
     std::cout << "Request: " << *requestPtr << std::endl;
+
     return RequestHandlerReturnCode::SUCCESS;
 }
 
 // Process key-value pairs
 template <typename T, typename U, typename... Args>
 void RequestHandler::processArgs(std::ostringstream &content, bool &first, T key, U value, Args... args) {
-    if (!first) {
-        content << ",";
-    }
+    if (!first) { content << ","; }
     first = false;
     content << "\"" << key << "\":" << formatValue(value);
     processArgs(content, first, args...);
 }
 
 // Helper function to format values as JSON
-template <typename T>
-std::string RequestHandler::formatValue(T value) {
+template <typename T> std::string RequestHandler::formatValue(T value) {
     if constexpr (std::is_integral_v<T>) {
         return std::to_string(value);
     } else if constexpr (std::is_same_v<T, const char *> || std::is_same_v<T, std::string>) {
