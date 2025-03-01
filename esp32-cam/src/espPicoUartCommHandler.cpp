@@ -47,10 +47,10 @@ int EspPicoCommHandler::send_msg_and_wait_for_response(const char *data, const s
     int retries = 0;
     this->set_waiting_for_response(true);
     while (this->get_waiting_for_response() && retries < RETRIES) {
-        vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
         DEBUG("Sending message and waiting for response");
         this->send_data(data, len);
         retries++;
+        vTaskDelay(pdMS_TO_TICKS(PICO_RESPONSE_WAIT_TIME));
     }
 
     // Didn't receive confirmation response
@@ -63,12 +63,14 @@ int EspPicoCommHandler::send_msg_and_wait_for_response(const char *data, const s
 }
 
 void EspPicoCommHandler::check_if_confirmation_msg(const UartReceivedData &receivedData) {
+    DEBUG("Checking if confirmation message");
     std::string string(receivedData.buffer, receivedData.len);
     msg::Message msg;
 
     if (convert_to_message(string, msg) == 0) {
         if (msg.type == msg::MessageType::RESPONSE) {
             if (msg.content[0] == "1") {
+                DEBUG("Pico Confirmation response returned true");
                 this->set_waiting_for_response(false);
             } else {
                 DEBUG("Pico Confirmation response returned false");
