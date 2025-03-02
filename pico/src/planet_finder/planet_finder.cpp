@@ -3,6 +3,7 @@
 #define ECCENTRIC_ANOMALY_APPROXXIMATION_MAX_ITER 3
 #define ECCENTRIC_ANOMALY_APPROXXIMATION_ERROR 0.001
 
+
 static inline double to_rads(double degrees) {
     return degrees * M_PI / 180.0;
 }
@@ -204,10 +205,83 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
 }
 
 Command Celestial::get_interest_point_command(Interest_point point, const datetime_t &start_date) {
-    Command zenith = get_zenith_time(start_date);
-    if (point == ZENITH) return zenith;
+    std::vector<Command> interesting_commands = get_interesting_commands(start_date);
+    if (point == ZENITH) return interesting_commands[1];
+    if (point == ABOVE) return interesting_commands[0];
 
-    return zenith;
+
+    return interesting_commands[1];
+}
+
+
+bool Celestial::check_for_above_horizon(const azimuthal_coordinates &current) {
+    return current.altitude > 0;
+}
+
+bool Celestial::check_for_rising(const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
+    if (current.altitude > 0) {
+        if (current.altitude - next.altitude < 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Celestial::check_for_falling(const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
+    if (current.altitude > 0) {
+        if (next.altitude < 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Celestial::check_for_zenith(const azimuthal_coordinates & last, const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
+    if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
+        return true;
+    }
+    return false;
+}
+
+std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start_date) {
+    std::vector<Command> result = {{0}, {0}, {0}};
+    datetime_t current_date = start_date;
+    azimuthal_coordinates last = get_coordinates(current_date);
+    datetime_increment_hour(current_date);
+    azimuthal_coordinates current = get_coordinates(current_date);
+    datetime_t next_date = current_date;
+    datetime_increment_hour(next_date);
+    azimuthal_coordinates next = get_coordinates(next_date);
+    bool done = false;
+    bool rising_found = false;
+    bool zenith_found = false;
+    bool falling_found = false;
+    int i = 0;
+    while (!done) {
+        if (check_for_above_horizon(current)) {
+            if (check_for_rising(current, next) && !rising_found) {
+                rising_found = true;
+                result[0] = {1, current, current_date};
+            }
+            else if (check_for_zenith(last, current, next) && !zenith_found) {
+                zenith_found = true;
+                result[1] = {1, current, current_date};
+            }
+            else if (check_for_falling(current, next) && !falling_found) {
+                falling_found = true;
+                result[2] = {1, current, current_date};
+            }
+        }
+        datetime_increment_hour(current_date);
+        datetime_increment_hour(next_date);
+        last = current;
+        current = next;
+        next = get_coordinates(next_date);
+
+        if (result[0].id != 0 && result[1].id != 0 && result[2].id != 0) done = true;
+        if (i > 48) done = true;
+    }
+    return result;
 }
 
 Command Celestial::get_zenith_time(const datetime_t &start_date) {

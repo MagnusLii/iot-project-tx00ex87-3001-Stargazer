@@ -40,6 +40,8 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
 void MotorControl::off(void) {
     horizontal_calibrated = false;
     vertical_calibrated = false;
+    motor_horizontal->off();
+    motor_vertical->off();
 }
 
 //// PRIVATE ////
@@ -106,6 +108,15 @@ void MotorControl::calibrate(void) {
     if (!opto_vertical) return;
     motor_horizontal->stop();
     motor_vertical->stop();
+
+    motor_horizontal->setSpeed(15);
+    motor_vertical->setSpeed(15);
+    motor_horizontal->setDirection(CLOCKWISE);
+    motor_vertical->setDirection(CLOCKWISE);
+    motor_horizontal->turnSteps(200);
+    motor_vertical->turnSteps(200);
+    while (isRunning()) ;
+
     motor_horizontal->setSpeed(2);
     motor_vertical->setSpeed(2);
     motor_horizontal->setDirection(ANTICLOCKWISE);

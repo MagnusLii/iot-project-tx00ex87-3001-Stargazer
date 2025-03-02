@@ -163,6 +163,8 @@ void StepperMotor::stop() {
 
 void StepperMotor::off() {
     // TODO: make this work
+    uint instr = pio_encode_set(pio_pins, 0) | pio_encode_sideset(2, 0);
+    pio_sm_exec(pioInstance, stateMachine, instr);
     return;
 }
 

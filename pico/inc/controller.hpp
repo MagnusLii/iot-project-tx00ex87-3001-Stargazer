@@ -25,6 +25,7 @@ class Controller {
         MOTOR_WAIT,
         MOTOR_OFF,
         CAMERA_EXECUTE,
+        TRACE,
     };
 
   public:
@@ -43,6 +44,7 @@ class Controller {
     void camera_execute();
     bool config_mode();
     int input(std::string &input, uint32_t timeout, bool hidden = false);
+    void sync();
 
   private:
     msg::MessageType last_sent = msg::UNASSIGNED;
@@ -50,6 +52,8 @@ class Controller {
     bool double_check = true;
     bool check_motor = false;
     bool waiting_for_camera = false;
+    bool synced = false;
+    uint64_t sync_time = 0;
     State state; // TODO: How do we handle state changes that are external to the loop?
                  // Do we need timers?
                  // ...

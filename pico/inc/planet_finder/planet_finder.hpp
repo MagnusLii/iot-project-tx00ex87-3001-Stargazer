@@ -29,7 +29,8 @@ enum Planets {
 enum Interest_point {
     ASCENDING=1,
     ZENITH,
-    DESCENDING
+    DESCENDING,
+    ABOVE
 };
 
 
@@ -89,10 +90,16 @@ class Celestial {
         // void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
         void print_coordinates(const datetime_t start_date, int hours);
         Command get_interest_point_command(Interest_point point,const datetime_t &start_date);
+        datetime_t get_rise_time(const datetime_t &start_date);
         void set_observer_coordinates(const Coordinates observer_coordinates);
         void start_trace(datetime_t start_datetime, int hours);
         Command next_trace(void);
     private:
+        bool check_for_above_horizon(const azimuthal_coordinates &current);
+        bool check_for_rising(const azimuthal_coordinates &current, const azimuthal_coordinates &next);
+        bool check_for_falling(const azimuthal_coordinates &current, const azimuthal_coordinates &next);
+        bool check_for_zenith(const azimuthal_coordinates & last, const azimuthal_coordinates &current, const azimuthal_coordinates &next);
+        std::vector<Command> get_interesting_commands(const datetime_t &start_date);
         Command get_zenith_time(const datetime_t &start_date);
         Planets planet;
         Coordinates observer_coordinates;

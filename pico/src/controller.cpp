@@ -43,6 +43,7 @@ void Controller::run() {
     int image_id = 1; // TODO: ^
     DEBUG("Starting main loop");
     while (true) {
+        if (!synced) sync();
         if (config_mode()) { DEBUG("Exited config mode"); }
         DEBUG("State: ", state);
         switch (state) {
@@ -92,6 +93,9 @@ void Controller::run() {
             case CAMERA_EXECUTE:
                 
                 break;
+            case TRACE:
+                // TODO: trace the planet
+                break;
             case MOTOR_OFF:
                 waiting_for_camera = false;
                 mctrl->off();
@@ -131,7 +135,7 @@ bool Controller::init() {
         if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
         if (!gps->get_coordinates().status) gps->locate_position(2);
 
-        //result = true; // TODO: Remove
+        result = true; // TODO: Remove
         if (gps->get_coordinates().status && clock->is_synced()) {
             result = true;
         } else {
@@ -470,4 +474,21 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
     }
 
     return count;
+}
+
+
+void Controller::sync() {
+    uint64_t current_time = time_us_64();
+    if ((current_time - sync_time) > (5000 * 1000)) {
+        DEBUG("syncing");
+        bool clock_synced = false;
+        if (!clock->is_synced()) commbridge->send(msg::datetime_request());
+        else clock_synced = true;
+        if (!gps->get_coordinates().status) gps->locate_position(1);
+        else if (clock_synced) {
+            DEBUG("Synced");
+            synced = true;
+        }
+        sync_time = current_time;
+    } 
 }
