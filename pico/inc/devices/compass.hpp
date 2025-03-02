@@ -27,9 +27,9 @@ class Compass {
     void calibrate();
     float getHeading();
   private:
+    i2c_inst_t* I2C_PORT;
     uint SCL_PIN;
     uint SDA_PIN;
-    i2c_inst_t* I2C_PORT;
     float xRawValueOffset;
     float yRawValueOffset;
     float zRawValueOffset;

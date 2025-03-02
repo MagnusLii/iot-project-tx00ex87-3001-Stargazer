@@ -43,8 +43,8 @@ Message instructions(const std::string object_id, const std::string image_id, co
 Message cmd_status(int image_id, int status, int datetime);
 Message picture(int image_id);
 Message diagnostics(int status, const std::string diagnostic);
-Message wifi(std::string ssid, std::string password);
-Message server(std::string server_addr);
-Message api(std::string api_token);
+Message wifi(const std::string ssid, const std::string password);
+Message server(const std::string address, int port);
+Message api(const std::string api_token);
 
 } // namespace msg

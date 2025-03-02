@@ -13,7 +13,7 @@ int GPS::locate_position(uint16_t timeout_s) {
     int empty_reads = 0;
     uint8_t read_buffer[256] = {0};
 
-    status = false;
+    //status = false;
     do {
         uart->read(read_buffer, sizeof(read_buffer));
         if (read_buffer[0] != 0) {
@@ -99,12 +99,11 @@ void GPS::set_mode(Mode mode) {
     }
 }
 
-#ifdef ENABLE_DEBUG
-void GPS::debug_set_coordinates(double lat, double lon) {
+void GPS::set_coordinates(double lat, double lon) {
     latitude = lat;
     longitude = lon;
+    status = true;
 }
-#endif
 
 int GPS::parse_gpgga() {
     std::stringstream ss(gps_sentence);

@@ -66,7 +66,7 @@ void Compass::calibrate() {
 
     int16_t x, y, z;
 
-    DEBUG("Calibrate the compass\r\n");
+    DEBUG("Calibrate the compass");
 
     while (xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);
