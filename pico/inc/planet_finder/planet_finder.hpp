@@ -90,7 +90,6 @@ class Celestial {
         // void fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates);
         void print_coordinates(const datetime_t start_date, int hours);
         Command get_interest_point_command(Interest_point point,const datetime_t &start_date);
-        datetime_t get_rise_time(const datetime_t &start_date);
         void set_observer_coordinates(const Coordinates observer_coordinates);
         void start_trace(datetime_t start_datetime, int hours);
         Command next_trace(void);

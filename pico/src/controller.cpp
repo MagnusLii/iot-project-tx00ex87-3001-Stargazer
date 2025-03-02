@@ -22,7 +22,7 @@ bool compare_time(const Command &a, const Command &b) {
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
                        std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue) {
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue), trace_object(MOON) {
     state = COMM_READ;
 }
 
@@ -63,6 +63,8 @@ void Controller::run() {
                     state = COMM_READ;
                 else if (mctrl->isCalibrated())
                     state = MOTOR_CONTROL;
+                else if (trace_started)
+                    state = TRACE;
                 else
                     state = SLEEP;
                 break;
@@ -94,7 +96,20 @@ void Controller::run() {
                 
                 break;
             case TRACE:
-                // TODO: trace the planet
+                // TODO: calibrate before
+                if (!trace_started) {
+                    Command start = trace_object.get_interest_point_command(ABOVE, clock->get_datetime());
+                    trace_object.start_trace(start.time, 12);
+                    trace_started = true;
+                }
+                trace_command = trace_object.next_trace();
+                if (trace_command.time.year == -1) {
+                    trace_started = false;
+                    state = COMM_READ;
+                    break;
+                }
+                mctrl->turn_to_coordinates(trace_command.coords);
+                DEBUG("Trace coordinates altitude:", trace_command.coords.altitude, "azimuth:", trace_command.coords.azimuth);
                 break;
             case MOTOR_OFF:
                 waiting_for_camera = false;
@@ -190,10 +205,9 @@ void Controller::instr_process() {
     DEBUG("Processing instructions");
     msg::Message instr = instr_msg_queue.front();
     bool error = false;
-
+    Planets planet = MOON;
     if (instr.content.size() == 3 && instr.type == msg::INSTRUCTIONS) {
         int planet_num;
-        Planets planet;
         if (str_to_int(instr.content[0], planet_num)) {
             if (planet_num >= 1 && planet_num <= 9)
                 planet = (Planets)planet_num;
@@ -420,6 +434,12 @@ bool Controller::config_mode() {
                         } else {
                             std::cout << "Invalid message type" << std::endl;
                         }
+                    }
+                } else if (token == "trace") {
+                    int planet;
+                    if (ss >> planet) {
+                        state = TRACE;
+                        trace_object = {(Planets)planet};
                     }
                 }
 #endif

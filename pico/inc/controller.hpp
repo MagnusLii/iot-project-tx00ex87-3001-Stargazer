@@ -53,6 +53,8 @@ class Controller {
     bool check_motor = false;
     bool waiting_for_camera = false;
     bool synced = false;
+    bool trace_started = false;
+    Command trace_command = {0};
     uint64_t sync_time = 0;
     State state; // TODO: How do we handle state changes that are external to the loop?
                  // Do we need timers?
@@ -68,6 +70,7 @@ class Controller {
     std::shared_ptr<MotorControl> mctrl;
 
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
+    Celestial trace_object;
 };
 
 // void sleep() {
