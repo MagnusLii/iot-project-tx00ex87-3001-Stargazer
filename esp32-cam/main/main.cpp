@@ -54,25 +54,12 @@
 
 #include "esp_task_wdt.h"
 
-#include "mbedtls/platform.h"
-#include "esp_heap_caps.h"
-
-void* my_calloc(size_t n, size_t size) {
-    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT);
-}
-
-void my_free(void* ptr) {
-    heap_caps_free(ptr);
-}
-
 extern "C" {
 void app_main(void);
 }
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
-
-    mbedtls_platform_set_calloc_free(my_calloc, my_free);
 
 #ifdef RESERVE_UART0_FOR_PICO_COMM
     DEBUG("Disabling DEBUGS, switching UART to pico comm mode");

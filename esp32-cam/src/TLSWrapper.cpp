@@ -8,8 +8,14 @@
 #include "mbedtls/net_sockets.h"
 #include "mbedtls/ssl.h"
 #include "testMacros.hpp"
+#include "mbedtls/platform.h"
+#include "esp_heap_caps.h"
 
 TLSWrapper::TLSWrapper() {
+
+    // Set custom memory allocation functions for better heap management
+    mbedtls_platform_set_calloc_free(my_calloc, my_free);
+
     // Initialize net context
     mbedtls_net_init(&this->net_ctx);
     while (this->net_ctx.fd != -1) {
@@ -178,3 +184,11 @@ void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const ch
     DEBUG("mbedtls debug ", level, " : ", file, " : ", line, " : ", str);
 }
 #endif
+
+void* my_calloc(size_t n, size_t size) {
+    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT);
+}
+
+void my_free(void* ptr) {
+    heap_caps_free(ptr);
+}
