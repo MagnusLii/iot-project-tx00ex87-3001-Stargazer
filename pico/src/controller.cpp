@@ -45,7 +45,7 @@ void Controller::run() {
     while (true) {
         if (!synced) sync();
         if (config_mode()) { DEBUG("Exited config mode"); }
-        DEBUG("State: ", state);
+        // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
@@ -61,10 +61,10 @@ void Controller::run() {
                     state = COMM_READ;
                 else if (mctrl->isCalibrating())
                     state = COMM_READ;
-                else if (mctrl->isCalibrated())
-                    state = MOTOR_CONTROL;
                 else if (trace_started)
                     state = TRACE;
+                else if (mctrl->isCalibrated())
+                    state = MOTOR_CONTROL;
                 else
                     state = SLEEP;
                 break;
@@ -101,6 +101,12 @@ void Controller::run() {
                     Command start = trace_object.get_interest_point_command(ABOVE, clock->get_datetime());
                     trace_object.start_trace(start.time, 12);
                     trace_started = true;
+                    state = MOTOR_CALIBRATE;
+                    break;
+                }
+                if (mctrl->isRunning()) {
+                    state = COMM_READ;
+                    break;
                 }
                 trace_command = trace_object.next_trace();
                 if (trace_command.time.year == -1) {
