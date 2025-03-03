@@ -45,7 +45,7 @@
 
 // #define PRINT_SETTINGS_READ_FROM_SDCARD
 
-#define USE_TLS
+// #define USE_TLS
 
 // ----------------------------------------------------------
 // ----------------SUPPORTING-FUNCTIONS----------------------

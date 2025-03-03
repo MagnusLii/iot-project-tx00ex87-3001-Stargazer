@@ -8,7 +8,7 @@
 #include <cstring>
 
 // #define DISABLE_CERTIFICATE_VERIFICATION
-#define TLS_DEBUG
+// #define TLS_DEBUG
 
 class TLSWrapper {
   public:
@@ -34,8 +34,5 @@ class TLSWrapper {
 #ifdef TLS_DEBUG
 void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str);
 #endif // TLS_DEBUG
-
-void *my_calloc(size_t n, size_t size);
-void my_free(void *ptr);
 
 #endif // TLSWRAPPER_H

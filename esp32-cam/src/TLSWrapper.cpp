@@ -12,10 +12,6 @@
 #include "esp_heap_caps.h"
 
 TLSWrapper::TLSWrapper() {
-
-    // Set custom memory allocation functions for better heap management
-    mbedtls_platform_set_calloc_free(my_calloc, my_free);
-
     // Initialize net context
     mbedtls_net_init(&this->net_ctx);
     while (this->net_ctx.fd != -1) {
@@ -106,6 +102,7 @@ bool TLSWrapper::connect(const char *host, const char *port, const char *root_ce
 
     // Remove redundant net_ctx initialization
     ret = mbedtls_net_connect(&this->net_ctx, host, port, MBEDTLS_NET_PROTO_TCP);
+    DEBUG("Connection done");
     if (ret != 0) {
         char error_buf[100];
         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
@@ -149,7 +146,7 @@ bool TLSWrapper::connect(const char *host, const char *port, const char *root_ce
 
     mbedtls_ssl_set_bio(&this->ssl, &this->net_ctx, mbedtls_net_send, mbedtls_net_recv, nullptr);
 
-    if (mbedtls_ssl_set_hostname(&this->ssl, host) != 0) {
+    if (mbedtls_ssl_set_hostname(&this->ssl, "stargazer") != 0) {
         DEBUG("Setting hostname failed");
         return false;
     }
@@ -184,11 +181,3 @@ void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const ch
     DEBUG("mbedtls debug ", level, " : ", file, " : ", line, " : ", str);
 }
 #endif
-
-void* my_calloc(size_t n, size_t size) {
-    return heap_caps_calloc(n, size, MALLOC_CAP_8BIT);
-}
-
-void my_free(void* ptr) {
-    heap_caps_free(ptr);
-}
