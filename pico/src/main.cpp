@@ -20,7 +20,8 @@ int main() {
     stdio_init_all();
     sleep_ms(500);
     DEBUG("Boot");
-
+    gpio_init(0);
+    gpio_set_dir(0, true);
     auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
     sleep_ms(50);
