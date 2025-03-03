@@ -6,6 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="/assets/main.css">
         <script src="/assets/js/sitewide.js"></script>
+        <script src="/assets/js/diagnostics.js"></script>
     </head>
     <body>
         <div id="header">
@@ -30,19 +31,38 @@
         <div id="control-content" class="main-content">
             <div class="row">
                 <div id="diagnostics-column" class="col-12">
-                    <p>Diagnostics page - TBD what will actually be here</p>
+                    <label for="diagnostics-filter">Filter by name:</label>
+                    <select id="diagnostics-filter" onchange="filterDiagnostics();">
+                        <!--NAMES-->
+                    </select>
+                    <label for="diagnostics-filter-status">Filter by status:</label>
+                    <select id="diagnostics-filter-status" onchange="filterDiagnostics();">
+                        <!--STATUSES-->
+                    </select>
                 </div>
             </div>
             <div class="row">
                 <div id="diagnostics-column" class="col-12">
-                    <table id="diagnostics">
-                        <tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Message</th>
-                        </tr>
-                        <!--DIAGNOSTICS-->
-                    </table>
+                    <div id="diagnostics-container">
+                        <table id="diagnostics">
+                            <thead>
+                                <tr>
+                                    <th class="diagnostics-name">Name</th>
+                                    <th class="diagnostics-status">Status</th>
+                                    <th class="diagnostics-message">Message</th>
+                                    <th class="diagnostics-time">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="diagnostics-list">
+                                <!--DIAGNOSTICS-->
+                            </tbody>
+                        </table>
+                        <div id="pagination">
+                            <button onclick="prevPage();">Previous</button>
+                            <!--PAGINATION-->
+                            <button onclick="nextPage();">Next</button>
+                        </div>
+                    </div>
                 </div>
             </div>
     </body>

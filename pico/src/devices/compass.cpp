@@ -13,12 +13,8 @@
 // Conversion from raw value to microteslas (uT)
 #define TO_UT (100.0 / 1090.0)
 
-Compass::Compass(uint SCL_PIN_VAL, uint SDL_PIN_VAL, i2c_inst_t *I2C_PORT_VAL)
-    : SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL), I2C_PORT(I2C_PORT_VAL) {}
-
-// Initialize the compass
-void Compass::init() {
-    // Initialize I2C communication
+Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
+    : I2C_PORT(I2C_PORT_VAL),  SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
     i2c_init(I2C_PORT, 400000); // 400 kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
@@ -30,8 +26,6 @@ void Compass::init() {
 
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_a, 2, true);
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_b, 2, true);
-
-    calibrate();
 }
 
 // Read raw data from the compass

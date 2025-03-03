@@ -1,149 +1,66 @@
-#include "commbridge.hpp"
-#include "convert.hpp"
-#include "devices/gps.hpp"
-#include "hardware/clock.hpp"
-#include "devices/compass.hpp"
-#include "message.hpp"
 #include "pico/stdlib.h" // IWYU pragma: keep
+#include "hardware/clock.hpp"
 #include "planet_finder.hpp"
-#include "pico/stdlib.h"
 #include "uart/PicoUart.hpp"
 #include <hardware/timer.h>
 #include <iostream>
 #include <memory>
+#include <pico/time.h>
+#include <pico/types.h>
 #include <queue>
 #include <sstream>
 #include <vector>
+#include "sleep_functions.hpp"
 
 #include "stepper-motor.hpp"
+#include "motor-control.hpp"
 
 #include "debug.hpp"
 
-// int main() {
-//     stdio_init_all();
-//     Celestial moon(MOON);
-//     datetime_t date;
-//     date.year = 2025;
-//     date.month = 2;
-//     date.day = 2;
-//     date.hour = 20;
-//     date.min = 0;
-//     Coordinates coords(60.1699, 24.9384);
-//     moon.set_observer_coordinates(coords);
-//     datetime_t date2 = moon.get_interest_point_time(ZENITH, date);
-//     moon.print_coordinates(date, 48);
-//     while (true) {
-//         std::cout << (int)date2.month << ", " << (int)date2.day << ", " << (int)date2.hour << std::endl;
-//         sleep_ms(500);
-//     }
-// }
 
 int main() {
     stdio_init_all();
-    sleep_ms(5000);
-    DEBUG("Start\r\n");
-    auto queue = std::make_shared<std::queue<msg::Message>>();
-    auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
-    auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
+    std::cout << "abc" << std::endl;
+    std::vector<uint> pins1{2, 3, 6, 13};
+    std::vector<uint> pins2{16,17,18,19};
+    int opto_horizontal = 14;
+    int opto_vertical = 28;
+    std::shared_ptr<StepperMotor> mh = std::make_shared<StepperMotor>(pins1);
+    std::shared_ptr<StepperMotor> mv = std::make_shared<StepperMotor>(pins2);
+    MotorControl mctrl(mh, mv, opto_horizontal, opto_vertical);
 
-    auto clock = std::make_shared<Clock>();
-    auto gps = std::make_unique<GPS>(uart_1, false, true);
-    //Compass compass(17, 16, i2c0);
-    //compass.init();
+    Celestial moon(SATURN);
+    datetime_t date;
+    date.year = 2025;
+    date.month = 2;
+    date.day = 23;
+    date.hour = 16;
+    date.min = 20;
+    Coordinates coords(60.1699, 24.9384);
+    moon.set_observer_coordinates(coords);
+    azimuthal_coordinates abc = moon.get_coordinates(date);
+    std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
+    moon.start_trace(date, 24);
 
-    CommBridge bridge(uart_0, queue);
+    mh->turnSteps(500);
+    mv->turnSteps(500);
+    while (mh->isRunning()) ;
+    while (mv->isRunning()) ;
 
-    sleep_ms(50);
-    gps->set_mode(GPS::Mode::FULL_ON);
+    mctrl.calibrate();
+    while (mctrl.isCalibrating()) ;
 
-    bool fix = false;
-    float heading = 0;
-    for (;;) {
-        Coordinates coords = gps->get_coordinates();
-        if (coords.status) {
-            DEBUG("Latitude: ", coords.latitude);
-            DEBUG("Longitude: ", coords.longitude);
-            if (!fix) {
-                fix = true;
-                gps->set_mode(GPS::Mode::STANDBY);
-            }
-        } else if (!fix) {
-            gps->locate_position(5);
-        }
-
-        bridge.send(msg::datetime_request());
-        sleep_ms(1000);
-
-        //heading = compass.getHeading();
-        //DEBUG("Heading: ", heading);
-        bridge.send(msg::esp_init(true));
-        sleep_ms(1000);
-        bridge.send(msg::instructions(3, 15, 2));
-        sleep_ms(1000);
-        bridge.send(msg::picture(3, 15));
-        sleep_ms(1000);
-        const std::string ssid = "Stargazer";
-        const std::string password = "stargazer";
-        bridge.send(msg::wifi(ssid, password));
-        sleep_ms(1000);
-        const std::string server_addr = "237.84.2.178";
-        bridge.send(msg::server(server_addr));
-        sleep_ms(1000);
-        const std::string api_token = "stargazer123123231";
-        bridge.send(msg::api(api_token));
-        sleep_ms(1000);
-
-        DEBUG("Received wakeup signal\r\n");
-        bridge.read_and_parse(10000, true);
-
-        while (queue->size() > 0) {
-            msg::Message msg = queue->front();
-
-            switch (msg.type) {
-                case msg::RESPONSE: // Received response ACK/NACK from ESP
-                    DEBUG("Received response");
-                    break;
-                case msg::DATETIME:
-                    DEBUG("Received datetime");
-                    clock->update(msg.content[0]);
-                    bridge.send(msg::response(true));
-                    break;
-                case msg::ESP_INIT: // Send ACK response back to ESP
-                    DEBUG("Received ESP init");
-                    bridge.send(msg::response(true));
-                    break;
-                case msg::INSTRUCTIONS:
-                    DEBUG("Received instructions");
-                    for (auto it = msg.content.begin(); it != msg.content.end(); ++it) {
-                        DEBUG("Instruction: ", *it);
-                    }
-                    bridge.send(msg::response(true));
-                    break;
-                case msg::PICTURE: // Pico should not receive these
-                    DEBUG("Received picture msg for some reason");
-                    break;
-                case msg::DIAGNOSTICS: // Pico should not receive these
-                    DEBUG("Received diagnostics msg for some reason");
-                    break;
-                default:
-                    DEBUG("Unknown message type: ", msg.type);
-                    break;
-            }
-        }
-        // motor1.turnSteps(200);
-        // motor1.stop();
-        // motor2.stop();
-
-        sleep_ms(5000);
-
-        if (clock->is_synced()) {
-            datetime_t now = clock->get_datetime();
-            DEBUG("Current time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour),
-                  ":", unsigned(now.min), ":", unsigned(now.sec));
+    Command command;
+    command.time.year = 1000;
+    while (true)  {
+        command = moon.next_trace();
+        if (command.time.year != -1) {
+            mctrl.turn_to_coordinates(command.coords);
+            std::cout <<"alt actual " << command.coords.altitude * 180 / M_PI << " azi actual " << command.coords.azimuth * 180 / M_PI << std::endl;
+            while (mctrl.isRunning()) ;
         }
 
     }
-
     return 0;
 }
 

@@ -4,13 +4,13 @@ set(PICO_BOARD pico)
 
 # Include build functions from Pico SDK
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
 project(pico-stargazer C CXX ASM)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 23)
 
 set(COMMON_DIR ../common)
-
 
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
@@ -22,7 +22,9 @@ add_executable(${PROJECT_NAME}
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/hardware/clock.cpp
+    src/hardware/sleep_functions.cpp
     src/devices/stepper-motor.cpp
+    src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
 )
@@ -32,9 +34,11 @@ add_executable(${PROJECT_NAME}_test
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
+    src/hardware/sleep_functions.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
+    src/devices/motor-control.cpp
     src/commbridge.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
@@ -42,12 +46,11 @@ add_executable(${PROJECT_NAME}_test
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
 add_library(crc ${COMMON_DIR}/src/crc.cpp)
-add_library(convert ${COMMON_DIR}/src/convert.cpp
-)
+add_library(convert ${COMMON_DIR}/src/convert.cpp)
 
-add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c src/devices/gps.cpp src/hardware/uart/PicoUart.cpp)
-target_link_libraries(test_planet_finder pico_stdlib hardware_rtc)
-target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc inc/hardware/uart)
+add_executable(test_planet_finder tests/planet_finder/printer.cpp src/planet_finder/planet_finder.cpp src/planet_finder/date_utils.cpp tests/unity/src/unity.c src/devices/gps.cpp src/hardware/uart/PicoUart.cpp src/devices/motor-control.cpp)
+target_link_libraries(test_planet_finder pico_stdlib hardware_rtc hardware_pio)
+target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc inc inc/hardware/uart)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
@@ -90,6 +93,8 @@ target_link_libraries(${PROJECT_NAME}
     hardware_gpio
     hardware_rtc
     hardware_pio
+    hardware_rosc
+    hardware_sleep
 )
 
 target_link_libraries(${PROJECT_NAME}_test 
@@ -100,8 +105,9 @@ target_link_libraries(${PROJECT_NAME}_test
     message
     crc
     convert
-    hardware_rtc
     hardware_pio
+    hardware_rosc
+    hardware_sleep
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")

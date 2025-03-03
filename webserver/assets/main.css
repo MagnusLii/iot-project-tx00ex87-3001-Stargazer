@@ -410,6 +410,65 @@ body {
     height: 100%;
 }
 
+/* DIAGNOSTICS */
+
+#diagnostics {
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid var(--color-3);
+    margin: auto;
+    max-width: 50%;
+}
+
+@media only screen and (max-width: 1680px) {
+    #diagnostics {
+        max-width: 60%;
+    }
+}
+
+@media only screen and (max-width: 1024px) {
+    #diagnostics {
+        max-width: 80%;
+    }
+}
+
+@media only screen and (max-width: 768px) {
+    #diagnostics {
+        max-width: 100%;
+    }
+}
+
+#diagnostics th {
+    background-color: var(--color-3);
+    height: 40px;
+}
+
+#diagnostics th, td {
+    padding: 8px;
+    text-align: left;
+}
+
+#diagnostics td {
+    width: auto;
+}
+
+.diagnostics-name {
+    width: 15%;
+}
+
+.diagnostics-status {
+    width: 5%;
+}
+
+.diagnostics-message {
+    width: 50%;
+}
+
+.diagnostics-time {
+    width: 10%;
+}
+
+
 /* GALLERY */
 
 #gallery-container {

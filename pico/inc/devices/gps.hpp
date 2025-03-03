@@ -2,16 +2,17 @@
 
 #include "PicoUart.hpp"
 #include "pico/stdlib.h"
+#include "structs.hpp"
 #include <hardware/timer.h>
 #include <memory>
 #include <sstream>
 #include <string>
 
-struct Coordinates {
-    double latitude;
-    double longitude;
-    bool status;
-};
+// struct Coordinates {
+//     double latitude;
+//     double longitude;
+//     bool status;
+// };
 
 class GPS {
   public:

@@ -68,10 +68,10 @@ curl -H "Content-Type: application/json" --request POST --data "{\"token\":\"ae0
 ## `/api/diagnostics`
 Send diagnostics to the webserver.
 
-[NOTE: TBD] The JSON should contain the following fields:
+The JSON should contain the following fields:
 
 - `token`: The API token (string)
-- `status`: The status (string)
+- `status`: The status (int)
 - `message`: The message (string)
 
 ## `/api/time`

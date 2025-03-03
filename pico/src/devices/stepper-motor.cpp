@@ -1,20 +1,15 @@
 #include "stepper-motor.hpp"
 #include "stepper.pio.h"
+#include "structs.hpp"
 
-// static inline int modulo(int x, int y) {
-//     return (x % y) + ((x % y) < 0) ? y : 0;
-// }
+int modulo(int x, int y) {
+    int rem = x % y;
+    return rem + ((rem < 0) ? y : 0);
+}
 
-#define _arg(x) (x)
-#define _remainder(x, y) (_arg(x) % _arg(y))
-#define _lessthan(x) (_arg(x) < 0)
-#define _ternary(x, y) (_lessthan(_remainder(x, y)) ? _arg(y) : 0)
-#define modulo(x, y) (_remainder(x, y) + _ternary(x, y))
-
-StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins, uint optoforkpin)
-    : pins(stepper_pins), optoForkPin(optoforkpin), direction(true), pioInstance(nullptr), programOffset(0),
-      stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(6000),
-      edgeSteps(0), stepMemory(0), stepperCalibrated(false), stepperCalibrating(false) {
+StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins)
+    : pins(stepper_pins), direction(true), pioInstance(nullptr), programOffset(0),
+      stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(4097), stepMemory(0) {
         // need 4 pins
         if (pins.size() != 4) panic("Need 4 pins to operate stepper motor. number of pins got: %d", pins.size());
         // Three first stepper pins must be less than 6 apart
@@ -45,19 +40,13 @@ void StepperMotor::pioInit(void) {
 
 float StepperMotor::calculateClkDiv(float rpm) const {
     if (rpm > RPM_MAX) rpm = RPM_MAX;
-    //    if (rpm < RPM_MIN) rpm = RPM_MIN;
+    if (rpm < RPM_MIN) rpm = RPM_MIN;
     return (SYS_CLK_KHZ * 1000) / (16000 / (((1 / rpm) * 60 * 1000) / 4096));
 }
 
 // needs to be called after initializing PIO and statemachine
 // The pins have to be ascending in order
-void StepperMotor::pins_init() {
-    // TODO: maybe make an optofork class that handles optofork related things
-    if (optoForkPin) {
-        gpio_set_dir(optoForkPin, GPIO_IN);
-        gpio_set_function(optoForkPin, GPIO_FUNC_SIO);
-        gpio_pull_up(optoForkPin);
-    }
+void StepperMotor::pins_init() {   
     // mask is needed to set pin directions in the state machine
     uint32_t pin_mask = 0x0;
     for (uint pin : pins) {
@@ -115,6 +104,26 @@ void StepperMotor::turnSteps(uint16_t steps) {
     stepMemory = (stepMemory << 16) | stepsToAdd;
 }
 
+
+// this will stop the motor and turn to an angle instantly
+void StepperMotor::turn_to(double radians) {
+    stop();
+    double current = get_position();
+    double normalized = normalize_radians(radians);
+    double distance = normalized - current;
+    if (distance < -M_PI) {
+        distance += 2 * M_PI;
+    }
+    if (distance > M_PI) {
+        distance -= 2 * M_PI;
+    }
+    if (distance < 0)
+        setDirection(ANTICLOCKWISE);
+    else
+        setDirection(CLOCKWISE);
+    turnSteps(radians_to_steps(fabs(distance)));
+}
+
 void StepperMotor::turnOneRevolution() {
     turnSteps(stepMax);
 }
@@ -125,6 +134,10 @@ void StepperMotor::setSpeed(float rpm) {
     float div = calculateClkDiv(rpm);
     pio_sm_set_clkdiv(pioInstance, stateMachine, div);
     pio_sm_set_enabled(pioInstance, stateMachine, true);
+}
+
+void StepperMotor::resetStepCounter(void) {
+    stepCounter = 0;
 }
 
 void StepperMotor::stop() {
@@ -191,6 +204,14 @@ void StepperMotor::setDirection(bool clockwise) {
     pio_sm_set_enabled(pioInstance, stateMachine, true);
 }
 
+double StepperMotor::get_position(void) {
+    return ((double)stepCounter * 2.0 * M_PI) / (double)stepMax;
+}
+
+int StepperMotor::radians_to_steps(double radians) {
+    return (int)round((radians * (double)stepMax) / (2.0 * M_PI));
+}
+
 uint8_t StepperMotor::getCurrentStep() const {
     uint8_t pinsOnOff = gpio_get(pins[3]) << 3 | gpio_get(pins[2]) << 2 | gpio_get(pins[1]) << 1 | gpio_get(pins[0]);
 
@@ -212,21 +233,11 @@ bool StepperMotor::isRunning() const {
              (pio_sm_get_tx_fifo_level(pioInstance, stateMachine) == 0));
 }
 
-bool StepperMotor::isCalibrated() const {
-    return stepperCalibrated;
-}
-
-bool StepperMotor::isCalibrating() const {
-    return stepperCalibrating;
-}
 
 uint16_t StepperMotor::getMaxSteps() const {
     return stepMax;
 }
 
-uint16_t StepperMotor::getEdgeSteps() const {
-    return edgeSteps;
-}
 
 int16_t StepperMotor::getStepCount() const {
     return stepCounter;

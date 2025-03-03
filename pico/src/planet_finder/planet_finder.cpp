@@ -100,7 +100,7 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
 }
 
 
-Celestial::Celestial(Planets planet) : planet(planet) {}
+Celestial::Celestial(Planets planet) : planet(planet), trace_hours(0) {}
 
 azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
@@ -144,8 +144,13 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     if (planet != MOON) {
         double sun_E = eccentric_anomaly(sun.e, sun.M);
         rect_coordinates sun_xy = to_rectangular_coordinates(sun.a, sun.e, sun_E);
-        sun_xy.z = 0;
-        xyz = xyz + sun_xy;
+        double sun_v = true_anomaly(sun_xy);
+        double sun_r = distance(sun_xy);
+        double sun_lon = sun_v + sun.w;
+        double sun_x = sun_r * cos(sun_lon);
+        double sun_y = sun_r * sin(sun_lon);
+        xyz.x = xyz.x + sun_x;
+        xyz.y = xyz.y + sun_y;
     }
     xyz = rotate_through_obliquity_of_eplectic(xyz, obliquity);
     spherical_coordinates sc = to_spherical_coordinates(xyz);
@@ -198,14 +203,14 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
     std::cout << "end" << std::endl;
 }
 
-datetime_t Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
-    datetime_t date = get_zenith_time(start_date);
+Command Celestial::get_interest_point_time(Interest_point point, const datetime_t &start_date) {
+    Command zenith = get_zenith_time(start_date);
+    if (point == ZENITH) return zenith;
 
-    
-    return date;
+    return zenith;
 }
 
-datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
+Command Celestial::get_zenith_time(const datetime_t &start_date) {
     datetime_t iter_date = start_date;
     datetime_t result_date{0};
     azimuthal_coordinates last = get_coordinates(iter_date);
@@ -236,11 +241,31 @@ datetime_t Celestial::get_zenith_time(const datetime_t &start_date) {
     if (error) { // -1 year means no date could be found in 2 days
         result_date.year = -1;
     }
-    return result_date;
+    Command result = {1, current, result_date};
+    return result;
 }
 
 void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
     this->observer_coordinates = observer_coordinates;
+}
+
+void Celestial::start_trace(datetime_t start_datetime, int hours) {
+    trace_date = start_datetime;
+    trace_hours = hours;
+}
+
+
+Command Celestial::next_trace(void) {
+    Command result;
+    if (trace_hours <= 0) {
+        result.time.year = -1; // this indicates error maybe
+        return result;
+    }
+    result.coords = get_coordinates(trace_date);
+    result.time = trace_date;
+    datetime_increment_hour(trace_date);
+    trace_hours--;
+    return result;
 }
 
 

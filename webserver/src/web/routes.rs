@@ -214,27 +214,108 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
 #[derive(Debug, Deserialize)]
 pub struct DiagnosticQuery {
     name: Option<String>,
+    page: Option<u32>,
+    status: Option<u8>,
 }
 
 pub async fn diagnostics(
     State(state): State<SharedState>,
-    Query(name): Query<DiagnosticQuery>,
+    query: Result<Query<DiagnosticQuery>, QueryRejection>,
 ) -> impl IntoResponse {
     let mut html = include_str!("../../html/diagnostics.html").to_string();
 
-    let html_diagnostics = diagnostics::get_diagnostics(name.name, &state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|diagnostic| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-                diagnostic.name, diagnostic.status, diagnostic.message
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
-    html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    let query = match query {
+        Ok(q) => q.0,
+        Err(e) => {
+            eprintln!("Error parsing query: {}", e);
+            DiagnosticQuery {
+                name: None,
+                page: None,
+                status: None,
+            }
+        }
+    };
+
+    let mut valid_query = false;
+    if let Ok(devices) = diagnostics::get_diagnostics_names(&state.db).await {
+        let mut html_devices = "<option value=\"\">All</option>".to_string();
+
+        if let Some(name) = &query.name {
+            html_devices += &devices
+                .iter()
+                .map(|device| {
+                    if &device.name == name {
+                        valid_query = true;
+                        format!(
+                            "<option value=\"{}\" selected>{}</option>",
+                            device.name, device.name
+                        )
+                    } else {
+                        format!("<option value=\"{}\">{}</option>", device.name, device.name)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+        } else {
+            valid_query = true;
+            html_devices += &devices
+                .iter()
+                .map(|device| format!("<option value=\"{}\">{}</option>", device.name, device.name))
+                .collect::<Vec<String>>()
+                .join("\n");
+        }
+        html = html.replace("<!--NAMES-->", &html_devices);
+    }
+
+    if !valid_query {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Invalid name filter</td></tr>",
+        );
+    } else if let Ok(diagnostics) =
+        diagnostics::get_diagnostics(query.name, query.page, query.status, &state.db).await
+    {
+        let html_diagnostics = diagnostics
+            .data
+            .iter()
+            .map(|diagnostic| {
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let html_count = format!(
+            "<a id=\"page_count\" class=\"not-link\" data-page=\"{}\" data-pages=\"{}\">{} / {}</a>",
+            diagnostics.page, diagnostics.pages, diagnostics.page, diagnostics.pages
+        );
+
+        let html_statuses = if let Some(status) = query.status {
+            match status {
+                1 => "<option value=\"\">All</option><option value=\"1\" selected>Info</option><option value=\"2\">Warning</option><option value=\"3\">Error</option>".to_string(),
+                2 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\" selected>Warning</option><option value=\"3\">Error</option>".to_string(),
+                3 => "<option value=\"\">All</option><option value=\"1\">Info</option><option value=\"2\">Warning</option><option value=\"3\" selected>Error</option>".to_string(),
+                _ => diagnostics::STATUS_DEFAULT.to_string(),
+            }
+        } else {
+            diagnostics::STATUS_DEFAULT.to_string()
+        };
+
+        html = html.replace("<!--STATUSES-->", &html_statuses);
+        html = html.replace("<!--PAGINATION-->", &html_count);
+        html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
+    } else {
+        html = html.replace("<!--STATUSES-->", diagnostics::STATUS_DEFAULT);
+        html = html.replace("<!--PAGINATION-->", "? / ??");
+        html = html.replace(
+            "<!--DIAGNOSTICS-->",
+            "<tr><td colspan=\"4\">Could not load diagnostics</td></tr>",
+        );
+    }
 
     (StatusCode::OK, Html(html))
 }
