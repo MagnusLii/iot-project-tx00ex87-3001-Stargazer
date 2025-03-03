@@ -98,6 +98,7 @@ int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity
     while (!done && time_us_64() - time < timeout_ms * 1000) {
         int count = read(str);
         if (count > 0) {
+            DEBUG(str);
             result = parse(str);
             if (reset_on_activity) { time = time_us_64(); }
         }

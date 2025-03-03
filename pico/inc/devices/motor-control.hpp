@@ -35,4 +35,5 @@ class MotorControl {
       bool vertical_calibrated;
       bool horizontal_calibrating;
       bool vertical_calibrating;
+      bool handler_attached;
   };

@@ -44,7 +44,6 @@ class Controller {
     void camera_execute();
     bool config_mode();
     int input(std::string &input, uint32_t timeout, bool hidden = false);
-    void sync();
 
   private:
     msg::MessageType last_sent = msg::UNASSIGNED;
@@ -52,7 +51,6 @@ class Controller {
     bool double_check = true;
     bool check_motor = false;
     bool waiting_for_camera = false;
-    bool synced = false;
     bool trace_started = false;
     Command trace_command = {0};
     uint64_t sync_time = 0;

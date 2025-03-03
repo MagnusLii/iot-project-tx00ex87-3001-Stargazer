@@ -43,7 +43,9 @@ void Controller::run() {
     int image_id = 1; // TODO: ^
     DEBUG("Starting main loop");
     while (true) {
-        if (!synced) sync();
+        // if (!initialized) {
+        //     initialized = init();
+        // }
         if (config_mode()) { DEBUG("Exited config mode"); }
         // DEBUG("State: ", state);
         switch (state) {
@@ -80,8 +82,13 @@ void Controller::run() {
                 break;
             case MOTOR_CONTROL:
                 // TODO: check if its actually the time to do stuff
-                mctrl->turn_to_coordinates(commands.front().coords);
-                check_motor = true;
+                if (commands.size() > 0) {
+                    if (commands.front().time.hour == clock->get_datetime().hour) {
+                        mctrl->turn_to_coordinates(commands.front().coords);
+                        check_motor = true;
+                    }
+                }
+                
             case MOTOR_WAIT:
                 if (mctrl->isRunning())
                     state = COMM_READ;
@@ -96,7 +103,6 @@ void Controller::run() {
                 
                 break;
             case TRACE:
-                // TODO: calibrate before
                 if (!trace_started) {
                     Command start = trace_object.get_interest_point_command(ABOVE, clock->get_datetime());
                     trace_object.start_trace(start.time, 12);
@@ -110,6 +116,7 @@ void Controller::run() {
                 }
                 trace_command = trace_object.next_trace();
                 if (trace_command.time.year == -1) {
+                    mctrl->off();
                     trace_started = false;
                     state = COMM_READ;
                     break;
@@ -146,24 +153,19 @@ void Controller::run() {
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
-    int attempts = 0;
 
     if (!gps->get_coordinates().status) gps->set_mode(GPS::Mode::FULL_ON);
     if (!clock->is_synced()) commbridge->send(msg::datetime_request());
     // compass->calibrate();
     //  TODO: use compass to correct azimuth of commands
-    while (!result && attempts < 9) {
-        if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
-        if (!gps->get_coordinates().status) gps->locate_position(2);
+    if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
+    if (!gps->get_coordinates().status) gps->locate_position(2);
 
-        result = true; // TODO: Remove
-        if (gps->get_coordinates().status && clock->is_synced()) {
-            result = true;
-        } else {
-            DEBUG("GPS status:", gps->get_coordinates().status);
-            DEBUG("Clock synced:", clock->is_synced());
-        }
-        attempts++;
+    if (gps->get_coordinates().status && clock->is_synced()) {
+        result = true;
+    } else {
+        DEBUG("GPS status:", gps->get_coordinates().status);
+        DEBUG("Clock synced:", clock->is_synced());
     }
 
     return result;
@@ -500,21 +502,4 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
     }
 
     return count;
-}
-
-
-void Controller::sync() {
-    uint64_t current_time = time_us_64();
-    if ((current_time - sync_time) > (5000 * 1000)) {
-        DEBUG("syncing");
-        bool clock_synced = false;
-        if (!clock->is_synced()) commbridge->send(msg::datetime_request());
-        else clock_synced = true;
-        if (!gps->get_coordinates().status) gps->locate_position(1);
-        else if (clock_synced) {
-            DEBUG("Synced");
-            synced = true;
-        }
-        sync_time = current_time;
-    } 
 }

@@ -10,7 +10,7 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
                            int optopin_horizontal, int optopin_vertical)
     : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
       opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
-      horizontal_calibrating(false), vertical_calibrating(false) {
+      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false) {
     init_optoforks();
     motorcontrol = this;
     motor_horizontal->init(pio0, 5, CLOCKWISE);
@@ -33,7 +33,6 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
     motor_horizontal->setSpeed(horizontal_speed);
     motor_horizontal->turn_to(coords.azimuth);
     motor_vertical->turn_to(coords.altitude);
-    std::cout <<"ratio " << ratio << " spe " << horizontal_speed << std::endl;
     return true;
 }
 
@@ -113,8 +112,8 @@ void MotorControl::calibrate(void) {
     motor_vertical->setSpeed(15);
     motor_horizontal->setDirection(CLOCKWISE);
     motor_vertical->setDirection(CLOCKWISE);
-    motor_horizontal->turnSteps(200);
-    motor_vertical->turnSteps(200);
+    motor_horizontal->turnSteps(300);
+    motor_vertical->turnSteps(300);
     while (isRunning()) ;
 
     motor_horizontal->setSpeed(2);
@@ -125,8 +124,11 @@ void MotorControl::calibrate(void) {
     vertical_calibrated = false;
     horizontal_calibrating = true;
     vertical_calibrating = true;
-    gpio_add_raw_irq_handler_with_order_priority(opto_horizontal, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
-    gpio_add_raw_irq_handler_with_order_priority(opto_vertical, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
+    if (!handler_attached) {
+        gpio_add_raw_irq_handler_with_order_priority(opto_horizontal, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
+        gpio_add_raw_irq_handler_with_order_priority(opto_vertical, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
+        handler_attached = true;
+    }
     gpio_set_irq_enabled(opto_horizontal, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
     gpio_set_irq_enabled(opto_vertical, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
     if (!irq_is_enabled(IO_IRQ_BANK0)) irq_set_enabled(IO_IRQ_BANK0, true);
