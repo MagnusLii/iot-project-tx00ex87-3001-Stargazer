@@ -217,13 +217,13 @@ void init_task(void *pvParameters) {
     xTimerStart(getTimestampTmr, 0);
 
     // Create tasks
-    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 48960, handlers.get(), TaskPriorities::HIGH,
+    xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 40960, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 8192, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
     // Send ESP initialized message to Pico
-    msg::Message msg = msg::esp_init(true);
+    msg::Message msg = msg::device_status(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
     handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
@@ -547,7 +547,7 @@ void handle_uart_data_task(void *pvParameters) {
                         }
                         break;
 
-                    case msg::MessageType::ESP_INIT:
+                    case msg::MessageType::DEVICE_STATUS:
                         DEBUG("INIT message received");
                         // send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
