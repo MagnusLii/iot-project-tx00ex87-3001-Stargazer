@@ -79,7 +79,7 @@ void get_timestamp_timer_callback(TimerHandle_t timer) {
     xQueueSend(requestHandler->getWebSrvRequestQueue(), requestHandler->getTimestampGETRequestptr(), 0);
     DEBUG("Timestamp GET request sent");
 
-    xTimerStart(timer, pdMS_TO_TICKS(60000)); // Retry in 1 minute
+    xTimerStart(timer, pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD));
 }
 
 bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t ticks_to_wait, int retries) {
@@ -99,13 +99,37 @@ bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filen
     return false;
 }
 
-bool read_file_with_retry_base64(SDcardHandler *sdcardHandler, const std::string &filename, std::string &file_data,
-                                 int retries) {
-    while (retries > 0) {
-        if (sdcardHandler->read_file_base64(filename.c_str(), file_data) == 0) { return true; }
-        retries--;
+bool read_file_base64_and_send(SDcardHandler *sdcardHandler, RequestHandler *requesthandler,
+                               const std::string &filename, const int64_t image_id, QueueMessage *response) {
+    size_t file_size = 300000;
+    unsigned char *file_data = static_cast<unsigned char *>(heap_caps_malloc(file_size * sizeof(unsigned char), MALLOC_CAP_SPIRAM));
+
+    int data_len = sdcardHandler->read_file_base64(filename.c_str(), file_data, file_size);
+    if (data_len < 0) {
+        DEBUG("Failed to read file");
+        free(file_data);
+        return false;
     }
-    return false;
+
+    data_len = requesthandler->createImagePOSTRequest(file_data, file_size, data_len, image_id);
+    if (data_len < 0) {
+        DEBUG("Failed to create POST request");
+        free(file_data);
+        return false;
+    }
+
+#ifdef USE_TLS
+    if (requesthandler->sendRequestTLS(file_data, data_len, response) != RequestHandlerReturnCode::SUCCESS) {
+        DEBUG("Failed to send request");
+    }
+#else
+    if (requesthandler->sendRequest(file_data, data_len, response) != RequestHandlerReturnCode::SUCCESS) {
+        DEBUG("Failed to send request");
+    }
+#endif
+
+    free(file_data);
+    return true;
 }
 
 // Timer restarts itself if connection is still not established
@@ -209,7 +233,7 @@ void init_task(void *pvParameters) {
     // Create Timers
     TimerHandle_t getRequestTmr = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
                                                handlers->requestHandler.get(), get_request_timer_callback);
-    TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdFALSE,
+    TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(1000), pdFALSE,
                                                  handlers->requestHandler.get(), get_timestamp_timer_callback);
 
     //  Start timers
@@ -280,7 +304,7 @@ void send_request_to_websrv_task(void *pvParameters) {
     std::string uart_msg_str;
 
     SDcardHandler *sdcardHandler = handlers->sdcardHandler.get();
-    std::string file_data;
+    // std::string file_data;
 
     while (true) {
         // Wait for a request to be available
@@ -335,32 +359,12 @@ void send_request_to_websrv_task(void *pvParameters) {
                 case RequestType::POST_IMAGE:
                     DEBUG("POST_IMAGE request received");
 
-                    // read image from sd card in base64
-                    if (read_file_with_retry_base64(sdcardHandler, request.imageFilename, file_data, RETRIES) ==
-                        false) {
-                        DEBUG("Failed to read image file");
-                        break;
-                    }
-                    DEBUG("Image data read from file");
-
-                    // Create a POST request
-                    DEBUG("Creating POST request");
-                    requestHandler->createImagePOSTRequest(&string, request.image_id, file_data);
-
-                    // Send the request and enqueue the response
-                    DEBUG("Sending POST request: ");
-
-#ifdef USE_TLS
-                    requestHandler->sendRequestTLS(string, &response);
-#else
-                    requestHandler->sendRequest(request, &response);
-#endif
+                    read_file_base64_and_send(sdcardHandler, requestHandler, request.imageFilename, request.image_id,
+                                              &response);
 
                     // Clear variables
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
-                    file_data.clear();
-                    string.clear();
                     break;
 
                 case RequestType::POST:
@@ -602,7 +606,9 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::PICTURE:
                         // Send confirmation message
-                        espPicoCommHandler->send_ACK_msg(true);
+
+
+                        vTaskDelay(pdMS_TO_TICKS(10000)); // The camera has a delay
 
                         // Convert UartReceivedData to QueueMessage
                         msg::convert_to_message(string, msg);
@@ -610,6 +616,8 @@ void handle_uart_data_task(void *pvParameters) {
                         // Take picture and save to sd card
                         cameraHandler->create_image_filename(filepath);
                         cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
+
+                        espPicoCommHandler->send_ACK_msg(true);
 
                         // Create queue message for enqueuing
                         request.requestType = RequestType::POST_IMAGE;
@@ -622,7 +630,7 @@ void handle_uart_data_task(void *pvParameters) {
                             break;
                         }
 
-                        request.image_id = std::stoi(msg.content[0]); // TODO:change when message format is updated.
+                        request.image_id = std::stoi(msg.content[0]);
                         DEBUG("Image ID: ", request.image_id);
 
                         // Enqueue the request
@@ -630,6 +638,7 @@ void handle_uart_data_task(void *pvParameters) {
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
+
 
                         // Clear variables
                         request.buffer_length = 0;
@@ -707,13 +716,12 @@ void handle_uart_data_task(void *pvParameters) {
                             DEBUG("':' not found in the message content");
                             break;
                         }
-                        
+
                         // Update server settings
                         handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_DOMAIN);
                         string = msg.content[0].substr(pos + 1);
                         DEBUG("Extracted string: ", string.c_str());
                         handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_PORT);
-
 
                         // Save settings to SD card
                         settings[Settings::WEB_DOMAIN] = msg.content[0];
