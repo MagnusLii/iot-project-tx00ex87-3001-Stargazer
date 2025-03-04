@@ -220,7 +220,13 @@ void Controller::instr_process() {
         if (!error) {
             Celestial celestial(planet);
             celestial.set_observer_coordinates(gps->get_coordinates());
-            commands.push_back(celestial.get_interest_point_command((Interest_point)position, clock->get_datetime()));
+            Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
+            if (command.time.year < 2000) {
+                DEBUG("Instruction not possible");
+                // commbridge->send(msg::CMD_STATUS, );
+                return;
+            }
+            commands.push_back();
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
             DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
