@@ -7,9 +7,9 @@ template <typename T>
 class ScopedBuffer {
   public:
     explicit ScopedBuffer(size_t size) 
-        : buffer(new T[size]), size(size) {}
+        : buffer(static_cast<T*>(heap_caps_malloc(size * sizeof(T), MALLOC_CAP_SPIRAM))), size(size) {}
 
-    ~ScopedBuffer() { delete[] buffer; }
+    ~ScopedBuffer() { free(buffer); }
 
     T* get_pointer() { return buffer; }
     size_t get_size() const { return size; }
