@@ -131,13 +131,11 @@ pub async fn check_images(
     update: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let images = dir.find_images();
-
     /*
-    for image in &images {
-        println!("Image: {}", image.display());
-    }
+        for image in &images {
+            println!("Image: {}", image.display());
+        }
     */
-
     // Verify that all images in the database are present in the directory
     match get_image_list(&db).await {
         Ok(db_images) => {

@@ -12,6 +12,7 @@ pub struct Resources {
     pub user_db: SqlitePool,
     pub api_db: SqlitePool,
     pub image_dir: ImageDirectory,
+    pub assets_dir: String,
     pub tls_config: Option<RustlsConfig>,
     pub primary_server: ServerDetails,
     pub secondary_server: Option<ServerDetails>,
@@ -31,6 +32,7 @@ pub async fn setup(
     let user_db: SqlitePool;
     let api_db: SqlitePool;
     let image_dir: ImageDirectory;
+    let assets_dir: String;
     let tls_config: Option<RustlsConfig>;
 
     match setup_user_database(user_db_path).await {
@@ -63,6 +65,7 @@ pub async fn setup(
                 .await
                 .unwrap();
             /* TODO: Create a function for this */
+            assets_dir = String::from(assets_dir_path);
         }
         Err(e) => panic!("Error setting up file dirs: {}", e),
     };
@@ -87,6 +90,7 @@ pub async fn setup(
         user_db,
         api_db,
         image_dir,
+        assets_dir,
         tls_config,
         primary_server,
         secondary_server,
@@ -137,6 +141,7 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<SqlitePool, sqlx::E
         api::setup::create_api_keys_table(&api_db).await;
         api::setup::create_command_table(&api_db).await;
         api::setup::create_diagnostics_table(&api_db).await;
+        api::setup::create_diagnostics_status_table(&api_db).await;
         api::setup::create_image_table(&api_db).await;
         api::setup::create_objects_table(&api_db).await;
         api::setup::create_position_table(&api_db).await;

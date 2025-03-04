@@ -17,6 +17,8 @@ pub struct Settings {
 
 impl Settings {
     pub fn new(
+        config_file: Option<String>,
+        working_dir: Option<String>,
         address: Option<String>,
         port_http: Option<u16>,
         port_https: Option<u16>,
@@ -28,6 +30,37 @@ impl Settings {
         assets_dir: Option<String>,
         certs_dir: Option<String>,
     ) -> Result<Self, ConfigError> {
+        // Working directory
+        let wd = match working_dir {
+            Some(dir) => dir,
+            None => match std::env::current_dir() {
+                Ok(dir) => dir.display().to_string(),
+                Err(err) => {
+                    eprintln!("Failed to get current working directory: {}", err);
+                    ".".to_string()
+                }
+            },
+        };
+        println!("Working directory: {}", wd);
+
+        // Default locations ($WORKING_DIR/)
+        let config_file_default = format!("{}/config", wd);
+        let db_dir_default = format!("{}/db", wd);
+        let assets_dir_default = format!("{}/assets", wd);
+        let certs_dir_default = format!("{}/certs", wd);
+
+        // Config file
+        let config_file = match config_file {
+            Some(config_file_path) => match std::fs::exists(&config_file_path) {
+                Ok(true) => config_file_path,
+                _ => {
+                    eprintln!("Specified config file not found: {}", config_file_path);
+                    config_file_default
+                }
+            },
+            None => config_file_default,
+        };
+
         let builder = Config::builder()
             .set_default("address", "127.0.0.1")?
             .set_default("port_http", 8080)?
@@ -36,10 +69,10 @@ impl Settings {
             .set_default("enable_http_api", false)?
             .set_default("enable_https", false)?
             .set_default("enable_https_api", false)?
-            .set_default("db_dir", "db")?
-            .set_default("assets_dir", "assets")?
-            .set_default("certs_dir", "certs")?
-            .add_source(File::with_name("config").required(false))
+            .set_default("db_dir", db_dir_default)?
+            .set_default("assets_dir", assets_dir_default)?
+            .set_default("certs_dir", certs_dir_default)?
+            .add_source(File::with_name(&config_file).required(false))
             .set_override_option("address", address)?
             .set_override_option("port_http", port_http)?
             .set_override_option("port_https", port_https)?
