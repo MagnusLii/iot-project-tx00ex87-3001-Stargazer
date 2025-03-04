@@ -1,7 +1,7 @@
 // TESTING DEFINES
 
 // Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
-// #define RESERVE_UART0_FOR_PICO_COMM
+#define RESERVE_UART0_FOR_PICO_COMM
 
 // Sends datetime response over UART0 every 10 seconds
 // #define UART_DEMO
@@ -60,11 +60,13 @@ void app_main(void);
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
+    // volatile char abc[1000000];
+    // volatile unsigned char bca[1000000];
 
 #ifdef RESERVE_UART0_FOR_PICO_COMM
     DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
     vTaskDelay(pdMS_TO_TICKS(1000)); // Delay to allow for debug messages to be sent before disabling them
-    esp_log_level_set("*", ESP_LOG_NONE);
+    // esp_log_level_set("*", ESP_LOG_NONE);
     gpio_reset_pin(GPIO_NUM_0);
     gpio_reset_pin(GPIO_NUM_3);
 #endif
