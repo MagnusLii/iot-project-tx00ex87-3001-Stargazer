@@ -42,12 +42,14 @@ class Controller {
     int input(std::string &input, uint32_t timeout, bool hidden = false);
     void wait_for_event(absolute_time_t abs_time, int max_sleep_time);
     bool input_detected();
+    void trace();
 
   private:
     State state = COMM_READ;
     msg::MessageType last_sent = msg::UNASSIGNED;
     Command trace_command = {0};
     Celestial trace_object = MOON;
+    float compass_heading = 0;
     bool initialized = false;
     bool double_check = true;
     bool check_motor = false;

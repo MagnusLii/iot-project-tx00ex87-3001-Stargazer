@@ -30,7 +30,8 @@ enum Interest_point {
     ASCENDING=1,
     ZENITH,
     DESCENDING,
-    ABOVE
+    ABOVE,
+    BELOW
 };
 
 
@@ -93,6 +94,8 @@ class Celestial {
         void set_observer_coordinates(const Coordinates observer_coordinates);
         void start_trace(datetime_t start_datetime, int hours);
         Command next_trace(void);
+        int get_planet(void);
+        void print_planet(void);
     private:
         bool check_for_above_horizon(const azimuthal_coordinates &current);
         bool check_for_rising(const azimuthal_coordinates &current, const azimuthal_coordinates &next);

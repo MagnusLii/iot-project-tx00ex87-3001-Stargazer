@@ -17,7 +17,7 @@
 #include "debug.hpp"
 int main() {
     stdio_init_all();
-    sleep_ms(5000);
+    sleep_ms(500);
     
     // std::cout << "abc" << std::endl;
     // std::vector<uint> pins1{2, 3, 6, 13};
@@ -30,42 +30,25 @@ int main() {
     // sleep_ms(500);
     // DEBUG("Boot");
 
-    // Celestial moon(SATURN);
-    // datetime_t date;
-    // date.year = 2025;
-    // date.month = 2;
-    // date.day = 23;
-    // date.hour = 16;
-    // date.min = 20;
-    // Coordinates coords(60.1699, 24.9384);
-    // moon.set_observer_coordinates(coords);
-    // azimuthal_coordinates abc = moon.get_coordinates(date);
-    // std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
-    // moon.start_trace(date, 24);
-
-    // mh->turnSteps(500);
-    // mv->turnSteps(500);
-    // while (mh->isRunning()) ;
-    // while (mv->isRunning()) ;
-    // mctrl.off();
-    // while (true) ;
-
-    // mctrl.calibrate();
-    // while (mctrl.isCalibrating()) ;
-
-
-    Celestial moon(SATURN);
+    Celestial moon(MOON);
     datetime_t date;
     date.year = 2025;
-    date.month = 2;
-    date.day = 23;
-    date.hour = 16;
-    date.min = 20;
-    Coordinates coords(60.1699, 24.9384);
+    date.month = 3;
+    date.day = 4;
+    date.hour = 10;
+    date.min = 14;
+    Coordinates coords(60.22969, 24.99197);
     moon.set_observer_coordinates(coords);
-    Command command = moon.get_interest_point_command(ABOVE, date);
-    DEBUG(command.coords.altitude, (int)command.time.hour, (int)command.time.day);
-    while (true) ;
+    azimuthal_coordinates abc = moon.get_coordinates(date);
+    std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
+    moon.start_trace(date, 24);
+
+
+    
+    while (1) {
+        std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
+        sleep_ms(500);
+    }
     return 0;
 }
 

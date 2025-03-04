@@ -151,7 +151,7 @@ void StepperMotor::stop() {
     int32_t stepsLeft = read_steps_left();
     stepCounter = modulo(stepCounter - stepsLeft, stepMax);
 
-    for (int i = 0; i < fifoLevel; i++) {
+    for (uint i = 0; i < fifoLevel; i++) {
         stepCounter = modulo(stepCounter - (int16_t)(stepMemory & 0xffff), stepMax);
         stepMemory >>= 16;
     }

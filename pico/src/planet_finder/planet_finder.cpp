@@ -208,6 +208,7 @@ Command Celestial::get_interest_point_command(Interest_point point, const dateti
     std::vector<Command> interesting_commands = get_interesting_commands(start_date);
     if (point == ZENITH) return interesting_commands[1];
     if (point == ABOVE) return interesting_commands[0];
+    if (point == BELOW) return interesting_commands[2];
 
 
     return interesting_commands[1];
@@ -340,6 +341,46 @@ Command Celestial::next_trace(void) {
     datetime_increment_hour(trace_date);
     trace_hours--;
     return result;
+}
+
+int Celestial::get_planet(void) {
+    return (int)planet;
+}
+
+void Celestial::print_planet(void) {
+    switch (planet)
+    {
+    case SUN:
+        DEBUG("SUN");
+        break;
+    case MOON:
+        DEBUG("MOON");
+        break;
+    case MERCURY:
+        DEBUG("MERCURY");
+        break;
+    case VENUS:
+        DEBUG("VENUS");
+        break;
+    case MARS:
+        DEBUG("MARS");
+        break;
+    case JUPITER:
+        DEBUG("JUPITER");
+        break;
+    case SATURN:
+        DEBUG("SATURN");
+        break;
+    case URANUS:
+        DEBUG("URANUS");
+        break;
+    case NEPTUNE:
+        DEBUG("NEPTUNE");
+        break;
+    
+    default:
+        break;
+    }
 }
 
 

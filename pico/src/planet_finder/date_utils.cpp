@@ -1,4 +1,5 @@
 #include "date_utils.hpp"
+#include "ctime"
 
 void datetime_increment_hour(datetime_t &date) {
     date.hour++;
@@ -59,3 +60,41 @@ void datetime_increment_year(datetime_t &date) {
 bool is_leap_year(int year) {
     return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
 }
+
+
+long long datetime_to_seconds(const datetime_t& dt) {
+    std::tm tm_struct = {};
+    tm_struct.tm_year = dt.year - 1900; // Years since 1900
+    tm_struct.tm_mon = dt.month - 1;   // Months since January (0-11)
+    tm_struct.tm_mday = dt.day;
+    tm_struct.tm_hour = dt.hour;
+    tm_struct.tm_min = dt.min;
+    tm_struct.tm_sec = dt.sec;
+    return std::mktime(&tm_struct);
+}
+
+int calculate_hour_difference(const datetime_t& dt1, const datetime_t& dt2) {
+    long long seconds1 = datetime_to_seconds(dt1);
+    long long seconds2 = datetime_to_seconds(dt2);
+
+    if (seconds1 == -1 || seconds2 == -1) {
+        // Handle invalid datetime_t values (mktime failed)
+        return 0; // Or some error code
+    }
+
+    long long diff_seconds = seconds2 - seconds1;
+    long long diff_hours = diff_seconds / 3600;
+
+    return static_cast<int>(diff_hours);
+}
+
+/*
+eka:
+tunti 5
+päivä 31
+kuukausi 12
+toka:
+tunti 2
+päivä 1
+kuukausi 1
+*/

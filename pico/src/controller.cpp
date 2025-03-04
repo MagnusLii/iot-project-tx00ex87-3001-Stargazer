@@ -103,27 +103,7 @@ void Controller::run() {
                 }
                 break;
             case TRACE:
-                if (!trace_started) {
-                    Command start = trace_object.get_interest_point_command(ABOVE, clock->get_datetime());
-                    trace_object.start_trace(start.time, 12);
-                    trace_started = true;
-                    state = MOTOR_CALIBRATE;
-                    break;
-                }
-                if (mctrl->isRunning()) {
-                    state = COMM_READ;
-                    break;
-                }
-                trace_command = trace_object.next_trace();
-                if (trace_command.time.year == -1) {
-                    mctrl->off();
-                    trace_started = false;
-                    state = COMM_READ;
-                    break;
-                }
-                mctrl->turn_to_coordinates(trace_command.coords);
-                DEBUG("Trace coordinates altitude:", trace_command.coords.altitude,
-                      "azimuth:", trace_command.coords.azimuth);
+                trace();
                 break;
             case MOTOR_OFF:
                 waiting_for_camera = false;
@@ -159,7 +139,8 @@ bool Controller::init() {
 
     if (!gps->get_coordinates().status) gps->set_mode(GPS::Mode::FULL_ON);
     if (!clock->is_synced()) commbridge->send(msg::datetime_request());
-    // compass->calibrate();
+    compass_heading = compass->getHeading();
+    DEBUG("Got compass heading:", compass_heading);
     //  TODO: use compass to correct azimuth of commands
     if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
     if (!gps->get_coordinates().status) gps->locate_position(2);
@@ -509,4 +490,40 @@ bool Controller::input_detected() {
         return true;
     }
     return false;
+}
+
+void Controller::trace() {
+    if (!trace_started) {
+        DEBUG("Starting trace for planet:");
+        trace_object.print_planet();
+        trace_object.set_observer_coordinates(gps->get_coordinates());
+        Command start = trace_object.get_interest_point_command(ABOVE, clock->get_datetime());
+        Command stop = trace_object.get_interest_point_command(BELOW, start.time);
+        int difference = calculate_hour_difference(start.time, stop.time);
+        DEBUG("Trace length:", difference);
+        if (difference <= 0) {
+            DEBUG("Trace can't start");
+            state = SLEEP;
+            return;
+        }
+        trace_object.start_trace(start.time, difference);
+        trace_started = true;
+        state = MOTOR_CALIBRATE;
+        return;
+    }
+    if (mctrl->isRunning()) {
+        state = COMM_READ;
+        return;
+    }
+    trace_command = trace_object.next_trace();
+    if (trace_command.time.year == -1) {
+        mctrl->off();
+        trace_started = false;
+        state = COMM_READ;
+        return;
+    }
+    mctrl->turn_to_coordinates(trace_command.coords);
+    DEBUG("Trace coordinates altitude:", trace_command.coords.altitude * 180.0 / M_PI,
+          "azimuth:", trace_command.coords.azimuth * 180.0 / M_PI);
+    DEBUG("Trace Date day:", (int)trace_command.time.day, "hour", (int)trace_command.time.hour, "min", (int)trace_command.time.min);
 }
