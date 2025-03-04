@@ -225,7 +225,7 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
     return 0;
 }
 
-int SDcardHandler::read_file_base64(const char *filename, std::string &read_data_storage) {
+int SDcardHandler::read_file_base64(const char *filename, unsigned char *read_data_ptr, const size_t read_data_buffer_len) {
     ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
@@ -233,7 +233,7 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     if (!file) {
         DEBUG("Failed to open file for reading");
         perror("File open error");
-        return 2;
+        return -2;
     }
 
     fseek(file, 0, SEEK_END);
@@ -243,36 +243,48 @@ int SDcardHandler::read_file_base64(const char *filename, std::string &read_data
     if (file_size == 0) {
         DEBUG("File is empty");
         fclose(file);
-        return 3;
+        return -3;
     }
 
-    ScopedBuffer<char> scoped_read_buffer(file_size);
-    size_t read_size = fread(scoped_read_buffer.get_pointer(), 1, file_size, file);
+    char *scoped_read_buffer = (char *)heap_caps_malloc(file_size, MALLOC_CAP_SPIRAM);
+    if (!scoped_read_buffer) {
+        DEBUG("Failed to allocate memory for read buffer");
+        fclose(file);
+        return -4;
+    }
+
+    size_t read_size = fread(scoped_read_buffer, 1, file_size, file);
+    fclose(file);
     if (read_size != file_size) {
         DEBUG("Failed to read the complete file");
-        fclose(file);
-        return 4;
+        free(scoped_read_buffer);
+        return -4;
     }
 
-    // Calculate required Base64 buffer size
-    size_t base64_len = ((read_size + 2) / 3) * 4;
-    ScopedBuffer<unsigned char> scoped_base64_buffer(base64_len + 1);
-
     size_t actual_base64_len;
-    int ret = mbedtls_base64_encode(scoped_base64_buffer.get_pointer(), base64_len + 1, &actual_base64_len,
-                                    (const unsigned char *)scoped_read_buffer.get_pointer(), read_size);
+
+    // Calculate required Base64 buffer size
+    if (read_data_buffer_len < ((read_size * 0.4) + (read_size + 2))) {
+        DEBUG("Buffer size too small for Base64 encoding");
+        free(scoped_read_buffer);
+        return -5;
+    }
+
+    int ret = mbedtls_base64_encode(read_data_ptr, read_data_buffer_len, &actual_base64_len,
+                                    (const unsigned char *)scoped_read_buffer, read_size);
+
+
+
+
+    free(scoped_read_buffer);
 
     if (ret != 0) {
         DEBUG("Base64 encoding failed");
-        fclose(file);
-        return 5;
+        DEBUG("olen:", actual_base64_len);
+        return -5;
     }
 
-    scoped_base64_buffer.get_pointer()[actual_base64_len] = '\0';
-    read_data_storage.assign((char *)scoped_base64_buffer.get_pointer());
-
-    fclose(file);
-    return 0; // Success
+    return actual_base64_len; // Success
 }
 
 /**

@@ -50,7 +50,8 @@ class SDcardHandler {
     int write_file(const char *filename, const char *data);
     int write_file(const char *filename, const uint8_t *data, const size_t len);
     int read_file(const char *filename, std::string &read_data_storage);
-    int read_file_base64(const char *filename, std::string &read_data_storage);
+    // int read_file_base64(const char *filename, std::string &read_data_storage);
+    int read_file_base64(const char *filename, unsigned char *read_data_ptr, const size_t read_data_buffer_len);
     void add_crc(std::string &data);
     bool check_crc(const std::string &data);
     int save_all_settings(const std::unordered_map<Settings, std::string> settings);
