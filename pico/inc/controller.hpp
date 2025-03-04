@@ -24,7 +24,6 @@ class Controller {
         MOTOR_CONTROL,
         MOTOR_WAIT,
         MOTOR_OFF,
-        CAMERA_EXECUTE,
         TRACE,
     };
 
@@ -37,28 +36,26 @@ class Controller {
 
   private:
     bool init();
-    // void comm_read();
     void comm_process();
     void instr_process();
-    void motor_control();
-    void camera_execute();
-    bool config_mode();
+    void config_mode();
     int input(std::string &input, uint32_t timeout, bool hidden = false);
+    void wait_for_event(absolute_time_t abs_time, int max_sleep_time);
+    bool input_detected();
 
   private:
+    State state = COMM_READ;
     msg::MessageType last_sent = msg::UNASSIGNED;
+    Command trace_command = {0};
+    Celestial trace_object = MOON;
     bool initialized = false;
     bool double_check = true;
     bool check_motor = false;
     bool waiting_for_camera = false;
     bool trace_started = false;
-    Command trace_command = {0};
-    uint64_t sync_time = 0;
-    State state; // TODO: How do we handle state changes that are external to the loop?
-                 // Do we need timers?
-                 // ...
-    std::queue<msg::Message> instr_msg_queue;
+    bool input_received = false;
 
+    std::queue<msg::Message> instr_msg_queue;
     std::vector<Command> commands;
 
     std::shared_ptr<Clock> clock;
@@ -66,21 +63,5 @@ class Controller {
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
     std::shared_ptr<MotorControl> mctrl;
-
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
-    Celestial trace_object;
 };
-
-// void sleep() {
-//   goto_sleep()
-//   if clock->has_alarmed() {
-//     state = move_motor
-//   } else {
-//     state = comm;
-//   }
-// }
-
-// void busy() {
-//   while (!clock->has_alarmed() || CommBridge->has_received()) {}
-//   state = comm;
-// }

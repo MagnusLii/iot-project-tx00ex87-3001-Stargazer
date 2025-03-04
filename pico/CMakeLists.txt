@@ -22,7 +22,6 @@ add_executable(${PROJECT_NAME}
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
-    src/hardware/sleep_functions.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
@@ -38,7 +37,6 @@ add_executable(${PROJECT_NAME}_test
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
-    src/hardware/sleep_functions.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
@@ -56,8 +54,6 @@ target_link_libraries(test_planet_finder pico_stdlib hardware_rtc hardware_pio)
 target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devices tests/unity/src tests/planet_finder ${COMMON_DIR}/inc inc inc/hardware/uart)
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
-
-
 
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 pico_generate_pio_header(${PROJECT_NAME}_test ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
@@ -122,7 +118,6 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
     # target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
-
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wno-psabi)
 target_compile_options(${PROJECT_NAME}_test PRIVATE -Wall -Wno-psabi)

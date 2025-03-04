@@ -1,8 +1,6 @@
 #include "controller.hpp"
 
 #include "debug.hpp"
-#include "message.hpp"
-#include "sleep_functions.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -22,12 +20,13 @@ bool compare_time(const Command &a, const Command &b) {
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
                        std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue), trace_object(MOON) {
-    state = COMM_READ;
-}
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue) {}
 
 void Controller::run() {
-    if (config_mode()) { DEBUG("Exited config mode"); }
+    if (input_detected()) {
+        config_mode();
+        DEBUG("Exited config mode: init");
+    }
     if (!initialized) {
         DEBUG("Not yet initialized");
         if (init()) {
@@ -40,13 +39,15 @@ void Controller::run() {
         }
     }
 
-    int image_id = 1; // TODO: ^
     DEBUG("Starting main loop");
     while (true) {
+        if (input_received || input_detected()) {
+            config_mode();
+            DEBUG("Exited config mode: main loop");
+        }
         // if (!initialized) {
         //     initialized = init();
         // }
-        if (config_mode()) { DEBUG("Exited config mode"); }
         // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
@@ -88,19 +89,18 @@ void Controller::run() {
                         check_motor = true;
                     }
                 }
-                
+                state = MOTOR_WAIT;
+                break;
             case MOTOR_WAIT:
                 if (mctrl->isRunning())
                     state = COMM_READ;
                 else {
                     state = COMM_READ;
                     check_motor = false;
+                    int image_id = 1; // TODO: Replace with actual image id
                     commbridge->send(msg::picture(image_id));
                     waiting_for_camera = true;
                 }
-                break;
-            case CAMERA_EXECUTE:
-                
                 break;
             case TRACE:
                 if (!trace_started) {
@@ -122,18 +122,21 @@ void Controller::run() {
                     break;
                 }
                 mctrl->turn_to_coordinates(trace_command.coords);
-                DEBUG("Trace coordinates altitude:", trace_command.coords.altitude, "azimuth:", trace_command.coords.azimuth);
+                DEBUG("Trace coordinates altitude:", trace_command.coords.altitude,
+                      "azimuth:", trace_command.coords.azimuth);
                 break;
             case MOTOR_OFF:
                 waiting_for_camera = false;
                 mctrl->off();
+                state = SLEEP;
+                break;
             case SLEEP:
-                // DEBUG("Sleeping");
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    sleep_ms(1000);
-                    // sleep_for(10, 9);
+                    DEBUG("Sleeping");
+                    wait_for_event(get_absolute_time(), 30000000); // 30s TODO: Replace with actual max sleep time
+                    DEBUG("Waking up");
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
                         state = MOTOR_CALIBRATE;
@@ -252,215 +255,203 @@ void Controller::instr_process() {
     state = SLEEP;
 }
 
-void Controller::motor_control() {
-    DEBUG("Controlling motors");
-    // TODO: Control motors to adjust the camera in the direction of the object
-}
-
-bool Controller::config_mode() {
-    const int64_t INITIAL_TIMEOUT = 5000;
+void Controller::config_mode() {
     const int64_t TIMEOUT = 60000000;
 
-    if (stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
-        DEBUG("Stdio input detected. Entering config mode...");
-        std::string input_buffer = "";
-        bool exit = false;
+    DEBUG("Stdio input detected. Entering config mode...");
+    input_received = false;
+    std::string input_buffer = "";
+    bool exit = false;
 
-        std::cout << "Stargazer config mode - type \"help\" for available commands";
-        while (!exit) {
-            std::cout << std::endl << "> ";
-            std::cout.flush();
+    std::cout << "Stargazer config mode - type \"help\" for available commands";
+    while (!exit) {
+        std::cout << std::endl << "> ";
+        std::cout.flush();
 
-            int rc = input(input_buffer, TIMEOUT);
-            if (rc == -1) {
+        int rc = input(input_buffer, TIMEOUT);
+        if (rc == -1) {
+            exit = true;
+            std::cout << "Exiting config mode" << std::endl;
+        }
+
+        if (rc > 0) {
+            // DEBUG(input);
+            std::stringstream ss(input_buffer);
+            std::string token;
+            ss >> token;
+            if (token == "help") {
+                std::cout << "Available commands:" << std::endl
+                          << "help - print this help message" << std::endl
+                          << "exit - exit config mode" << std::endl
+                          << "time [unixtime] - view or set current time" << std::endl
+                          << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
+                          << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
+                          << std::endl
+                          << "wifi <ssid> - set wifi details. You will be prompted for the password" << std::endl
+                          << "server <host> <port> - set the server details" << std::endl
+                          << "token <token> - set the server api token" << std::endl
+#ifdef ENABLE_DEBUG
+
+                          << "debug_command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly "
+                             "to the queue"
+                          << std::endl
+                          << "debug_picture <image_id> - send a take picture message to the ESP" << std::endl
+                          << "debug_rec_msg <message> - add a message to the receive queue" << std::endl
+                          << "debug_send_msg <message_type> <message_content_1> ... - send a message to the ESP"
+#endif
+                    ;
+            } else if (token == "exit") {
                 exit = true;
                 std::cout << "Exiting config mode" << std::endl;
-            }
-
-            if (rc > 0) {
-                // DEBUG(input);
-                std::stringstream ss(input_buffer);
+            } else if (token == "time") {
+                time_t timestamp = 0;
+                if (ss >> timestamp) {
+                    clock->update(timestamp);
+                    datetime_t now = clock->get_datetime();
+                    std::cout << "Time set to " << now.year << "-" << +now.month << "-" << +now.day << " " << +now.hour
+                              << ":" << +now.min << std::endl;
+                } else {
+                    datetime_t now = clock->get_datetime();
+                    std::cout << "Time is " << now.year << "-" << +now.month << "-" << +now.day << " " << +now.hour
+                              << ":" << +now.min << std::endl;
+                }
+            } else if (token == "coord") {
+                double lat, lon;
+                if (ss >> lat >> lon) {
+                    gps->set_coordinates(lat, lon);
+                    std::cout << "Coordinates set to " << lat << ", " << lon << std::endl;
+                } else {
+                    Coordinates coords = gps->get_coordinates();
+                    if (!coords.status) {
+                        std::cout << "Coordinates are not available" << std::endl;
+                    } else {
+                        std::cout << "Coordinates are " << coords.latitude << ", " << coords.longitude << std::endl;
+                    }
+                }
+            } else if (token == "instruction") {
+                int object = 0, command = 0, position = 0;
+                if (ss >> object >> command >> position) {
+                    msg::Message instruction = {
+                        .type = msg::INSTRUCTIONS,
+                        .content = {std::to_string(object), std::to_string(command), std::to_string(position)}};
+                    instr_msg_queue.push(instruction);
+                    std::cout << "Instruction added to queue: " << object << ", " << command << ", " << position
+                              << std::endl;
+                } else {
+                    std::cout << "Invalid instruction" << std::endl;
+                }
+            } else if (token == "wifi") {
+                std::string ssid;
+                if (ss >> ssid) {
+                    std::cout << "Enter the password for " << ssid << ": ";
+                    std::cout.flush();
+                    std::string password = "";
+                    int rc = input(password, TIMEOUT, true);
+                    if (rc >= 0) {
+                        commbridge->send(msg::wifi(ssid, password));
+                        std::fill(password.begin(), password.end(), '*');
+                        std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
+                    }
+                }
+            } else if (token == "server") {
+                std::string address;
+                int port = 0;
+                if (ss >> address) {
+                    if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
+                    commbridge->send(msg::server(address, port));
+                    std::cout << "Sent server details: " << address << " " << port << std::endl;
+                } else {
+                    std::cout << "No address specified" << std::endl;
+                }
+            } else if (token == "token") {
                 std::string token;
-                ss >> token;
-                if (token == "help") {
-                    std::cout << "Available commands:" << std::endl
-                              << "help - print this help message" << std::endl
-                              << "exit - exit config mode" << std::endl
-                              << "time [unixtime] - view or set current time" << std::endl
-                              << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
-                              << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
-                              << std::endl
-                              << "wifi <ssid> - set wifi details. You will be prompted for the password" << std::endl
-                              << "server <host> <port> - set the server details" << std::endl
-                              << "token <token> - set the server api token" << std::endl
-#ifdef ENABLE_DEBUG
-
-                              << "debug_command <year> <month> <day> <hour> <min> <alt> <azi> - add a command directly "
-                                 "to the queue"
-                              << std::endl
-                              << "debug_picture <image_id> - send a take picture message to the ESP" << std::endl
-                              << "debug_rec_msg <message> - add a message to the receive queue" << std::endl
-                              << "debug_send_msg <message_type> <message_content_1> ... - send a message to the ESP"
-#endif
-                        ;
-                } else if (token == "exit") {
-                    exit = true;
-                    std::cout << "Exiting config mode" << std::endl;
-                } else if (token == "time") {
-                    time_t timestamp = 0;
-                    if (ss >> timestamp) {
-                        clock->update(timestamp);
-                        datetime_t now = clock->get_datetime();
-                        std::cout << "Time set to " << now.year << "-" << +now.month << "-" << +now.day << " "
-                                  << +now.hour << ":" << +now.min << std::endl;
-                    } else {
-                        datetime_t now = clock->get_datetime();
-                        std::cout << "Time is " << now.year << "-" << +now.month << "-" << +now.day << " " << +now.hour
-                                  << ":" << +now.min << std::endl;
-                    }
-                } else if (token == "coord") {
-                    double lat, lon;
-                    if (ss >> lat >> lon) {
-                        gps->set_coordinates(lat, lon);
-                        std::cout << "Coordinates set to " << lat << ", " << lon << std::endl;
-                    } else {
-                        Coordinates coords = gps->get_coordinates();
-                        if (!coords.status) {
-                            std::cout << "Coordinates are not available" << std::endl;
-                        } else {
-                            std::cout << "Coordinates are " << coords.latitude << ", " << coords.longitude << std::endl;
-                        }
-                    }
-                } else if (token == "instruction") {
-                    int object = 0, command = 0, position = 0;
-                    if (ss >> object >> command >> position) {
-                        msg::Message instruction = {
-                            .type = msg::INSTRUCTIONS,
-                            .content = {std::to_string(object), std::to_string(command), std::to_string(position)}};
-                        instr_msg_queue.push(instruction);
-                        std::cout << "Instruction added to queue: " << object << ", " << command << ", " << position
-                                  << std::endl;
-                    } else {
-                        std::cout << "Invalid instruction" << std::endl;
-                    }
-                } else if (token == "wifi") {
-                    std::string ssid;
-                    if (ss >> ssid) {
-                        std::cout << "Enter the password for " << ssid << ": ";
-                        std::cout.flush();
-                        std::string password = "";
-                        int rc = input(password, TIMEOUT, true);
-                        if (rc >= 0) {
-                            commbridge->send(msg::wifi(ssid, password));
-                            std::fill(password.begin(), password.end(), '*');
-                            std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
-                        }
-                    }
-                } else if (token == "server") {
-                    std::string address;
-                    int port = 0;
-                    if (ss >> address) {
-                        if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
-                        commbridge->send(msg::server(address, port));
-                        std::cout << "Sent server details: " << address << " " << port << std::endl;
-                    } else {
-                        std::cout << "No address specified" << std::endl;
-                    }
-                } else if (token == "token") {
-                    std::string token;
-                    if (ss >> token) {
-                        commbridge->send(msg::api(token));
-                        std::cout << "Sent api token: " << token << std::endl;
-                    } else {
-                        std::cout << "No api token specified" << std::endl;
-                    }
-                }
-#ifdef ENABLE_DEBUG
-                else if (token == "debug_command") {
-                    int year = 0;
-                    int month = 0, day = 0, hour = 0, min = 0;
-                    double alt = 0.0, azi = 0.0;
-                    if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
-                        Command command = {
-                            .coords = {alt * M_PI / 180.0, azi * M_PI / 180.0},
-                            .time = {.year = (int16_t)year,
-                                     .month = (int8_t)month,
-                                     .day = (int8_t)day,
-                                     .hour = (int8_t)hour,
-                                     .min = (int8_t)min,
-                                     .sec = 0},
-                        };
-
-                        commands.push_back(command);
-                        std::cout << "Command added to queue: " << year << ", " << month << ", " << day << ", " << hour
-                                  << ", " << min << ", " << alt << ", " << azi << std::endl;
-                    } else {
-                        std::cout << "Invalid command" << std::endl;
-                    }
-                } else if (token == "debug_picture") {
-                    int image_id = 0;
-                    if (ss >> image_id) {
-                        commbridge->send(msg::picture(image_id));
-                        std::cout << "Sent picture request: " << image_id << std::endl;
-                    } else {
-                        std::cout << "No image id specified" << std::endl;
-                    }
-                } else if (token == "debug_rec_msg") {
-                    std::string msg_str;
-                    msg::Message msg;
-                    if (ss >> msg_str) {
-                        if (size_t pos = msg_str.find(';'); pos != std::string::npos) {
-                            msg_str.erase(pos);
-                        }
-                        if (msg::convert_to_message(msg_str, msg) == 0) {
-                            msg_queue->push(msg);
-                            std::cout << "Message added to receive queue: " << msg_str << std::endl;
-                        } else {
-                            std::cout << "Invalid message (" << rc << "): " << msg_str << std::endl;
-                        }
-                    } else {
-                        std::cout << "No message specified" << std::endl;
-                    }
-                } else if (token == "debug_send_msg") {
-                    msg::Message msg;
-                    std::string type_str;
-                    if (ss >> type_str) {
-                        if (msg.type = msg::verify_message_type(type_str); msg.type != msg::MessageType::UNASSIGNED) {
-                            std::vector<std::string> content;
-                            std::string content_str;
-                            while (ss >> content_str) {
-                                content.push_back(content_str);
-                            }
-
-                            if (content.size() > 0) {
-                                msg.content = content;
-                                commbridge->send(msg);
-                                std::cout << "Sent message with type " << type_str << std::endl;
-                            } else {
-                                std::cout << "No content specified" << std::endl;
-                            }
-                        } else {
-                            std::cout << "Invalid message type" << std::endl;
-                        }
-                    }
-                } else if (token == "trace") {
-                    int planet;
-                    if (ss >> planet) {
-                        state = TRACE;
-                        trace_object = {(Planets)planet};
-                    }
-                }
-#endif
-                else {
-                    std::cout << "Invalid command: \"" << token << "\"" << std::endl;
+                if (ss >> token) {
+                    commbridge->send(msg::api(token));
+                    std::cout << "Sent api token: " << token << std::endl;
+                } else {
+                    std::cout << "No api token specified" << std::endl;
                 }
             }
+#ifdef ENABLE_DEBUG
+            else if (token == "debug_command") {
+                int year = 0;
+                int month = 0, day = 0, hour = 0, min = 0;
+                double alt = 0.0, azi = 0.0;
+                if (ss >> year >> month >> day >> hour >> min >> alt >> azi) {
+                    Command command = {
+                        .coords = {alt * M_PI / 180.0, azi * M_PI / 180.0},
+                        .time = {.year = (int16_t)year,
+                                 .month = (int8_t)month,
+                                 .day = (int8_t)day,
+                                 .hour = (int8_t)hour,
+                                 .min = (int8_t)min,
+                                 .sec = 0},
+                    };
 
-            input_buffer.clear();
+                    commands.push_back(command);
+                    std::cout << "Command added to queue: " << year << ", " << month << ", " << day << ", " << hour
+                              << ", " << min << ", " << alt << ", " << azi << std::endl;
+                } else {
+                    std::cout << "Invalid command" << std::endl;
+                }
+            } else if (token == "debug_picture") {
+                int image_id = 0;
+                if (ss >> image_id) {
+                    commbridge->send(msg::picture(image_id));
+                    std::cout << "Sent picture request: " << image_id << std::endl;
+                } else {
+                    std::cout << "No image id specified" << std::endl;
+                }
+            } else if (token == "debug_rec_msg") {
+                std::string msg_str;
+                msg::Message msg;
+                if (ss >> msg_str) {
+                    if (size_t pos = msg_str.find(';'); pos != std::string::npos) { msg_str.erase(pos); }
+                    if (msg::convert_to_message(msg_str, msg) == 0) {
+                        msg_queue->push(msg);
+                        std::cout << "Message added to receive queue: " << msg_str << std::endl;
+                    } else {
+                        std::cout << "Invalid message (" << rc << "): " << msg_str << std::endl;
+                    }
+                } else {
+                    std::cout << "No message specified" << std::endl;
+                }
+            } else if (token == "debug_send_msg") {
+                msg::Message msg;
+                std::string type_str;
+                if (ss >> type_str) {
+                    if (msg.type = msg::verify_message_type(type_str); msg.type != msg::MessageType::UNASSIGNED) {
+                        std::vector<std::string> content;
+                        std::string content_str;
+                        while (ss >> content_str) {
+                            content.push_back(content_str);
+                        }
+
+                        if (content.size() > 0) {
+                            msg.content = content;
+                            commbridge->send(msg);
+                            std::cout << "Sent message with type " << type_str << std::endl;
+                        } else {
+                            std::cout << "No content specified" << std::endl;
+                        }
+                    } else {
+                        std::cout << "Invalid message type" << std::endl;
+                    }
+                }
+            } else if (token == "trace") {
+                int planet;
+                if (ss >> planet) {
+                    state = TRACE;
+                    trace_object = {(Planets)planet};
+                }
+            }
+#endif
+            else {
+                std::cout << "Invalid command: \"" << token << "\"" << std::endl;
+            }
         }
-        return true;
-    } else {
-        return false;
+
+        input_buffer.clear();
     }
 }
 
@@ -502,4 +493,20 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
     }
 
     return count;
+}
+
+void Controller::wait_for_event(absolute_time_t abs_time, int max_sleep_time) {
+    while (!clock->is_alarm_ringing() && !input_detected() &&
+           absolute_time_diff_us(abs_time, get_absolute_time()) < max_sleep_time) {
+        sleep_ms(1000); // TODO: TBD
+    }
+}
+
+bool Controller::input_detected() {
+    const uint32_t INITIAL_TIMEOUT = 5000;
+    if (stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
+        input_received = true;
+        return true;
+    }
+    return false;
 }
