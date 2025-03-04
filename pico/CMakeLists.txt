@@ -27,6 +27,8 @@ add_executable(${PROJECT_NAME}
     src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
+    src/devices/eeprom/eeprom.c
+    src/devices/eeprom/logger.cpp
 )
 
 add_executable(${PROJECT_NAME}_test
@@ -42,6 +44,8 @@ add_executable(${PROJECT_NAME}_test
     src/commbridge.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
+    src/devices/eeprom/eeprom.c
+    src/devices/eeprom/logger.cpp
 )
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
@@ -67,6 +71,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
     inc/devices
+    inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
     ${COMMON_DIR}/inc
@@ -77,6 +82,7 @@ target_include_directories(${PROJECT_NAME}_test PRIVATE
     src
     inc
     inc/devices
+    inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
     inc/planet_finder
@@ -120,8 +126,8 @@ ENDIF()
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 
-pico_enable_stdio_usb(${PROJECT_NAME}_test 0)
-pico_enable_stdio_uart(${PROJECT_NAME}_test 1)
+pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
+pico_enable_stdio_uart(${PROJECT_NAME}_test 0)
 
 pico_enable_stdio_usb(test_planet_finder 0)
 pico_enable_stdio_uart(test_planet_finder 1)
