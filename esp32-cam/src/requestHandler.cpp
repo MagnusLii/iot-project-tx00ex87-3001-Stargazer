@@ -105,6 +105,59 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+int RequestHandler::createImagePOSTRequest(unsigned char *file_buffer, const size_t buffer_max_size,
+                                           int current_data_len, const int64_t image_id) {
+    const char *web_token = this->wirelessHandler->get_setting(Settings::WEB_TOKEN);
+    const char *web_domain = this->wirelessHandler->get_setting(Settings::WEB_DOMAIN);
+    const char *web_port = this->wirelessHandler->get_setting(Settings::WEB_PORT);
+    std::string img_id = std::to_string(image_id);
+    int total_chars = 168 + 3 + 2; // 168 is the total number of characters added to the request string
+
+    total_chars += strlen(web_token) + strlen(web_domain) + strlen(web_port) + img_id.length() + current_data_len + 1;
+
+    if (total_chars > buffer_max_size) {
+        DEBUG("Error: Request buffer is too small");
+        return -1;
+    }
+
+    const int content_length = 28 + img_id.length() + strlen(web_token) + current_data_len;
+
+    char *temp_buff = static_cast<char *>(heap_caps_malloc(total_chars, MALLOC_CAP_SPIRAM));
+    if (temp_buff == nullptr) {
+        DEBUG("Error: Failed to allocate memory for temporary buffer");
+        return -2;
+    }
+
+    int sprintflen;
+
+    if ((sprintflen = snprintf(temp_buff, total_chars,
+                               "POST /api/upload HTTP/1.0\r\n"
+                               "Host: %s:%s\r\n"
+                               "User-Agent: esp-idf/1.0 esp32\r\n"
+                               "Connection: close\r\n"
+                               "Content-Type: application/json\r\n"
+                               "Content-Length: %d\r\n"
+                               "\r\n"
+                               "{\"token\":\"%s\",\"id\":%s,\"data\":\"%s\"}\r\n",
+                               web_domain, web_port, content_length, web_token, img_id.c_str(), file_buffer)) < 0) {
+        DEBUG("Error: Failed to create POST request");
+        free(temp_buff);
+        return -3;
+    }
+
+    memcpy(file_buffer, temp_buff, total_chars);
+
+    std::string asd(temp_buff, 500);
+    std::string end(temp_buff + total_chars - 250, 250);
+    DEBUG("Request start: ", asd.c_str());
+    DEBUG("Request end: ", end.c_str());
+    DEBUG("Last char: ", temp_buff[total_chars - 1], ",", temp_buff[total_chars - 2], ",", temp_buff[total_chars - 3]);
+    DEBUG("snprintf return: ", sprintflen);
+
+    free(temp_buff);
+    return total_chars - 1; // don't include the null terminator
+}
+
 /**
  * Creates a GET request for user instructions and stores it in the provided pointer.
  *
@@ -232,7 +285,8 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
-RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
+RequestHandlerReturnCode RequestHandler::sendRequest(const char *request, const size_t request_len,
+                                                     QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
@@ -269,11 +323,16 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     freeaddrinfo(dns_lookup_results); // Safe to free now
     DEBUG("Connected to server");
 
-    if (write(socket_descriptor, request.c_str(), request.size()) < 0) {
+    DEBUG("strlen(request)=", strlen(request));
+    DEBUG("request_len=", request_len);
+
+    if (write(socket_descriptor, request, request_len) < 0) {
         DEBUG("Socket send failed, errno=", errno);
         close(socket_descriptor);
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
     }
+
+    DEBUG("Request sent");
 
     timeval receiving_timeout = {.tv_sec = 5, .tv_usec = 0};
     setsockopt(socket_descriptor, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, sizeof(receiving_timeout));
@@ -319,11 +378,21 @@ RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueM
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+RequestHandlerReturnCode RequestHandler::sendRequest(const unsigned char *request, const size_t request_len,
+                                                     QueueMessage *response) {
+    return this->sendRequest(reinterpret_cast<const char *>(request), request_len, response);
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
+    return this->sendRequest(request.c_str(), request.length(), response);
+}
+
 RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
     return this->sendRequest(std::string(request.str_buffer, request.buffer_length), response);
 }
 
-RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &request, QueueMessage *response) {
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const char *request, const size_t request_len,
+                                                        QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
         DEBUG("Wireless is not connected");
         return RequestHandlerReturnCode::NOT_CONNECTED;
@@ -340,7 +409,7 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
     DEBUG("TLS connection established");
 
     // Send request
-    if (this->tlsWrapper->send(request.c_str(), request.length()) < 0) {
+    if (this->tlsWrapper->send(request, request_len) < 0) {
         DEBUG("TLS send failed");
         this->tlsWrapper->close();
         return RequestHandlerReturnCode::SOCKET_SEND_FAIL;
@@ -368,6 +437,15 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &reque
 
     DEBUG("Returning success");
     return RequestHandlerReturnCode::SUCCESS;
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const unsigned char *request, const size_t request_len,
+                                                        QueueMessage *response) {
+    return this->sendRequestTLS(reinterpret_cast<const char *>(request), request_len, response);
+}
+
+RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &request, QueueMessage *response) {
+    return this->sendRequestTLS(request.c_str(), request.length(), response);
 }
 
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {

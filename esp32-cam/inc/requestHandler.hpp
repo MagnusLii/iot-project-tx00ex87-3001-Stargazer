@@ -1,6 +1,7 @@
 #ifndef REQUEST_HANDLER_HPP
 #define REQUEST_HANDLER_HPP
 
+#include "TLSWrapper.hpp"
 #include "defines.hpp"
 #include "sd-card.hpp"
 #include "wireless.hpp"
@@ -9,7 +10,6 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
-#include "TLSWrapper.hpp"
 
 enum class RequestType {
     UNDEFINED,
@@ -44,6 +44,7 @@ enum class RequestHandlerReturnCode {
     INVALID_NUM_OF_ARGS,
     FAILED_TO_CREATE_REQUEST,
     NOT_CONNECTED,
+    MEM_ALLOCATION_FAIL,
 };
 
 class RequestHandler {
@@ -53,6 +54,8 @@ class RequestHandler {
 
     RequestHandlerReturnCode createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                     std::string base64_image_data);
+    int createImagePOSTRequest(unsigned char *file_buffer, const size_t buffer_max_size, int current_data_len,
+                               const int64_t image_id);
     void createUserInstructionsGETRequest(std::string *requestPtr);
     void createTimestampGETRequest(std::string *requestPtr);
 
@@ -70,8 +73,14 @@ class RequestHandler {
     QueueHandle_t getWebSrvRequestQueue();
     QueueHandle_t getWebSrvResponseQueue();
 
+    RequestHandlerReturnCode sendRequest(const char *request, const size_t request_len, QueueMessage *response);
+    RequestHandlerReturnCode sendRequest(const unsigned char *request, const size_t request_len,
+                                                         QueueMessage *response);
     RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage *response);
     RequestHandlerReturnCode sendRequest(std::string request, QueueMessage *response);
+    RequestHandlerReturnCode sendRequestTLS(const char *request, const size_t request_len, QueueMessage *response);
+    RequestHandlerReturnCode sendRequestTLS(const unsigned char *request, const size_t request_len,
+                                            QueueMessage *response);
     RequestHandlerReturnCode sendRequestTLS(const QueueMessage request, QueueMessage *response);
     RequestHandlerReturnCode sendRequestTLS(const std::string &request, QueueMessage *response);
 
