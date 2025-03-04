@@ -54,14 +54,58 @@
 
 #include "esp_task_wdt.h"
 
+#include "mbedtls/platform.h"
+
+#include <set>
+
+// // Class to prevent mbedtls from freeing freed memory
+// class Custom_mem_alloc {
+//   public:
+//     Custom_mem_alloc() = default;
+//     ~Custom_mem_alloc() {
+//         for (auto ptr : allocated_ptrs) {
+//             heap_caps_free(ptr);
+//         }
+//     }
+
+
+//     static void *custom_calloc(size_t nmemb, size_t size) {
+//         void *ptr = heap_caps_calloc(nmemb, size, MALLOC_CAP_SPIRAM);
+//         allocated_ptrs.insert(ptr); 
+//         return ptr;
+//     }
+
+
+//     static void custom_free(void *ptr) {
+//         if (allocated_ptrs.find(ptr) == allocated_ptrs.end()) {
+//             DEBUG("Error: Attempting to free unallocated memory at %p", ptr);
+//         } else {
+//             allocated_ptrs.erase(ptr); 
+//             heap_caps_free(ptr);    
+//         }
+//     }
+
+//   private:
+//     static std::set<void *> allocated_ptrs; 
+// };
+
+// // Static member initialization
+// std::set<void *> Custom_mem_alloc::allocated_ptrs;
+
 extern "C" {
 void app_main(void);
 }
 void app_main(void) {
     DEBUG("Starting main");
     vTaskDelay(pdMS_TO_TICKS(1000));
-    // volatile char abc[1000000];
-    // volatile unsigned char bca[1000000];
+
+    DEBUG("Reset reason: %d", static_cast<int>(esp_reset_reason()));
+
+    // // Create Custom_mem_alloc instance to manage allocation/freeing
+    // Custom_mem_alloc custom_mem_alloc;
+
+    // // Set custom malloc and free functions for mbedtls
+    // mbedtls_platform_set_calloc_free(Custom_mem_alloc::custom_calloc, Custom_mem_alloc::custom_free);
 
 #ifdef RESERVE_UART0_FOR_PICO_COMM
     DEBUG("Disabling DEBUGS, switching UART to pico comm mode");
