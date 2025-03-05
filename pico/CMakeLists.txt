@@ -28,7 +28,7 @@ add_executable(${PROJECT_NAME}
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
     src/devices/eeprom/eeprom.c
-    src/devices/eeprom/logger.cpp
+        src/devices/eeprom/storage.cpp
 )
 
 add_executable(${PROJECT_NAME}_test
@@ -45,7 +45,7 @@ add_executable(${PROJECT_NAME}_test
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
     src/devices/eeprom/eeprom.c
-    src/devices/eeprom/logger.cpp
+        src/devices/eeprom/storage.cpp
 )
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
