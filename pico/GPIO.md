@@ -29,8 +29,8 @@
 ### 28 - GND      - 
 ### 29 - GP22     - 
 ### 30 - RUN      - 
-### 31 - GP26     - 
-### 32 - GP27     - 
+### 31 - GP26     - I2C1 SDA - EEPROM
+### 32 - GP27     - I2C1 SCL - EEPROM
 ### 33 - GND      - 
 ### 34 - GP28     - 
 ### 35 - ADC_VREF -  
