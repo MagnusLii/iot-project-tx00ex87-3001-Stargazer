@@ -4,12 +4,14 @@
 #include <memory>
 #include <cstring>
 #include <cstdint>
+#include "vector"
 
 class Storage {
   public:
     Storage(i2c_inst_t* i2c, uint sda_pin, uint scl_pin);
     bool store_command(Command& command);
     bool get_command(Command& command, uint64_t id);
+    int get_all_commands(std::vector<Command> &vector);
     bool delete_command(uint64_t id);
     void clear_eeprom();
   private:

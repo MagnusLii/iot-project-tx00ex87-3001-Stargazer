@@ -95,13 +95,46 @@ void Storage::clear_eeprom() {
             return;
         }
     }
+}
 
-    //    head = START_ADDR;
-    //    tail = START_ADDR;
-    //    eeprom_write_page(i2c, HEAD_ADDR, (uint8_t*)&head, sizeof(head));
-    //    sleep_ms(10);
-    //    eeprom_write_page(i2c, TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
-    //    sleep_ms(10);
+bool Storage::delete_command(uint64_t id) {
+    uint8_t buffer[sizeof(Command) + 3];
+    uint8_t empty_buff[64] = {0};
+    int page = START_ADDR;
+    for (int i = 0; i < 512; ++i) {
+        eeprom_read_page(i2c, page, buffer, sizeof(buffer));
+        sleep_ms(10);
+        if (buffer[sizeof(Command)] == 1 && static_cast<uint64_t>(buffer[0]) == id) {
+            eeprom_write_page(i2c, page, empty_buff, sizeof(empty_buff));
+            return true;
+        }
+        page += 64;
+        if (page == EEPROM_SIZE) { return false; }
+    }
+    return false;
+}
+
+int Storage::get_all_commands(std::vector<Command> &vector) {
+    int i = 0;
+    uint8_t buffer[sizeof(Command) + 3];
+    int page = START_ADDR;
+    for (; i < 512; ++i) {
+        Command command;
+        eeprom_read_page(i2c, page, buffer, sizeof(buffer));
+        sleep_ms(10);
+        if (buffer[sizeof(Command)] == 1) {
+            uint16_t stored_crc = (buffer[sizeof(Command) + 1] << 8) | buffer[sizeof(Command) + 2];
+            uint16_t other_crc = crc16(buffer, sizeof(Command));
+
+            if (stored_crc != other_crc) {
+                DEBUG("Checksum doesn't match");
+            }
+            memcpy(&command, buffer, sizeof(Command));
+            vector.push_back(command);
+        }
+        page += 64;
+    }
+    return i;
 }
 
 bool Storage::write_page(uint16_t address, const uint8_t *data, size_t size) {
