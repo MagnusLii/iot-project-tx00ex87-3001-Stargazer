@@ -17,6 +17,7 @@
 class GPS {
   public:
     enum class Mode {
+        UNKNOWN,
         FULL_ON,
         STANDBY,
         ALWAYSLOCATE // Full-on/Standby
@@ -27,7 +28,9 @@ class GPS {
     int locate_position(uint16_t timeout_s = 10);
     Coordinates get_coordinates() const;
     void set_mode(Mode mode);
+    Mode get_mode() const;
     void set_coordinates(double lat, double lon);
+
   private:
     enum class SentenceState {
         EMPTY,
@@ -45,6 +48,7 @@ class GPS {
     void alwayslocate_mode();
 
   private:
+    Mode current_mode = Mode::UNKNOWN;
     double latitude = 0.0;
     double longitude = 0.0;
     bool status = false; // false if coordinates not found

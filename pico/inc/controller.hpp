@@ -56,6 +56,8 @@ class Controller {
     bool waiting_for_camera = false;
     bool trace_started = false;
     bool input_received = false;
+    bool waiting_for_response = false;
+    bool esp_initialized = false;
 
     std::queue<msg::Message> instr_msg_queue;
     std::vector<Command> commands;

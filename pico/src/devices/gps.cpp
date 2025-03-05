@@ -91,13 +91,18 @@ Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitud
 
 void GPS::set_mode(Mode mode) {
     if (mode == Mode::FULL_ON) {
+        current_mode = Mode::FULL_ON;
         full_on_mode();
     } else if (mode == Mode::STANDBY) {
+        current_mode = Mode::STANDBY;
         standby_mode();
     } else if (mode == Mode::ALWAYSLOCATE) {
+        current_mode = Mode::ALWAYSLOCATE;
         alwayslocate_mode();
     }
 }
+
+Mode GPS::get_mode() const { return current_mode; }
 
 void GPS::set_coordinates(double lat, double lon) {
     latitude = lat;

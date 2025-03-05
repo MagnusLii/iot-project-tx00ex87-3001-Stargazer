@@ -1,6 +1,8 @@
 #include "controller.hpp"
 
+#include "convert.hpp"
 #include "debug.hpp"
+#include "message.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -32,6 +34,8 @@ void Controller::run() {
         if (init()) {
             initialized = true;
             gps->set_mode(GPS::Mode::STANDBY);
+            commbridge->send(msg::device_status(true));
+            last_sent = msg::DEVICE_STATUS;
             DEBUG("Initialized");
         } else {
             DEBUG("Failed to initialize");
@@ -137,7 +141,9 @@ bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
 
-    if (!gps->get_coordinates().status) gps->set_mode(GPS::Mode::FULL_ON);
+    if (!gps->get_coordinates().status) {
+        if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
+    }
     if (!clock->is_synced()) commbridge->send(msg::datetime_request());
     compass_heading = compass->getHeading();
     DEBUG("Got compass heading:", compass_heading);
@@ -223,10 +229,13 @@ void Controller::instr_process() {
             Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
             if (command.time.year < 2000) {
                 DEBUG("Instruction not possible");
-                // commbridge->send(msg::CMD_STATUS, );
+                commbridge->send(msg::cmd_status(command.id, -2, 0));
                 return;
             }
-            commands.push_back();
+            commbridge->send(msg::cmd_status(command.id, 2,
+                                             datetime_to_epoch(command.time.year, command.time.month, command.time.day,
+                                                               command.time.hour, command.time.min, command.time.sec)));
+            commands.push_back(command);
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
             DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
@@ -531,5 +540,6 @@ void Controller::trace() {
     mctrl->turn_to_coordinates(trace_command.coords);
     DEBUG("Trace coordinates altitude:", trace_command.coords.altitude * 180.0 / M_PI,
           "azimuth:", trace_command.coords.azimuth * 180.0 / M_PI);
-    DEBUG("Trace Date day:", (int)trace_command.time.day, "hour", (int)trace_command.time.hour, "min", (int)trace_command.time.min);
+    DEBUG("Trace Date day:", (int)trace_command.time.day, "hour", (int)trace_command.time.hour, "min",
+          (int)trace_command.time.min);
 }
