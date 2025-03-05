@@ -13,17 +13,17 @@ logger::logger(i2c_inst_t* i2c, uint sda_pin, uint scl_pin) {
     this->i2c = i2c;
     eeprom_init_i2c(i2c, sda_pin, scl_pin, BAUD_RATE, WRITE_CYCLE_MAX_MS);
 
-    eeprom_read_page(HEAD_ADDR, (uint8_t*)&head, sizeof(head));
+    eeprom_read_page(i2c,HEAD_ADDR, (uint8_t*)&head, sizeof(head));
     sleep_ms(10);
-    eeprom_read_page(TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
+    eeprom_read_page(i2c,TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
     sleep_ms(10);
 
     if (head == 0xFFFF || tail == 0xFFFF || head >= EEPROM_SIZE || tail >= EEPROM_SIZE) {
         head = START_ADDR;
         tail = START_ADDR;
-        eeprom_write_page(HEAD_ADDR, (uint8_t*)&head, sizeof(head));
+        eeprom_write_page(i2c, HEAD_ADDR, (uint8_t*)&head, sizeof(head));
         sleep_ms(10);
-        eeprom_write_page(TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
+        eeprom_write_page(i2c, TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
         sleep_ms(10);
     }
 }
@@ -57,7 +57,7 @@ bool logger::write(Command& command) {
     }
 
     head = new_head;
-    eeprom_write_page(HEAD_ADDR, (uint8_t*)&head, sizeof(head));
+    eeprom_write_page(i2c, HEAD_ADDR, (uint8_t*)&head, sizeof(head));
     sleep_ms(10);
 
     return true;
@@ -70,7 +70,7 @@ bool logger::read(Command& command) {
 
     uint8_t buffer[sizeof(Command) + 2];
 
-    eeprom_read_page(tail, buffer, sizeof(buffer));
+    eeprom_read_page(i2c, tail, buffer, sizeof(buffer));
     sleep_ms(10);
 
     uint16_t stored_crc = (buffer[sizeof(Command)] << 8) | buffer[sizeof(Command) + 1];
@@ -90,7 +90,7 @@ bool logger::read(Command& command) {
         tail = START_ADDR;
     }
 
-    eeprom_write_page(TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
+    eeprom_write_page(i2c, TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
     sleep_ms(10);
     return true;
 }
@@ -108,9 +108,9 @@ void logger::clear_eeprom() {
 
     head = START_ADDR;
     tail = START_ADDR;
-    eeprom_write_page(HEAD_ADDR, (uint8_t*)&head, sizeof(head));
+    eeprom_write_page(i2c, HEAD_ADDR, (uint8_t*)&head, sizeof(head));
     sleep_ms(10);
-    eeprom_write_page(TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
+    eeprom_write_page(i2c, TAIL_ADDR, (uint8_t*)&tail, sizeof(tail));
     sleep_ms(10);
 }
 
@@ -119,8 +119,8 @@ bool logger::write_page(uint16_t address, const uint8_t *data, size_t size) {
     buffer[0] = address >> 8;
     buffer[1] = address & 0xFF;
     memcpy(buffer + 2, data, size);
-
-    int result = i2c_write_blocking(i2c, 0x50, buffer, size + 2, false);
+    int result = i2c_write_timeout_us(i2c, 0x50, buffer, size + 2, false, 1000);
+//    i2c_write_blocking(i2c, 0x50, buffer, size + 2, false);
     sleep_ms(10);
     return (result == size + 2);
 }

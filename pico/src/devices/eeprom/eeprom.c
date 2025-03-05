@@ -57,11 +57,12 @@ void eeprom_init_i2c(i2c_inst_t *i2c,uint sda_pin, uint scl_pin, uint baud, uint
  *
  * @param address The address to be written to the EEPROM.
  */
-void eeprom_write_address(uint16_t address) {
+void eeprom_write_address(i2c_inst_t *i2c, uint16_t address) {
     eeprom_write_cycle_block();
 
     uint8_t out[2] = {address >> 8, address}; // shift by 8 not 4...
-    i2c_write_blocking(i2c0, EEPROM_ADDRESS, out, 2, true);
+    i2c_write_timeout_us(i2c, EEPROM_ADDRESS, out, 2, true, 1000);
+//    i2c_write_blocking(i2c0, EEPROM_ADDRESS, out, 2, true);
 }
 
 /**
@@ -87,7 +88,7 @@ void eeprom_write_byte(uint16_t address, char c) {
  * @param src     Pointer to the source data to be written to the EEPROM.
  * @param size    Size of the data (page size) to be written.
  */
-void eeprom_write_page(uint16_t address, uint8_t *src, size_t size) {
+void eeprom_write_page(i2c_inst_t *i2c, uint16_t address, uint8_t *src, size_t size) {
     uint8_t out[size + 2];
     out[0] = address >> 8; // Upper bits of the address
     out[1] = address; // Lower bits of the address
@@ -96,8 +97,8 @@ void eeprom_write_page(uint16_t address, uint8_t *src, size_t size) {
     }
 
     eeprom_write_cycle_block(); // Ensure EEPROM write cycle duration is within limits
-
-    i2c_write_blocking(i2c0, EEPROM_ADDRESS, out, size + 2, false);
+    i2c_write_timeout_us(i2c, EEPROM_ADDRESS, out, size + 2, false, 1000);
+//    i2c_write_blocking(i2c, EEPROM_ADDRESS, out, size + 2, false);
 
     write_init_time = get_absolute_time();
 }
@@ -108,25 +109,27 @@ void eeprom_write_page(uint16_t address, uint8_t *src, size_t size) {
  * @param address The address in the EEPROM from where the byte will be read.
  * @return The byte of data read from the EEPROM.
  */
-char eeprom_read_byte(uint16_t address) {
-    char c = 0;
-
-    eeprom_write_address(address);
-
-    i2c_read_blocking(i2c0, EEPROM_ADDRESS, &c, 1, false);
-
-    return c;
-}
+//char eeprom_read_byte(uint16_t address) {
+//    char c = 0;
+//
+//    eeprom_write_address(address);
+//
+//    i2c_read_blocking(i2c0, EEPROM_ADDRESS, &c, 1, false);
+//
+//    return c;
+//}
 
 /**
  * Reads a page of data from the specified EEPROM address into the provided destination buffer using the I2C interface.
  *
+ * @param i2c     The i2c instance
  * @param address The starting address in the EEPROM from where the page will be read.
  * @param dst     Pointer to the destination buffer to store the read data.
  * @param size    Size of the data (page size) to be read.
  */
-void eeprom_read_page(uint16_t address, uint8_t *dst, size_t size) {
-    eeprom_write_address(address);
+void eeprom_read_page(i2c_inst_t *i2c, uint16_t address, uint8_t *dst, size_t size) {
+    eeprom_write_address(i2c, address);
 
-    i2c_read_blocking(i2c0, EEPROM_ADDRESS, dst, size, false);
+    i2c_read_timeout_us(i2c, EEPROM_ADDRESS, dst, size, false, 1000);
+//    i2c_read_blocking(i2c, EEPROM_ADDRESS, dst, size, false);
 }
