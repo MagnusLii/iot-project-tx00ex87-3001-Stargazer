@@ -35,7 +35,7 @@ int CommBridge::read(std::string &str) {
 void CommBridge::send(const Message &msg) {
     std::string formatted_msg = "";
     convert_to_string(msg, formatted_msg);
-    formatted_msg += "\r\n"; // TODO: Remove
+    //formatted_msg += "\r\n"; 
 
     send(formatted_msg);
 }

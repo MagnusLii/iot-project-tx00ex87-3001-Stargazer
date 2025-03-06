@@ -331,6 +331,7 @@ void Controller::config_mode() {
                           << "debug_picture <image_id> - send a take picture message to the ESP" << std::endl
                           << "debug_rec_msg <message_str> - add a message to the receive queue" << std::endl
                           << "debug_send_msg <message_type> <message_content_1> ... - send a message to the ESP"
+                          << std::endl
                           << "debug_trace <planet_id> - trace a planet" << std::endl
 #endif
                     ;

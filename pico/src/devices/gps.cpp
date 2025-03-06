@@ -262,20 +262,20 @@ int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direct
 
 void GPS::full_on_mode() {
     const uint8_t pmtk[] = "$PMTK225,0*2B\r\n";
-    DEBUG("Sending:", (char *)pmtk);
+    DEBUG("Sending full-on mode command to GPS");
     uart->write(pmtk, sizeof(pmtk));
 }
 
 void GPS::standby_mode() {
     const uint8_t ptmk[] = "$PMTK161,0*28\r\n";
-    DEBUG("Sending:", (char *)ptmk);
+    DEBUG("Sending standby mode command to GPS");
     uart->write(ptmk, sizeof(ptmk));
     uart->flush();
 }
 
 void GPS::alwayslocate_mode() {
     const uint8_t pmtk[] = "$PMTK225,8*23\r\n";
-    DEBUG("Sending:", (char *)pmtk);
+    DEBUG("Sending AlwaysLocate mode command to GPS");
     uart->write(pmtk, sizeof(pmtk));
 }
 
