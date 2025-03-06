@@ -20,8 +20,11 @@ class CommBridge {
     void send(const std::string &str);
     int parse(std::string &str);
     int read_and_parse(const uint16_t timeout_ms = 5000, bool reset_on_activity = true);
+    bool ready_to_send();
 
   private:
+    absolute_time_t last_sent_time = 0;
+
     std::shared_ptr<PicoUart> uart;
     std::shared_ptr<std::queue<msg::Message>> queue;
     std::string string_buffer = "";

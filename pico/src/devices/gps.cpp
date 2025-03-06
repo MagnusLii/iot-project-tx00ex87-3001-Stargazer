@@ -102,7 +102,7 @@ void GPS::set_mode(Mode mode) {
     }
 }
 
-Mode GPS::get_mode() const { return current_mode; }
+GPS::Mode GPS::get_mode() const { return current_mode; }
 
 void GPS::set_coordinates(double lat, double lon) {
     latitude = lat;

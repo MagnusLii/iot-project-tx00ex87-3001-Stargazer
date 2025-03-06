@@ -2,6 +2,7 @@
 
 #include "debug.hpp"
 #include "message.hpp"
+#include <pico/time.h>
 
 using msg::Message;
 
@@ -9,9 +10,9 @@ CommBridge::CommBridge(std::shared_ptr<PicoUart> uart, std::shared_ptr<std::queu
     : uart(uart), queue(queue) {}
 
 /*
-* Reads characters from the UART and appends them to a string buffer
-* Returns the number of characters read
-*/
+ * Reads characters from the UART and appends them to a string buffer
+ * Returns the number of characters read
+ */
 int CommBridge::read(std::string &str) {
     uint8_t rbuffer[RBUFFER_SIZE] = {0};
     int count = 0;
@@ -29,8 +30,8 @@ int CommBridge::read(std::string &str) {
 }
 
 /*
-* Sends a Message to the UART after formatting it
-*/
+ * Sends a Message to the UART after formatting it
+ */
 void CommBridge::send(const Message &msg) {
     std::string formatted_msg = "";
     convert_to_string(msg, formatted_msg);
@@ -40,17 +41,18 @@ void CommBridge::send(const Message &msg) {
 }
 
 /*
-* Sends a string to the UART
-*/
+ * Sends a string to the UART
+ */
 void CommBridge::send(const std::string &str) {
     DEBUG("Sending: ", str);
     uart->send(str.c_str());
+    last_sent_time = get_absolute_time();
 }
 
 /*
-* Parses messages from a string and pushes them to a queue for further processing
-* Returns 1 if nothing useful was found, 0 otherwise
-*/
+ * Parses messages from a string and pushes them to a queue for further processing
+ * Returns 1 if nothing useful was found, 0 otherwise
+ */
 int CommBridge::parse(std::string &str) {
     int parse_count = 0;
     do {
@@ -58,7 +60,7 @@ int CommBridge::parse(std::string &str) {
         if (string_buffer.empty()) {
             size_t pos;
             if (pos = str.find("$"); pos == std::string::npos) { return -1; } // Return if no $ is found
-            str.erase(0, pos); // Erase everything before the $
+            str.erase(0, pos);                                                // Erase everything before the $
         }
 
         // Check whether the message is complete
@@ -73,7 +75,7 @@ int CommBridge::parse(std::string &str) {
             Message msg;
             // Try to convert the string to a message and push it to the queue
             if (convert_to_message(string_buffer, msg) == 0) {
-                queue->push(msg); 
+                queue->push(msg);
                 parse_count++;
             }
 
@@ -85,10 +87,10 @@ int CommBridge::parse(std::string &str) {
 }
 
 /*
-* Loop function that reads characters from the UART and parses them until the timeout is reached
-* If reset_on_activity is true, the timeout is reset every time some data is received
-* Returns the number of messages parsed
-*/
+ * Loop function that reads characters from the UART and parses them until the timeout is reached
+ * If reset_on_activity is true, the timeout is reset every time some data is received
+ * Returns the number of messages parsed
+ */
 int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity) {
     std::string str;
     bool done = false;
@@ -106,4 +108,9 @@ int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity
     }
 
     return result;
+}
+
+bool CommBridge::ready_to_send() {
+    if (get_absolute_time() - last_sent_time > 10000000) return true; // 10 seconds waited
+    return false;
 }

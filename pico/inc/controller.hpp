@@ -43,6 +43,7 @@ class Controller {
     void wait_for_event(absolute_time_t abs_time, int max_sleep_time);
     bool input_detected();
     void trace();
+    bool config_wait_for_response();
 
   private:
     State state = COMM_READ;
