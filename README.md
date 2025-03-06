@@ -38,11 +38,11 @@ Prefix values:<br>
 `<0>` = unassigned/error<br>
 `<1>` = ACK<br>
 `<2>` = Datetime<br>
-`<3>` = ESP init message<br>
-`<4>` = ESP informs Pico of image to take.<br>
+`<3>` = Device status check message<br>
+`<4>` = ESP relaying command to Pico of what image to take.<br>
 `<5>` = Command/Picture status from Pico to ESP<br>
 `<6>` = Pico instructs ESP to take image<br>
-`<7>` = Diagnostics data from pico.         
+`<7>` = Diagnostics data from Pico.         
 `<8>` = WiFi information from Pico to ESP       
 `<9>` = Send server ip/domain + (port) to ESP   
 `<10>` = Api token from Pico to ESP             
@@ -64,8 +64,9 @@ Reboot messages<br>
     `$<2>,<Timestamp(int)>,<CRC>;` or `$<1>,<Bool>,<CRC>;` nack if not ready to send timestamp.<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
--   ESP init ready state message (ESP sends to pico when it's done initializing)<br>
-    `$<3>,<Bool>,<CRC>;` True = ready, False = ESP is fucked.<br>
+-   Device init/status state message (ESP/Pico sends and other responds followed by final ack)<br>
+    `$<3>,<Bool>,<CRC>;` True = ready, False = fire.<br>
+    `$<3>,<Bool>,<CRC>;` True = ready, False = fire.<br>
     `$<1>,<Bool>,<CRC>;` True = ack, False nack.
 
 -   Image taking process<br>
