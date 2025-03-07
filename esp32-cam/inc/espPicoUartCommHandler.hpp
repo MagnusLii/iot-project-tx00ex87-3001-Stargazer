@@ -46,13 +46,14 @@ class EspPicoCommHandler {
 
     void send_ACK_msg(const bool ack);
 
+    bool espInitMsgSent = false;
+
   private:
     uart_port_t uart_num;
     uart_config_t uart_config;
     QueueHandle_t uart_event_queue;
     QueueHandle_t uart_received_data_queue;
 
-    std::string previousCommand;
     bool waitingForResponse = false;
 };
 
