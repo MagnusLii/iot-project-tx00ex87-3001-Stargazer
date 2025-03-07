@@ -6,6 +6,8 @@
 #include <sstream>
 #include <type_traits>
 
+
+// TODO: redo
 template <typename... Args>
 RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
                                                                   Args... args) {
@@ -27,14 +29,12 @@ RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *r
 
     *requestPtr = "POST " + std::string(endpoint) +
                   " HTTP/1.0\r\n"
-                  "Host: example.com\r\n"
+                  "Host: " + this->getWebServerCString() +  "\r\n"
                   "User-Agent: esp-idf/1.0 esp32\r\n"
                   "Connection: close\r\n"
                   "Content-Type: application/json\r\n"
                   "Content-Length: " +
                   std::to_string(content.str().length()) + "\r\n\r\n" + content.str();
-
-    std::cout << "Request: " << *requestPtr << std::endl;
 
     return RequestHandlerReturnCode::SUCCESS;
 }
