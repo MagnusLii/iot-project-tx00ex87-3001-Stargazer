@@ -33,7 +33,7 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     uint8_t buf[2] = {MODE_REG, CONFIG_B};
     uint8_t data[6];
     int ret = i2c_write_timeout_us(I2C_PORT, COMPASS_ADDR, buf, 2, false, 10000);
-    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_TIMEOUT) {
+    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_GENERIC) {
         DEBUG("Can't read compass");
         return;
     }
@@ -43,13 +43,13 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     // Request data
     buf[0] = DATA_REG;
     ret = i2c_write_timeout_us(I2C_PORT, COMPASS_ADDR, buf, 1, false, 10000);
-    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_TIMEOUT) {
+    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_GENERIC) {
         DEBUG("Can't read compass");
         return;
     }
     sleep_ms(10);
     ret = i2c_read_timeout_us(I2C_PORT, COMPASS_ADDR, data, 6, false, 10000);
-    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_TIMEOUT) {
+    if (ret == PICO_ERROR_TIMEOUT || ret == PICO_ERROR_GENERIC) {
         DEBUG("Can't read compass");
         return;
     }
