@@ -151,7 +151,7 @@ void StepperMotor::stop() {
     int32_t stepsLeft = read_steps_left();
     stepCounter = modulo(stepCounter - stepsLeft, stepMax);
 
-    for (int i = 0; i < fifoLevel; i++) {
+    for (uint i = 0; i < fifoLevel; i++) {
         stepCounter = modulo(stepCounter - (int16_t)(stepMemory & 0xffff), stepMax);
         stepMemory >>= 16;
     }
@@ -159,6 +159,13 @@ void StepperMotor::stop() {
     pio_sm_clear_fifos(pioInstance, stateMachine);
     pio_sm_exec(pioInstance, stateMachine, pio_encode_jmp(0));
     pio_sm_set_enabled(pioInstance, stateMachine, true);
+}
+
+void StepperMotor::off() {
+    // TODO: make this work
+    uint instr = pio_encode_set(pio_pins, 0) | pio_encode_sideset(2, 0);
+    pio_sm_exec(pioInstance, stateMachine, instr);
+    return;
 }
 
 int StepperMotor::read_steps_left(void) {

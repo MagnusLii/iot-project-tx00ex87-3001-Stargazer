@@ -14,10 +14,10 @@ class Clock {
 
     void update(std::string &str);
     void update(time_t timestamp);
-    datetime_t get_datetime();
-    bool is_synced();
+    datetime_t get_datetime() const;
+    bool is_synced() const;
     void add_alarm(datetime_t datetime);
-    bool is_alarm_ringing();
+    bool is_alarm_ringing() const;
     void clear_alarm();
 
   private:

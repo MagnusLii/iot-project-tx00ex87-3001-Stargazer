@@ -47,10 +47,18 @@ MessageType verify_message_type(std::string &str) {
             return DEVICE_STATUS;
         case INSTRUCTIONS:
             return INSTRUCTIONS;
+        case CMD_STATUS:
+            return CMD_STATUS;
         case PICTURE:
             return PICTURE;
         case DIAGNOSTICS:
             return DIAGNOSTICS;
+        case WIFI:
+            return WIFI;
+        case SERVER:
+            return SERVER;
+        case API:
+            return API;
         default:
             return UNASSIGNED;
     }
@@ -118,10 +126,7 @@ Message cmd_status(int image_id, int status, int datetime) {
                    .content = {std::to_string(image_id), std::to_string(status), std::to_string(datetime)}};
 }
 
-
-Message picture(int image_id) {
-    return Message{.type = PICTURE, .content = {std::to_string(image_id)}};
-}
+Message picture(int image_id) { return Message{.type = PICTURE, .content = {std::to_string(image_id)}}; }
 
 Message diagnostics(int status, const std::string diagnostic) {
     return Message{.type = DIAGNOSTICS, .content = {std::to_string(status), diagnostic}};
@@ -131,12 +136,10 @@ Message wifi(const std::string ssid, const std::string password) {
     return Message{.type = WIFI, .content = {ssid, password}};
 }
 
-Message server(const std::string server_addr) {
-    return Message{.type = SERVER, .content = {server_addr}};
+Message server(const std::string address, int port) {
+    return Message{.type = SERVER, .content = {address, std::to_string(port)}};
 }
 
-Message api(const std::string api_token) {
-    return Message{.type = API, .content = {api_token}};
-}
+Message api(const std::string api_token) { return Message{.type = API, .content = {api_token}}; }
 
 } // namespace msg

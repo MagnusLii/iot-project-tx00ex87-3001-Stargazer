@@ -51,13 +51,13 @@ void Clock::update(time_t timestamp) {
 
 }
 
-datetime_t Clock::get_datetime() {
+datetime_t Clock::get_datetime() const {
     datetime_t now;
     rtc_get_datetime(&now);
     return now;
 }
 
-bool Clock::is_synced() {
+bool Clock::is_synced() const {
     return synced;
 }
 
@@ -70,7 +70,7 @@ void Clock::add_alarm(datetime_t datetime) {
     rtc_set_alarm(&datetime, &alarm_handler);
 }
 
-bool Clock::is_alarm_ringing() {
+bool Clock::is_alarm_ringing() const {
     return alarm_wakeup;
 }
 

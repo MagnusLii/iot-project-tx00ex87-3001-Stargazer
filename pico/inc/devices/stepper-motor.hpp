@@ -29,6 +29,7 @@ class StepperMotor {
     void turn_to(double radians);
     void turnOneRevolution();
     void stop();
+    void off();
     void setSpeed(float rpm);
     void setDirection(bool clockwise);
     void resetStepCounter(void);
