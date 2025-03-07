@@ -103,8 +103,8 @@ void Controller::run() {
                 else {
                     state = COMM_READ;
                     check_motor = false;
-                    int image_id = 1; // TODO: Replace with actual image id
-                    commbridge->send(msg::picture(image_id));
+                    
+                    commbridge->send(msg::picture(current_command.id));
                     last_sent = msg::PICTURE;
                     waiting_for_response = true;
                     waiting_for_camera = true;
@@ -254,6 +254,7 @@ void Controller::instr_process() {
             Celestial celestial(planet);
             celestial.set_observer_coordinates(gps->get_coordinates());
             Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
+            command.id = id;
             if (command.time.year < 2000) {
                 DEBUG("Instruction not possible");
                 commbridge->send(msg::cmd_status(id, -2, 0));
