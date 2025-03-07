@@ -320,6 +320,7 @@ void Controller::config_mode() {
                 std::cout << "Available commands:" << std::endl
                           << "help - print this help message" << std::endl
                           << "exit - exit config mode" << std::endl
+                          << "calibrate_compass - move the device while the compass calibrates" << std::endl
                           << "time [unixtime] - view or set current time" << std::endl
                           << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
                           << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
@@ -341,6 +342,10 @@ void Controller::config_mode() {
             } else if (token == "exit") {
                 exit = true;
                 std::cout << "Exiting config mode" << std::endl;
+            } else if (token == "calibrate_compass") {
+                std::cout << "Please move the device." << std::endl;
+                compass->calibrate();
+                std::cout << "Calibration done." << std::endl;
             } else if (token == "time") {
                 time_t timestamp = 0;
                 if (ss >> timestamp) {
