@@ -156,8 +156,8 @@ bool Controller::init() {
             waiting_for_response = true;
         }
     }
-    compass_heading = compass->getHeading();
-    DEBUG("Got compass heading:", compass_heading);
+    // compass_heading = compass->getHeading();
+    // DEBUG("Got compass heading:", compass_heading);
     //  TODO: use compass to correct azimuth of commands
     if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
     if (!gps->get_coordinates().status) gps->locate_position(2);
@@ -321,6 +321,7 @@ void Controller::config_mode() {
                           << "help - print this help message" << std::endl
                           << "exit - exit config mode" << std::endl
                           << "calibrate_compass - move the device while the compass calibrates" << std::endl
+                          << "heading - set compass heading of the device" << std::endl
                           << "time [unixtime] - view or set current time" << std::endl
                           << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
                           << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
@@ -346,6 +347,12 @@ void Controller::config_mode() {
                 std::cout << "Please move the device." << std::endl;
                 compass->calibrate();
                 std::cout << "Calibration done." << std::endl;
+            } else if (token == "heading") {
+                float heading = 0;
+                if (ss >> heading) {
+                    compass_heading = heading;
+                }
+                std::cout << "Heading set to: " << heading << std::endl; 
             } else if (token == "time") {
                 time_t timestamp = 0;
                 if (ss >> timestamp) {
