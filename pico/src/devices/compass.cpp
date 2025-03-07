@@ -21,6 +21,10 @@ Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
+    xRawValueOffset = 0;
+    yRawValueOffset = 0;
+    zRawValueOffset = 0;
+
     uint8_t config_a[2] = {CONFIG_A, 0x70}; // Configuration for CONFIG_A
     uint8_t config_b[2] = {CONFIG_B, 0xa0}; // Configuration for CONFIG_B
 
