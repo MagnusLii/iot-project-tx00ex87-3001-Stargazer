@@ -241,7 +241,7 @@ void Controller::instr_process() {
         } else
             error = true;
 
-        int id; // TODO: Needs to be saved to Command
+        int id;
         if (!str_to_int(instr.content[1], id)) error = true;
 
         int position;
