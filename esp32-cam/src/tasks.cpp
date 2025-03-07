@@ -553,8 +553,14 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::DEVICE_STATUS:
                         DEBUG("INIT message received");
-                        // send confirmation message
-                        espPicoCommHandler->send_ACK_msg(true);
+
+                        // Send own status and wait for confirmation
+                        msg = msg::device_status(true);
+                        convert_to_string(msg, string);
+                        if (espPicoCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length()) != 0) {
+                            DEBUG("Failed to send device status message");
+                            break;
+                        }
 
                         // send diagnostics message
                         handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "\"status\"",
@@ -585,6 +591,9 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::CMD_STATUS:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
                         request.requestType = RequestType::POST;
                         handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", "id",
                                                                            std::stoi(msg.content[0].c_str()), "status",
@@ -615,8 +624,12 @@ void handle_uart_data_task(void *pvParameters) {
 
                         // Take picture and save to sd card
                         cameraHandler->create_image_filename(filepath);
-                        cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
+                        if(cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str()) != 0) {
+                            DEBUG("Failed to take picture and save to SD card");
+                            break;
+                        }
 
+                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
                         // Create queue message for enqueuing
@@ -702,7 +715,7 @@ void handle_uart_data_task(void *pvParameters) {
                         string.clear();
                         break;
 
-                    case msg::MessageType::SERVER:
+                    case msg::MessageType::SERVER: // TODO: update msg fields when merged.
                         // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
