@@ -102,7 +102,8 @@ bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filen
 bool read_file_base64_and_send(SDcardHandler *sdcardHandler, RequestHandler *requesthandler,
                                const std::string &filename, const int64_t image_id, QueueMessage *response) {
     size_t file_size = 300000;
-    unsigned char *file_data = static_cast<unsigned char *>(heap_caps_malloc(file_size * sizeof(unsigned char), MALLOC_CAP_SPIRAM));
+    unsigned char *file_data =
+        static_cast<unsigned char *>(heap_caps_malloc(file_size * sizeof(unsigned char), MALLOC_CAP_SPIRAM));
 
     int data_len = sdcardHandler->read_file_base64(filename.c_str(), file_data, file_size);
     if (data_len < 0) {
@@ -233,7 +234,7 @@ void init_task(void *pvParameters) {
     // Create Timers
     TimerHandle_t getRequestTmr = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
                                                handlers->requestHandler.get(), get_request_timer_callback);
-    TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(1000), pdFALSE,
+    TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(20000), pdFALSE,
                                                  handlers->requestHandler.get(), get_timestamp_timer_callback);
 
     //  Start timers
@@ -250,7 +251,8 @@ void init_task(void *pvParameters) {
     msg::Message msg = msg::device_status(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
-    handlers->espPicoCommHandler->send_data(msg_str.c_str(), msg_str.length());
+    handlers->espPicoCommHandler->espInitMsgSent = true;
+    handlers->espPicoCommHandler->send_msg_and_wait_for_response(msg_str.c_str(), msg_str.length());
 
     // Start reconnect loop if not connected
     if (handlers->wirelessHandler->isConnected() == false) {
@@ -501,12 +503,11 @@ void handle_uart_data_task(void *pvParameters) {
     std::string filepath;
     QueueMessage request;
 
+    WirelessHandler *wirelessHandler = handlers->wirelessHandler.get();
+
     std::string string;
     msg::Message msg;
     size_t pos;
-
-    std::unordered_map<Settings, std::string> settings;
-    handlers->sdcardHandler->read_all_settings(settings);
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
@@ -553,13 +554,27 @@ void handle_uart_data_task(void *pvParameters) {
 
                     case msg::MessageType::DEVICE_STATUS:
                         DEBUG("INIT message received");
-                        // send confirmation message
-                        espPicoCommHandler->send_ACK_msg(true);
+
+                        if (espPicoCommHandler->espInitMsgSent == false) {
+                            // Send own status and wait for confirmation
+                            msg = msg::device_status(true);
+                            convert_to_string(msg, string);
+                            if (espPicoCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length()) !=
+                                0) {
+                                DEBUG("Failed to send device status message");
+                                break;
+                            }
+                        } else {
+                            // ack otherwise
+                            espPicoCommHandler->send_ACK_msg(true);
+                        }
+
+                        espPicoCommHandler->espInitMsgSent = false;
 
                         // send diagnostics message
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "\"status\"",
-                                                                           msg.content[0].c_str(), "\"message\"",
-                                                                           "\"Pico init status received\"");
+                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "status",
+                                                                           std::stoi(msg.content[0]), "message",
+                                                                           "Pico init status received");
 
                         strncpy(request.str_buffer, string.c_str(), string.size());
                         request.str_buffer[string.size()] = '\0';
@@ -585,6 +600,9 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::CMD_STATUS:
+                        // Send confirmation message
+                        espPicoCommHandler->send_ACK_msg(true);
+
                         request.requestType = RequestType::POST;
                         handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", "id",
                                                                            std::stoi(msg.content[0].c_str()), "status",
@@ -607,7 +625,6 @@ void handle_uart_data_task(void *pvParameters) {
                     case msg::MessageType::PICTURE:
                         // Send confirmation message
 
-
                         vTaskDelay(pdMS_TO_TICKS(10000)); // The camera has a delay
 
                         // Convert UartReceivedData to QueueMessage
@@ -615,8 +632,12 @@ void handle_uart_data_task(void *pvParameters) {
 
                         // Take picture and save to sd card
                         cameraHandler->create_image_filename(filepath);
-                        cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str());
+                        if (cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str()) != 0) {
+                            DEBUG("Failed to take picture and save to SD card");
+                            break;
+                        }
 
+                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
                         // Create queue message for enqueuing
@@ -638,7 +659,6 @@ void handle_uart_data_task(void *pvParameters) {
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
-
 
                         // Clear variables
                         request.buffer_length = 0;
@@ -680,29 +700,25 @@ void handle_uart_data_task(void *pvParameters) {
                         espPicoCommHandler->send_ACK_msg(true);
 
                         // Update Wi-Fi settings
-                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
-                                                               Settings::WIFI_SSID);
-                        handlers->wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
-                                                               Settings::WIFI_PASSWORD);
+                        wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                     Settings::WIFI_SSID);
+                        wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
+                                                     Settings::WIFI_PASSWORD);
 
-                        // Save settings to SD card
-                        settings[Settings::WIFI_SSID] = msg.content[0];
-                        settings[Settings::WIFI_PASSWORD] = msg.content[1];
-
-                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                        if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
+                            0) {
                             DEBUG("Failed to save Wi-Fi settings to SD card");
                         }
 
                         // Attempt to reconnect to Wi-Fi
-                        handlers->wirelessHandler->connect(
-                            handlers->wirelessHandler->get_setting(Settings::WIFI_SSID),
-                            handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
+                        wirelessHandler->connect(wirelessHandler->get_setting(Settings::WIFI_SSID),
+                                                 wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
 
                         // Clear variables
                         string.clear();
                         break;
 
-                    case msg::MessageType::SERVER:
+                    case msg::MessageType::SERVER: // TODO: update msg fields when merged.
                         // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
@@ -718,16 +734,18 @@ void handle_uart_data_task(void *pvParameters) {
                         }
 
                         // Update server settings
-                        handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_DOMAIN);
+                        wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_DOMAIN);
                         string = msg.content[0].substr(pos + 1);
                         DEBUG("Extracted string: ", string.c_str());
-                        handlers->wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_PORT);
+                        wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_PORT);
 
                         // Save settings to SD card
-                        settings[Settings::WEB_DOMAIN] = msg.content[0];
-                        settings[Settings::WEB_PORT] = msg.content[1];
+                        wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                     Settings::WEB_DOMAIN);
+                        wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(), Settings::WEB_PORT);
 
-                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                        if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
+                            0) {
                             DEBUG("Failed to save server settings to SD card");
                         }
 
@@ -740,13 +758,15 @@ void handle_uart_data_task(void *pvParameters) {
                         espPicoCommHandler->send_ACK_msg(true);
 
                         // Update API token
-                        handlers->wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
-                                                               Settings::WEB_TOKEN);
+                        wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                     Settings::WEB_TOKEN);
 
                         // Save settings to SD card
-                        settings[Settings::WEB_TOKEN] = msg.content[0];
+                        wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
+                                                     Settings::WEB_TOKEN);
 
-                        if (handlers->wirelessHandler->save_settings_to_sdcard(settings) != 0) {
+                        if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
+                            0) {
                             DEBUG("Failed to save API token to SD card");
                         }
 
