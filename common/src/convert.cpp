@@ -34,3 +34,14 @@ bool num_to_hex_str(int num, std::string &result, int width, bool fill, bool upp
     result = ss.str();
     return true;
 }
+
+int64_t datetime_to_epoch(int year, int month, int day, int hour, int min, int sec) {
+    struct tm time;
+    time.tm_year = year - 1900;
+    time.tm_mon = month - 1;
+    time.tm_mday = day;
+    time.tm_hour = hour;
+    time.tm_min = min;
+    time.tm_sec = sec;
+    return mktime(&time);
+}

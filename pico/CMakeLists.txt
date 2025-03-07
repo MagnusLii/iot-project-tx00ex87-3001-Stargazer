@@ -17,12 +17,13 @@ pico_sdk_init()
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
+    src/commbridge.cpp
+    src/controller.cpp
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
+    src/hardware/clock.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
-    src/hardware/clock.cpp
-    src/hardware/sleep_functions.cpp
     src/devices/stepper-motor.cpp
     src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
@@ -33,15 +34,15 @@ add_executable(${PROJECT_NAME}
 
 add_executable(${PROJECT_NAME}_test
     src/test_main.cpp
+    src/commbridge.cpp
+    src/controller.cpp
     src/hardware/uart/PicoUart.cpp
     src/hardware/uart/RingBuffer.cpp
     src/hardware/clock.cpp
-    src/hardware/sleep_functions.cpp
     src/devices/gps.cpp
     src/devices/compass.cpp
     src/devices/stepper-motor.cpp
     src/devices/motor-control.cpp
-    src/commbridge.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
     src/devices/eeprom/eeprom.c
@@ -58,7 +59,6 @@ target_include_directories(test_planet_finder PRIVATE inc/planet_finder inc/devi
 target_compile_definitions(test_planet_finder PRIVATE UNITY_INCLUDE_CONFIG_H)
 target_compile_options(test_planet_finder PRIVATE -Wno-psabi)
 
-
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 pico_generate_pio_header(${PROJECT_NAME}_test ${CMAKE_CURRENT_LIST_DIR}/stepper.pio)
 
@@ -74,8 +74,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
-    ${COMMON_DIR}/inc
+    inc/devices
     inc/planet_finder
+    ${COMMON_DIR}/inc
 )
 
 target_include_directories(${PROJECT_NAME}_test PRIVATE
@@ -85,6 +86,7 @@ target_include_directories(${PROJECT_NAME}_test PRIVATE
     inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
+    inc/devices
     inc/planet_finder
     ${COMMON_DIR}/inc
 )
@@ -101,6 +103,9 @@ target_link_libraries(${PROJECT_NAME}
     hardware_pio
     hardware_rosc
     hardware_sleep
+    message
+    crc
+    convert
 )
 
 target_link_libraries(${PROJECT_NAME}_test 
@@ -108,23 +113,27 @@ target_link_libraries(${PROJECT_NAME}_test
     hardware_i2c
     hardware_gpio
     hardware_rtc
-    message
-    crc
-    convert
     hardware_pio
     hardware_rosc
     hardware_sleep
+    message
+    crc
+    convert
 )
 
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_DEBUG)
     target_compile_definitions(${PROJECT_NAME}_test PRIVATE ENABLE_DEBUG)
-    target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
+    # target_compile_definitions(test_planet_finder PRIVATE ENABLE_DEBUG)
 ENDIF()
 
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wno-psabi)
+target_compile_options(${PROJECT_NAME}_test PRIVATE -Wall -Wno-psabi)
+target_compile_options(test_planet_finder PRIVATE -Wall -Wno-psabi)
+
 # Enable usb output, disable uart output
-pico_enable_stdio_usb(${PROJECT_NAME} 0)
-pico_enable_stdio_uart(${PROJECT_NAME} 1)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
+pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
 pico_enable_stdio_usb(${PROJECT_NAME}_test 1)
 pico_enable_stdio_uart(${PROJECT_NAME}_test 0)

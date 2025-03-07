@@ -32,14 +32,28 @@ Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
 void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     uint8_t buf[2] = {MODE_REG, CONFIG_B};
     uint8_t data[6];
-
-    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
+    int ret = i2c_write_timeout_us(I2C_PORT, COMPASS_ADDR, buf, 2, false, 10000);
+    if (ret == PICO_ERROR_TIMEOUT) {
+        DEBUG("Can't read compass");
+        return;
+    }
+    // i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
     sleep_ms(10);
 
     // Request data
     buf[0] = DATA_REG;
-    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
-    i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
+    ret = i2c_write_timeout_us(I2C_PORT, COMPASS_ADDR, buf, 1, false, 10000);
+    if (ret == PICO_ERROR_TIMEOUT) {
+        DEBUG("Can't read compass");
+        return;
+    }
+    ret = i2c_read_timeout_us(I2C_PORT, COMPASS_ADDR, data, 6, false, 10000);
+    if (ret == PICO_ERROR_TIMEOUT) {
+        DEBUG("Can't read compass");
+        return;
+    }
+    // i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
+    // i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
 
     // Combine high and low bytes
     x = ((int16_t)data[0] << 8) | data[1];
@@ -60,7 +74,7 @@ void Compass::calibrate() {
 
     int16_t x, y, z;
 
-    DEBUG("Calibrate the compass\r\n");
+    DEBUG("Calibrate the compass");
 
     while (xCount < 3 || yCount < 3 || zCount < 3) {
         readRawData(x, y, z);

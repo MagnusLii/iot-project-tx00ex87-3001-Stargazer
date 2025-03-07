@@ -13,7 +13,7 @@ int GPS::locate_position(uint16_t timeout_s) {
     int empty_reads = 0;
     uint8_t read_buffer[256] = {0};
 
-    status = false;
+    //status = false;
     do {
         uart->read(read_buffer, sizeof(read_buffer));
         if (read_buffer[0] != 0) {
@@ -91,12 +91,23 @@ Coordinates GPS::get_coordinates() const { return Coordinates{latitude, longitud
 
 void GPS::set_mode(Mode mode) {
     if (mode == Mode::FULL_ON) {
+        current_mode = Mode::FULL_ON;
         full_on_mode();
     } else if (mode == Mode::STANDBY) {
+        current_mode = Mode::STANDBY;
         standby_mode();
     } else if (mode == Mode::ALWAYSLOCATE) {
+        current_mode = Mode::ALWAYSLOCATE;
         alwayslocate_mode();
     }
+}
+
+GPS::Mode GPS::get_mode() const { return current_mode; }
+
+void GPS::set_coordinates(double lat, double lon) {
+    latitude = lat;
+    longitude = lon;
+    status = true;
 }
 
 int GPS::parse_gpgga() {
@@ -251,20 +262,20 @@ int GPS::nmea_to_decimal_deg(const std::string &value, const std::string &direct
 
 void GPS::full_on_mode() {
     const uint8_t pmtk[] = "$PMTK225,0*2B\r\n";
-    DEBUG("Sending:", (char *)pmtk);
+    DEBUG("Sending full-on mode command to GPS");
     uart->write(pmtk, sizeof(pmtk));
 }
 
 void GPS::standby_mode() {
     const uint8_t ptmk[] = "$PMTK161,0*28\r\n";
-    DEBUG("Sending:", (char *)ptmk);
+    DEBUG("Sending standby mode command to GPS");
     uart->write(ptmk, sizeof(ptmk));
     uart->flush();
 }
 
 void GPS::alwayslocate_mode() {
     const uint8_t pmtk[] = "$PMTK225,8*23\r\n";
-    DEBUG("Sending:", (char *)pmtk);
+    DEBUG("Sending AlwaysLocate mode command to GPS");
     uart->write(pmtk, sizeof(pmtk));
 }
 
