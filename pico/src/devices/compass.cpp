@@ -60,6 +60,7 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     x = ((int16_t)data[0] << 8) | data[1];
     z = ((int16_t)data[2] << 8) | data[3];
     y = ((int16_t)data[4] << 8) | data[5];
+    DEBUG(x, y, z);
 }
 
 void Compass::calibrate() {
