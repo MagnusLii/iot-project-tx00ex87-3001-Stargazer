@@ -20,26 +20,39 @@ int main() {
     DEBUG("Boot");
 
     auto uart_0 = std::make_shared<PicoUart>(0, 0, 1, 115200);
+    DEBUG("UART0 initialized");
     auto uart_1 = std::make_shared<PicoUart>(1, 4, 5, 9600);
+    DEBUG("UART1 initialized");
     sleep_ms(50);
 
     auto clock = std::make_shared<Clock>();
+    DEBUG("Clock initialized");
     auto gps = std::make_shared<GPS>(uart_1, false, true);
-    auto compass = std::make_shared<Compass>(i2c1, 15, 14);
+    DEBUG("GPS initialized");
+    auto compass = std::make_shared<Compass>(i2c0, 17, 16);
+    DEBUG("Compass initialized");
 
     auto queue = std::make_shared<std::queue<msg::Message>>();
+    DEBUG("Queue initialized");
     auto commbridge = std::make_shared<CommBridge>(uart_0, queue);
+    DEBUG("CommBridge initialized");
 
-    const std::vector<uint> pins1{2, 3, 6, 13};
-    const std::vector<uint> pins2{16, 17, 18, 19};
-    const int opto_horizontal = 26;
-    const int opto_vertical = 28;
+    const std::vector<uint> pins1{6, 7, 8, 9};
+    DEBUG("Stepper motor pins initialized");
+    const std::vector<uint> pins2{18, 19, 20, 21};
+    DEBUG("Stepper motor pins initialized");
+    const int opto_horizontal = 10;
+    const int opto_vertical = 15;
 
     auto mh = std::make_shared<StepperMotor>(pins1);
+    DEBUG("Stepper motor initialized");
     auto mv = std::make_shared<StepperMotor>(pins2);
+    DEBUG("Stepper motor initialized");
     auto mctrl = std::make_shared<MotorControl>(mh, mv, opto_horizontal, opto_vertical);
+    DEBUG("MotorControl initialized");
 
     Controller controller(clock, gps, compass, commbridge, mctrl, queue);
+    DEBUG("Controller initialized");
     for (;;) {
         controller.run();
 
