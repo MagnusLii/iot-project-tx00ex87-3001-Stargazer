@@ -28,6 +28,8 @@ add_executable(${PROJECT_NAME}
     src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
+    src/devices/eeprom/eeprom.c
+        src/devices/eeprom/storage.cpp
 )
 
 add_executable(${PROJECT_NAME}_test
@@ -43,6 +45,8 @@ add_executable(${PROJECT_NAME}_test
     src/devices/motor-control.cpp
     src/planet_finder/planet_finder.cpp
     src/planet_finder/date_utils.cpp
+    src/devices/eeprom/eeprom.c
+        src/devices/eeprom/storage.cpp
 )
 
 add_library(message ${COMMON_DIR}/src/message.cpp)
@@ -66,6 +70,8 @@ pico_add_extra_outputs(${PROJECT_NAME}_test)
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     inc
+    inc/devices
+    inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
     inc/devices
@@ -76,6 +82,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_include_directories(${PROJECT_NAME}_test PRIVATE
     src
     inc
+    inc/devices
+    inc/devices/eeprom
     inc/hardware
     inc/hardware/uart
     inc/devices
