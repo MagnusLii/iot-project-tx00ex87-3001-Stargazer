@@ -51,9 +51,7 @@ void Controller::run() {
             config_mode();
             DEBUG("Exited config mode: main loop");
         }
-        // if (!initialized) {
-        //     initialized = init();
-        // }
+
         // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
@@ -91,7 +89,9 @@ void Controller::run() {
                 // TODO: check if its actually the time to do stuff
                 if (commands.size() > 0) {
                     if (commands.front().time.hour == clock->get_datetime().hour) {
-                        mctrl->turn_to_coordinates(commands.front().coords);
+                        current_command =
+                            commands.front(); // TODO: Command needs to removed from vector after it's done
+                        mctrl->turn_to_coordinates(current_command.coords);
                         check_motor = true;
                     }
                 }
@@ -241,7 +241,7 @@ void Controller::instr_process() {
         } else
             error = true;
 
-        int id;
+        int id; // TODO: Needs to be saved to Command
         if (!str_to_int(instr.content[1], id)) error = true;
 
         int position;
@@ -256,12 +256,12 @@ void Controller::instr_process() {
             Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
             if (command.time.year < 2000) {
                 DEBUG("Instruction not possible");
-                commbridge->send(msg::cmd_status(command.id, -2, 0));
+                commbridge->send(msg::cmd_status(id, -2, 0));
                 last_sent = msg::CMD_STATUS;
                 waiting_for_response = true;
                 return;
             }
-            commbridge->send(msg::cmd_status(command.id, 2,
+            commbridge->send(msg::cmd_status(id, 2,
                                              datetime_to_epoch(command.time.year, command.time.month, command.time.day,
                                                                command.time.hour, command.time.min, command.time.sec)));
             last_sent = msg::CMD_STATUS;
@@ -269,12 +269,15 @@ void Controller::instr_process() {
             commands.push_back(command);
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
-            DEBUG("next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
+            DEBUG("Next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
                   (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
-            if (commands.size() > 0) clock->add_alarm(commands[0].time);
+            if (commands.size() > 0) clock->add_alarm(commands.front().time);
         } else {
             DEBUG("Error in instruction.");
             // TODO: should we send back error message?
+            commbridge->send(msg::cmd_status(id, -1, 0));
+            last_sent = msg::CMD_STATUS;
+            waiting_for_response = true;
         }
     }
 

@@ -48,6 +48,7 @@ class Controller {
   private:
     State state = COMM_READ;
     msg::MessageType last_sent = msg::UNASSIGNED;
+    Command current_command = {0};
     Command trace_command = {0};
     Celestial trace_object = MOON;
     float compass_heading = 0;
