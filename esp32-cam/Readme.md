@@ -16,8 +16,20 @@
 - Set `Long filename support` to `long filename buffer in heap` and lenght to 255.
 - Set `configTimer_TASK_STACK_DEPTH` from `2048` -> `4096`
 - Set `Partition Table` to `Custom partition table CSV` and use `partitions.csv` as the table.
+- Set `CONFIG_MAIN_TASK_STACK_SIZE` from `2048` to `8192` when using memory intentsive tests.
+- Enable `Enable mbedTLS debugging` for verbose tls debugs.
 
 ### Code notes
 
 `.jpeg_quality = 8` Is the lowest it can go while staying stable, 7 works mostly, 6 will fail most times.  
 ^^ this needs to be tested again, I've done code improvements.
+
+setting file layout
+```
+SSID
+PASSWORD
+SERVER DOMAIN
+SERVER PORT
+SERVER API TOKEN
+CRC
+```
