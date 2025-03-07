@@ -1,7 +1,7 @@
 // TESTING DEFINES
 
 // Used to reserve UART0 for Pico communication as they're the only free pins with no other critical functions.
-#define RESERVE_UART0_FOR_PICO_COMM
+// #define RESERVE_UART0_FOR_PICO_COMM
 
 // Sends datetime response over UART0 every 10 seconds
 // #define UART_DEMO
