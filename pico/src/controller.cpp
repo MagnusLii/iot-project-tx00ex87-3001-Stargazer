@@ -89,8 +89,8 @@ void Controller::run() {
                 // TODO: check if its actually the time to do stuff
                 if (commands.size() > 0) {
                     if (commands.front().time.hour == clock->get_datetime().hour) {
-                        current_command =
-                            commands.front(); // TODO: Command needs to removed from vector after it's done
+                        current_command = commands.front();
+                        commands.erase(commands.begin());
                         mctrl->turn_to_coordinates(current_command.coords);
                         check_motor = true;
                     }
