@@ -47,6 +47,7 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
         DEBUG("Can't read compass");
         return;
     }
+    sleep_ms(10);
     ret = i2c_read_timeout_us(I2C_PORT, COMPASS_ADDR, data, 6, false, 10000);
     if (ret == PICO_ERROR_TIMEOUT) {
         DEBUG("Can't read compass");
