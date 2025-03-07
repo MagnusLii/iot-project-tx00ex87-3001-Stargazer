@@ -369,7 +369,6 @@ int SDcardHandler::read_all_settings(std::unordered_map<Settings, std::string> &
     while (fgets(read_buffer, sizeof(read_buffer), fptr)) {
         line = read_buffer;
         temp_settings += line;
-        // DEBUG("Read: ", line.c_str());
     }
 
     fclose(fptr);
