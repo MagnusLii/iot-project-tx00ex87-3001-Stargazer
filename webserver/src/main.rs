@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let https_api = settings.enable_https_api;
 
     if !http && !http_api && !https && !https_api {
-        println!("Nothing is enabled. Exiting..");
+        println!("Nothing is enabled. Check your config file. Exiting...");
         return Ok(());
     }
 

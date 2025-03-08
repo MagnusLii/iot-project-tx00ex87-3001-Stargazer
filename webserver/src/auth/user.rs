@@ -103,7 +103,15 @@ pub async fn modify_user(
     user: Json<ModifyUserJson>,
 ) -> impl IntoResponse {
     let modified_details = user.0;
-    let user_session = auth_session.user.unwrap();
+    let user_session = auth_session.user.unwrap_or_else(|| User {
+        id: -1,
+        username: "".to_string(),
+        password: "".to_string(),
+        superuser: false,
+    });
+    if user_session.id == -1 {
+        return (StatusCode::FORBIDDEN, "Not logged in").into_response();
+    }
 
     let target_user_id;
     if modified_details.id.is_none() {
@@ -136,18 +144,21 @@ pub async fn modify_user(
 
     // Change password if provided
     if let Some(new_password) = modified_details.password {
-        if !new_password.chars().all(password::is_valid_char) || new_password.is_empty() {
-            return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
-        }
+        if !new_password.is_empty() {
+            if !new_password.chars().all(password::is_valid_char) {
+                return (StatusCode::BAD_REQUEST, "Invalid password").into_response();
+            }
 
-        if let Ok(_) = auth_session
-            .backend
-            .change_password(target_user_id, new_password)
-            .await
-        {
-            println!("Changed password of user {}", target_user_id);
-        } else {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing password").into_response();
+            if let Ok(_) = auth_session
+                .backend
+                .change_password(target_user_id, new_password)
+                .await
+            {
+                println!("Changed password of user {}", target_user_id);
+            } else {
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Error changing password")
+                    .into_response();
+            }
         }
     }
 
