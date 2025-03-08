@@ -263,9 +263,7 @@ void Controller::instr_process() {
             }
             
             
-            send(msg::cmd_status(id, 2,
-                                             datetime_to_epoch(command.time.year, command.time.month, command.time.day,
-                                                               command.time.hour, command.time.min, command.time.sec)));
+            send(msg::cmd_status(id, 2, datetime_to_epoch(command.time)));
             commands.push_back(command);
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
