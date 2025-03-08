@@ -160,21 +160,25 @@ bool Controller::init() {
 void Controller::comm_process() {
     DEBUG("Processing messages");
     if (commbridge->ready_to_send() && waiting_for_response) {
-        DEBUG("ESP didn't respond to message");
+        DEBUG("ESP didn't respond to message of type:", static_cast<int>(last_sent));
         send(msg::diagnostics(2, "ESP didn't respond to message"));
         waiting_for_response = false;
-        if (last_sent == msg::PICTURE) state = MOTOR_OFF;
+        if (last_sent == msg::PICTURE) {
+            state = MOTOR_OFF;
+        }
     }
     while (msg_queue->size() > 0) {
         DEBUG(msg_queue->size());
         msg::Message msg = msg_queue->front();
-
+        DEBUG("Last sent is:", static_cast<int>(last_sent));
         waiting_for_response = false; // TODO: What are the places we should check this?
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
                 DEBUG("Received response");
                 if (msg.content[0] == "1") {
-                    if (last_sent == msg::PICTURE) { state = MOTOR_OFF; }
+                    if (last_sent == msg::PICTURE) {
+                        state = MOTOR_OFF;
+                    }
                 } else {
                     if (last_sent == msg::PICTURE) { state = COMM_READ; }
                 } // TODO: Handle other responses?
