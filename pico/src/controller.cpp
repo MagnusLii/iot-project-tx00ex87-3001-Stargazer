@@ -3,6 +3,7 @@
 #include "convert.hpp"
 #include "debug.hpp"
 #include "message.hpp"
+#include "date_utils.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -86,16 +87,7 @@ void Controller::run() {
                 state = COMM_READ;
                 break;
             case MOTOR_CONTROL:
-                // TODO: check if its actually the time to do stuff
-                if (commands.size() > 0) {
-                    if (commands.front().time.hour == clock->get_datetime().hour) {
-                        current_command = commands.front();
-                        commands.erase(commands.begin());
-                        mctrl->turn_to_coordinates(current_command.coords);
-                        check_motor = true;
-                    }
-                }
-                state = MOTOR_WAIT;
+                motor_control();
                 break;
             case MOTOR_WAIT:
                 if (mctrl->isRunning())
@@ -621,4 +613,36 @@ bool Controller::config_wait_for_response() {
         }
     }
     return false;
+}
+
+void Controller::motor_control() {
+    // TODO: check if its actually the time to do stuff
+    if (commands.size() > 0) {
+        int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
+        if (sec_difference < -(60 * 5)) {
+            clock->add_alarm(commands.front().time);
+            mctrl->off();
+            state = SLEEP;
+            return;
+        } else if (sec_difference > (60 * 5)) {
+            DEBUG("Time difference of command and current time was too large (>5 minutes).");
+            commbridge->send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
+            last_sent = msg::MessageType::CMD_STATUS;
+            commands.front().time = clock->get_datetime();
+            mctrl->off();
+            state = COMM_READ;
+        } else {
+            current_command = commands.front();
+            commands.erase(commands.begin());
+            mctrl->turn_to_coordinates(current_command.coords);
+            check_motor = true;
+        }
+    } else {
+        DEBUG("Tried to initiate picture taking with empty command vector.");
+        commbridge->send(msg::diagnostics(2, "Device tried to take picture with no command"));
+        last_sent = msg::MessageType::DIAGNOSTICS;
+        mctrl->off();
+        state = COMM_READ;
+    }
+    state = MOTOR_WAIT;
 }

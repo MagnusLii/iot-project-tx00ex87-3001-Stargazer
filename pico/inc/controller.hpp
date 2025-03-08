@@ -44,6 +44,7 @@ class Controller {
     bool input_detected();
     void trace();
     bool config_wait_for_response();
+    void motor_control();
 
   private:
     State state = COMM_READ;
