@@ -135,7 +135,7 @@ int Storage::get_all_commands(std::vector<Command> &vector) {
         }
         page += 64;
     }
-    return i;
+    return vector.size();
 }
 
 bool Storage::write_page(uint16_t address, const uint8_t *data, size_t size) {
