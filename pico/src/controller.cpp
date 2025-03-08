@@ -643,6 +643,8 @@ void Controller::motor_control() {
         } else {
             current_command = commands.front();
             commands.erase(commands.begin());
+            DEBUG("turning to altitude:", current_command.coords.altitude * 180 / M_PI,
+                  "azimuth:", current_command.coords.azimuth * 180 / M_PI);
             mctrl->turn_to_coordinates(current_command.coords);
             check_motor = true;
         }
