@@ -175,6 +175,7 @@ void Controller::comm_process() {
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
                 DEBUG("Received response");
+                DEBUG("content:", msg.content[0]);
                 if (msg.content[0] == "1") {
                     if (last_sent == msg::PICTURE) {
                         state = MOTOR_OFF;
