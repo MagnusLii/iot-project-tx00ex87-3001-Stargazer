@@ -113,9 +113,9 @@ void Controller::run() {
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    DEBUG("Sleeping");
+                    // DEBUG("Sleeping");
                     wait_for_event(get_absolute_time(), 100000); // 100ms TODO: Replace with actual max sleep time
-                    DEBUG("Waking up");
+                    // DEBUG("Waking up");
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
                         state = MOTOR_CALIBRATE;
