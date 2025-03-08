@@ -6,7 +6,7 @@ function queuePicture() {
         "position": Number(document.getElementById("positions").value),
         "associated_key_id": Number(document.getElementById("selected_key").value)
     });
-    console.log(data);
+    //console.log(data);
 
     fetch(`/control/command`, {
         method: "POST",
@@ -69,14 +69,11 @@ function fillCommandList(page_n = 0, exact = false) {
 
         const first = document.getElementById("first-page");
         const prev = document.getElementById("prev-page");
-        console.log(page);
         if (page == 0) {
-            console.log("disabled");
             prev.disabled = true;
             first.disabled = true;
         }
         else {
-            console.log("enabled");
             prev.disabled = false;
             first.disabled = false;
         }
@@ -112,11 +109,13 @@ function fillCommandList(page_n = 0, exact = false) {
             key_name.textContent = command.name;
             key_id.textContent = command.key_id;
             status.textContent = command.status;
+            status.id = "status-" + command.id;
             time.textContent = command.datetime;
             cancel.className = "command-cancel";
             if (command.status == 0) {
                 const deleteButton = document.createElement("button");
                 deleteButton.textContent = "Cancel";
+                deleteButton.id = "del-" + command.id;
                 deleteButton.onclick = () => deleteCommand(command.id);
                 cancel.appendChild(deleteButton);
             }
@@ -130,8 +129,6 @@ function fillCommandList(page_n = 0, exact = false) {
             row.appendChild(cancel);
             table.appendChild(row);
         });
-
-        //deleteButtons();
     }).catch(() => {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
@@ -145,8 +142,9 @@ function deleteCommand(id) {
     if (confirm("Are you sure you want to delete this command?") == true) {
         fetch(`/control/command?id=${id}`, {
             method: "DELETE"
-        }).then(() => {
-            location.reload();
+        }).then(response => response.ok).then(() => {
+            document.getElementById("status-" + id).textContent = "-6";
+            document.getElementById("del-" + id).outerHTML = "";
         }).catch(() => {
             alert("Issue deleting command");
         });
@@ -158,6 +156,7 @@ function deleteButtons() {
     const table = document.getElementById("command-table");
     const rows = table.getElementsByTagName("tr");
     for (let i = 1; i < rows.length; i++) {
+        console.log(rows[i]);
         const row = rows[i];
         const cells = row.getElementsByTagName("td");
         const status = cells[5].textContent;
@@ -165,7 +164,10 @@ function deleteButtons() {
             const cell = document.createElement("td");
             cell.className = "command-cancel-button";
             const deleteButton = document.createElement("button");
-            deleteButton.textContent = "Cancel";
+            deleteButton.textContent = "Cancel C";
+            deleteButton.setAttribute("id", "del-" + cells[0].textContent);
+            console.log(cells[0].textContent);
+            console.log(deleteButton.id);
             deleteButton.onclick = () => deleteCommand(cells[0].textContent);
             cell.appendChild(deleteButton);
             row.appendChild(cell);
