@@ -135,11 +135,11 @@ void Controller::run() {
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
-    if (!commands_fetched) {
-        int ret = storage->get_all_commands(commands);
-        DEBUG("Got", ret, "commands from local storage.");
-        commands_fetched = true;
-    }
+    // if (!commands_fetched) {
+    //     int ret = storage->get_all_commands(commands);
+    //     DEBUG("Got", ret, "commands from local storage.");
+    //     commands_fetched = true;
+    // }
 
     if (!gps->get_coordinates().status) {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
