@@ -167,7 +167,11 @@ int CameraHandler::reinit_cam() {
  *       is released after writing to the file.
  */
 int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str) {
-    camera_fb_t *pic = esp_camera_fb_get();
+    camera_fb_t *pic = nullptr;
+    for (int i = 0; i < 3; i++) {
+        esp_camera_fb_return(pic);
+        pic = esp_camera_fb_get();
+    }
     if (!pic) {
         DEBUG("Failed to capture image");
         return 1; // Image capture failure
@@ -179,6 +183,7 @@ int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str
     }
 
     esp_camera_fb_return(pic);
+
     return 0; // Success
 }
 
