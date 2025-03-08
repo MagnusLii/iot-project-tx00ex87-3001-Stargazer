@@ -31,6 +31,7 @@ pub struct App {
     session_store: MemoryStore,
     key: Key,
     backend: Backend,
+    assets_dir: String,
     tls_config: Option<RustlsConfig>,
 }
 
@@ -39,6 +40,7 @@ impl App {
         user_db: SqlitePool,
         api_db: SqlitePool,
         image_dir: ImageDirectory,
+        assets_dir: String,
         tls_config: Option<RustlsConfig>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let session_store = MemoryStore::default();
@@ -54,6 +56,7 @@ impl App {
             session_store,
             key,
             backend,
+            assets_dir,
             tls_config,
         })
     }
@@ -83,7 +86,10 @@ impl App {
             .route("/users/current", post(user::current_user))
             .route("/user", get(routes::user_page))
             .route("/user", post(user::modify_user))
-            .nest_service("/assets/images", ServeDir::new("assets/images"))
+            .nest_service(
+                "/assets/images",
+                ServeDir::new(&self.shared_state.image_dir.path),
+            )
             .route_layer(login_required!(Backend, login_url = "/login"))
             .route("/login", get(login_page))
             .route("/login", post(login))
@@ -92,7 +98,7 @@ impl App {
             //.route("/test", post(commands::request_commands_info))
             .layer(MessagesManagerLayer)
             .layer(auth_layer)
-            .nest_service("/assets", ServeDir::new("assets"))
+            .nest_service("/assets", ServeDir::new(&self.assets_dir))
             .route(
                 "/api/upload",
                 post(api::upload::upload_image).layer(DefaultBodyLimit::max(262_144_000)),
