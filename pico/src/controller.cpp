@@ -253,17 +253,19 @@ void Controller::instr_process() {
             celestial.set_observer_coordinates(gps->get_coordinates());
             Command command = celestial.get_interest_point_command(interest, clock->get_datetime());
             command.id = id;
+            if (interest == NOW) {
+                command.time = clock->get_datetime(); // we only add coordinates in the above function
+                check_commands = true;
+            }
             if (command.coords.altitude < 0 || command.time.year < 2000) {
                 DEBUG("Instruction not possible");
+                DEBUG("command altitude:", command.coords.altitude * 180 / M_PI, "year:", command.time.year);
                 commbridge->send(msg::cmd_status(id, -2, 0));
                 last_sent = msg::CMD_STATUS;
                 waiting_for_response = true;
                 return;
             }
-            if (interest == NOW) {
-                command.time = clock->get_datetime(); // we only add coordinates in the above function
-                check_commands = true;
-            }
+            
             
             commbridge->send(msg::cmd_status(id, 2,
                                              datetime_to_epoch(command.time.year, command.time.month, command.time.day,
