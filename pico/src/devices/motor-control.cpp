@@ -10,7 +10,7 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
                            int optopin_horizontal, int optopin_vertical)
     : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
       opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
-      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(-M_PI_2) {
+      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(M_PI_2) {
     init_optoforks();
     motorcontrol = this;
     motor_horizontal->init(pio0, 5, CLOCKWISE);
@@ -19,7 +19,7 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
 
 void MotorControl::setHeading(double heading) {
     // -90 degrees (half pi) because of physical orientation of camera
-    heading_correction = normalize_radians(-M_PI_2 + heading);
+    heading_correction = normalize_radians(M_PI_2 + heading);
 }
 
 bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
