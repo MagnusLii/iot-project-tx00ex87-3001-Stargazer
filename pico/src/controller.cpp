@@ -73,6 +73,8 @@ void Controller::run() {
                     state = TRACE;
                 else if (mctrl->isCalibrated())
                     state = MOTOR_CONTROL;
+                else if (check_commands)
+                    state = MOTOR_CALIBRATE;
                 else
                     state = SLEEP;
                 break;
@@ -221,7 +223,10 @@ void Controller::comm_process() {
 void Controller::instr_process() {
     DEBUG("Processing instructions");
     msg::Message instr = instr_msg_queue.front();
+    instr_msg_queue.pop();
+    double_check = true;
     bool error = false;
+    state = SLEEP;
     Planets planet = MOON;
     if (instr.content.size() == 3 && instr.type == msg::INSTRUCTIONS) {
         int planet_num;
@@ -238,22 +243,28 @@ void Controller::instr_process() {
 
         int position;
         if (str_to_int(instr.content[2], position)) {
-            if (position < 1 || position > 3) error = true;
+            if (position < 1 || position > 4) error = true;
         } else
             error = true;
 
         if (!error) {
             Celestial celestial(planet);
+            Interest_point interest = static_cast<Interest_point>(position);
             celestial.set_observer_coordinates(gps->get_coordinates());
-            Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
+            Command command = celestial.get_interest_point_command(interest, clock->get_datetime());
             command.id = id;
-            if (command.time.year < 2000) {
+            if (command.coords.altitude < 0 || command.time.year < 2000) {
                 DEBUG("Instruction not possible");
                 commbridge->send(msg::cmd_status(id, -2, 0));
                 last_sent = msg::CMD_STATUS;
                 waiting_for_response = true;
                 return;
             }
+            if (interest == NOW) {
+                command.time = clock->get_datetime(); // we only add coordinates in the above function
+                check_commands = true;
+            }
+            
             commbridge->send(msg::cmd_status(id, 2,
                                              datetime_to_epoch(command.time.year, command.time.month, command.time.day,
                                                                command.time.hour, command.time.min, command.time.sec)));
@@ -264,7 +275,7 @@ void Controller::instr_process() {
             std::sort(commands.begin(), commands.end(), compare_time);
             DEBUG("Next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
                   (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
-            if (commands.size() > 0) clock->add_alarm(commands.front().time);
+            if (commands.size() > 0 && interest != NOW) clock->add_alarm(commands.front().time);
         } else {
             DEBUG("Error in instruction.");
             // TODO: should we send back error message?
@@ -273,10 +284,6 @@ void Controller::instr_process() {
             waiting_for_response = true;
         }
     }
-
-    instr_msg_queue.pop();
-    double_check = true;
-    state = SLEEP;
 }
 
 void Controller::config_mode() {
@@ -616,7 +623,7 @@ bool Controller::config_wait_for_response() {
 }
 
 void Controller::motor_control() {
-    // TODO: check if its actually the time to do stuff
+    check_commands = false;
     if (commands.size() > 0) {
         int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
         if (sec_difference < -(60 * 5)) {

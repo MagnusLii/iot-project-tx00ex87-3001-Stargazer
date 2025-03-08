@@ -142,7 +142,7 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     
     double obliquity = obliquity_of_eplectic(J2000);
 
-    if (planet != MOON) {
+    if (planet != MOON && planet != SUN) {
         double sun_E = eccentric_anomaly(sun.e, sun.M);
         rect_coordinates sun_xy = to_rectangular_coordinates(sun.a, sun.e, sun_E);
         double sun_v = true_anomaly(sun_xy);
@@ -205,6 +205,11 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
 }
 
 Command Celestial::get_interest_point_command(Interest_point point, const datetime_t &start_date) {
+    if (point == NOW) {
+        Command cmd = {0};
+        cmd.coords = get_coordinates(start_date);
+        return cmd;
+    }
     std::vector<Command> interesting_commands = get_interesting_commands(start_date);
     if (point == ZENITH) return interesting_commands[1];
     if (point == ABOVE) return interesting_commands[0];
@@ -246,6 +251,9 @@ bool Celestial::check_for_zenith(const azimuthal_coordinates & last, const azimu
 
 std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start_date) {
     std::vector<Command> result = {{0}, {0}, {0}};
+    for (auto &res : result) {
+        res.time.year = -1;
+    }
     datetime_t current_date = start_date;
     azimuthal_coordinates last = get_coordinates(current_date);
     datetime_increment_hour(current_date);
@@ -280,7 +288,9 @@ std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start
         next = get_coordinates(next_date);
 
         if (result[0].id != 0 && result[1].id != 0 && result[2].id != 0) done = true;
-        if (i > 48) done = true;
+        if (i > 48) {
+            done = true;
+        }
     }
     return result;
 }

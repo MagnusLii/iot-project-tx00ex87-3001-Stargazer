@@ -30,18 +30,20 @@ int main() {
     // sleep_ms(500);
     // DEBUG("Boot");
 
-    Celestial moon(MOON);
+    Celestial moon(SUN);
     datetime_t date;
     date.year = 2025;
     date.month = 3;
-    date.day = 4;
-    date.hour = 10;
+    date.day = 8;
+    date.hour = 15;
     date.min = 14;
     Coordinates coords(60.22969, 24.99197);
     moon.set_observer_coordinates(coords);
+    Command bca = moon.get_interest_point_command(ABOVE, date);
     azimuthal_coordinates abc = moon.get_coordinates(date);
-    std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
-    moon.start_trace(date, 24);
+    std::cout << "alt " << bca.coords.altitude * 180 / M_PI << " azi " << bca.coords.azimuth * 180 / M_PI << std::endl;
+    std::cout << "year " << bca.time.year << " day " << (int)bca.time.day << " hour " << (int)bca.time.hour << std::endl;
+    // moon.start_trace(date, 24);
 
 
     
