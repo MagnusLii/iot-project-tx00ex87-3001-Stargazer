@@ -19,7 +19,7 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
 
 void MotorControl::setHeading(double heading) {
     // -90 degrees (half pi) because of physical orientation of camera
-    heading_correction = normalize_radians(M_PI_2 + heading);
+    heading_correction = normalize_radians(M_PI_2 + (heading * M_PI / 180.0));
 }
 
 bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {

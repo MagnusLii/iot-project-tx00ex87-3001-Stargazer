@@ -254,12 +254,19 @@ std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start
     for (auto &res : result) {
         res.time.year = -1;
     }
+    datetime_t last_date = start_date;
     datetime_t current_date = start_date;
-    azimuthal_coordinates last = get_coordinates(current_date);
-    datetime_increment_hour(current_date);
+    azimuthal_coordinates last = get_coordinates(last_date);
+    // datetime_increment_hour(current_date);
+    for (int x=0; x < 10; x++) {
+        datetime_increment_minute(current_date);
+    }
     azimuthal_coordinates current = get_coordinates(current_date);
     datetime_t next_date = current_date;
-    datetime_increment_hour(next_date);
+    // datetime_increment_hour(next_date);
+    for (int x=0; x < 10; x++) {
+        datetime_increment_minute(next_date);
+    }
     azimuthal_coordinates next = get_coordinates(next_date);
     bool done = false;
     bool rising_found = false;
@@ -273,25 +280,54 @@ std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start
                 result[0] = {1, current, current_date};
             }
             else if (check_for_zenith(last, current, next) && !zenith_found) {
+                datetime_t iter_date_last = last_date;
+                azimuthal_coordinates iter_coords_last = last;
+                datetime_t iter_date_current = last_date;
+                datetime_increment_minute(iter_date_current);
+                azimuthal_coordinates iter_coords_current = get_coordinates(iter_date_current);
+                datetime_t iter_date_next = iter_date_current;
+                datetime_increment_minute(iter_date_next);
+                azimuthal_coordinates iter_coords_next = get_coordinates(iter_date_next);
+                int j = 0;
+                while (!check_for_zenith(iter_coords_last, iter_coords_current, iter_coords_next) && j < 120) {
+                    datetime_increment_minute(iter_date_last);
+                    datetime_increment_minute(iter_date_current);
+                    datetime_increment_minute(iter_date_next);
+                    iter_coords_last = iter_coords_current;
+                    iter_coords_current = iter_coords_next;
+                    iter_coords_next = get_coordinates(iter_date_next);
+                    j++;
+                }
                 zenith_found = true;
-                result[1] = {1, current, current_date};
+                result[1] = {1, iter_coords_current, iter_date_current};
             }
             else if (check_for_falling(current, next) && !falling_found) {
                 falling_found = true;
                 result[2] = {1, current, current_date};
             }
         }
-        datetime_increment_hour(current_date);
-        datetime_increment_hour(next_date);
+        // datetime_increment_hour(last_date);
+        for (int x=0; x < 10; x++) {
+            datetime_increment_minute(last_date);
+        }
+        // datetime_increment_hour(current_date);
+        for (int x=0; x < 10; x++) {
+            datetime_increment_minute(current_date);
+        }
+        // datetime_increment_hour(next_date);
+        for (int x=0; x < 10; x++) {
+            datetime_increment_minute(next_date);
+        }
         last = current;
         current = next;
         next = get_coordinates(next_date);
-
+        i++;
         if (result[0].id != 0 && result[1].id != 0 && result[2].id != 0) done = true;
-        if (i > 48) {
+        if (i > 48 * 6) {
             done = true;
         }
     }
+
     return result;
 }
 

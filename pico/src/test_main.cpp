@@ -30,28 +30,28 @@ int main() {
     // sleep_ms(500);
     // DEBUG("Boot");
 
-    Celestial moon(SUN);
+    Celestial moon(MOON);
     datetime_t date;
     date.year = 2025;
     date.month = 3;
     date.day = 8;
-    date.hour = 15;
-    date.min = 14;
+    date.hour = 17;
+    date.min = 10;
     Coordinates coords(60.22969, 24.99197);
     moon.set_observer_coordinates(coords);
-    Command bca = moon.get_interest_point_command(ABOVE, date);
-    azimuthal_coordinates abc = moon.get_coordinates(date);
-    azimuthal_coordinates dd = {2, 2};
-    mctrl.turn_to_coordinates(dd);
+    Command bca = moon.get_interest_point_command(ZENITH, date);
+    // azimuthal_coordinates abc = moon.get_coordinates(date);
+    // azimuthal_coordinates dd = {2, 2};
+    // mctrl.turn_to_coordinates(dd);
     std::cout << "alt " << bca.coords.altitude * 180 / M_PI << " azi " << bca.coords.azimuth * 180 / M_PI << std::endl;
-    std::cout << "year " << bca.time.year << " day " << (int)bca.time.day << " hour " << (int)bca.time.hour << std::endl;
+    std::cout << "year " << bca.time.year << " day " << (int)bca.time.day << " hour " << (int)bca.time.hour << " min " << (int)bca.time.min << std::endl;
     // moon.start_trace(date, 24);
 
 
     
     while (1) {
-        std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
-        sleep_ms(500);
+        // std::cout << "alt " << abc.altitude * 180 / M_PI << " azi " << abc.azimuth * 180 / M_PI << std::endl;
+        // sleep_ms(500);
     }
     return 0;
 }
