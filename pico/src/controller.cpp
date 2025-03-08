@@ -114,7 +114,7 @@ void Controller::run() {
                     state = COMM_READ;
                 } else {
                     DEBUG("Sleeping");
-                    wait_for_event(get_absolute_time(), 30000000); // 30s TODO: Replace with actual max sleep time
+                    wait_for_event(get_absolute_time(), 100000); // 100ms TODO: Replace with actual max sleep time
                     DEBUG("Waking up");
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
@@ -181,13 +181,13 @@ void Controller::comm_process() {
         waiting_for_response = false; // TODO: What are the places we should check this?
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
-                DEBUG("Received response");
-                DEBUG("content:", msg.content[0]);
-                if (msg.content[0] == "1") {
+            if (msg.content[0] == "1") {
+                    DEBUG("Received ack");
                     if (last_sent == msg::PICTURE) {
                         state = MOTOR_OFF;
                     }
                 } else {
+                    DEBUG("Received nack");
                     if (last_sent == msg::PICTURE) { state = COMM_READ; }
                 } // TODO: Handle other responses?
                 break;
@@ -550,7 +550,7 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
 void Controller::wait_for_event(absolute_time_t abs_time, int max_sleep_time) {
     while (!clock->is_alarm_ringing() && !input_detected() &&
            absolute_time_diff_us(abs_time, get_absolute_time()) < max_sleep_time) {
-        sleep_ms(1000); // TODO: TBD
+        sleep_ms(50); // TODO: TBD
     }
 }
 
