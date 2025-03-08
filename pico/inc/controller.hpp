@@ -6,6 +6,7 @@
 #include "commbridge.hpp"
 #include "compass.hpp"
 #include "convert.hpp"
+#include "storage.hpp"
 #include "gps.hpp"
 #include "motor-control.hpp"
 #include "planet_finder.hpp"
@@ -31,7 +32,7 @@ class Controller {
   public:
     Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
-               std::shared_ptr<std::queue<msg::Message>> msg_queue);
+               std::shared_ptr<Storage> storage, std::shared_ptr<std::queue<msg::Message>> msg_queue);
 
     void run();
 
@@ -63,6 +64,7 @@ class Controller {
     bool input_received = false;
     bool waiting_for_response = false;
     bool esp_initialized = false;
+    bool commands_fetched = false;
     int now_commands = 0;
 
     std::queue<msg::Message> instr_msg_queue;
@@ -74,5 +76,6 @@ class Controller {
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
     std::shared_ptr<MotorControl> mctrl;
+    std::shared_ptr<Storage> storage;
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };

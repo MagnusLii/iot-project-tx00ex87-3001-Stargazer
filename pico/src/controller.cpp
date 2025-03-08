@@ -23,8 +23,8 @@ bool compare_time(const Command &a, const Command &b) {
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
-                       std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue) {}
+                       std::shared_ptr<Storage> storage, std::shared_ptr<std::queue<msg::Message>> msg_queue)
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), storage(storage), msg_queue(msg_queue) {}
 
 void Controller::run() {
     if (input_detected()) {
@@ -135,6 +135,11 @@ void Controller::run() {
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
+    if (!commands_fetched) {
+        int ret = storage->get_all_commands(commands);
+        DEBUG("Got", ret, "commands from local storage.");
+        commands_fetched = true;
+    }
 
     if (!gps->get_coordinates().status) {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
