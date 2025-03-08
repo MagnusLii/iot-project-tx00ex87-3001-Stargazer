@@ -20,13 +20,13 @@ int main() {
     sleep_ms(500);
     
     // std::cout << "abc" << std::endl;
-    // std::vector<uint> pins1{2, 3, 6, 13};
-    // std::vector<uint> pins2{16,17,18,19};
-    // int opto_horizontal = 14;
-    // int opto_vertical = 28;
-    // std::shared_ptr<StepperMotor> mh = std::make_shared<StepperMotor>(pins1);
-    // std::shared_ptr<StepperMotor> mv = std::make_shared<StepperMotor>(pins2);
-    // MotorControl mctrl(mh, mv, opto_horizontal, opto_vertical);
+    std::vector<uint> pins1{2, 3, 6, 13};
+    std::vector<uint> pins2{16,17,18,19};
+    int opto_horizontal = 14;
+    int opto_vertical = 28;
+    std::shared_ptr<StepperMotor> mh = std::make_shared<StepperMotor>(pins1);
+    std::shared_ptr<StepperMotor> mv = std::make_shared<StepperMotor>(pins2);
+    MotorControl mctrl(mh, mv, opto_horizontal, opto_vertical);
     // sleep_ms(500);
     // DEBUG("Boot");
 
@@ -41,6 +41,8 @@ int main() {
     moon.set_observer_coordinates(coords);
     Command bca = moon.get_interest_point_command(ABOVE, date);
     azimuthal_coordinates abc = moon.get_coordinates(date);
+    azimuthal_coordinates dd = {2, 2};
+    mctrl.turn_to_coordinates(dd);
     std::cout << "alt " << bca.coords.altitude * 180 / M_PI << " azi " << bca.coords.azimuth * 180 / M_PI << std::endl;
     std::cout << "year " << bca.time.year << " day " << (int)bca.time.day << " hour " << (int)bca.time.hour << std::endl;
     // moon.start_trace(date, 24);

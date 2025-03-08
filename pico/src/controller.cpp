@@ -36,9 +36,7 @@ void Controller::run() {
         if (init()) {
             initialized = true;
             gps->set_mode(GPS::Mode::STANDBY);
-            commbridge->send(msg::device_status(true));
-            last_sent = msg::DEVICE_STATUS;
-            waiting_for_response = true;
+            send(msg::device_status(true));
             DEBUG("Initialized");
         } else {
             DEBUG("Failed to initialize");
@@ -58,6 +56,8 @@ void Controller::run() {
             case COMM_READ:
                 double_check = false;
                 commbridge->read_and_parse(1000, true);
+            case COMM_SEND:
+                send_process();
             case CHECK_QUEUES:
                 if (msg_queue->size() > 0)
                     state = COMM_PROCESS;
@@ -97,10 +97,7 @@ void Controller::run() {
                 else {
                     state = COMM_READ;
                     check_motor = false;
-                    
-                    commbridge->send(msg::picture(current_command.id));
-                    last_sent = msg::PICTURE;
-                    waiting_for_response = true;
+                    send(msg::picture(current_command.id));
                     waiting_for_camera = true;
                 }
                 break;
@@ -144,10 +141,9 @@ bool Controller::init() {
     }
     if (!clock->is_synced()) {
         if (waiting_for_response && commbridge->ready_to_send()) {
-            commbridge->send(msg::datetime_request());
+            send(msg::datetime_request());
         } else if (!waiting_for_response) {
-            commbridge->send(msg::datetime_request());
-            waiting_for_response = true;
+            send(msg::datetime_request());
         }
     }
     // compass_heading = compass->getHeading();
@@ -165,6 +161,12 @@ bool Controller::init() {
 
 void Controller::comm_process() {
     DEBUG("Processing messages");
+    if (commbridge->ready_to_send() && waiting_for_response) {
+        DEBUG("ESP didn't respond to message");
+        send(msg::diagnostics(2, "ESP didn't respond to message"));
+        waiting_for_response = false;
+        if (last_sent == msg::PICTURE) state = MOTOR_OFF;
+    }
     while (msg_queue->size() > 0) {
         DEBUG(msg_queue->size());
         msg::Message msg = msg_queue->front();
@@ -182,8 +184,7 @@ void Controller::comm_process() {
             case msg::DATETIME:
                 DEBUG("Received datetime");
                 clock->update(msg.content[0]);
-                commbridge->send(msg::response(true));
-                last_sent = msg::RESPONSE;
+                send(msg::response(true));
                 break;
             case msg::DEVICE_STATUS: // Send ACK or DEVICE_STATUS response back to ESP
                 DEBUG("Received ESP init");
@@ -193,24 +194,19 @@ void Controller::comm_process() {
                     esp_initialized = false;
                 }
                 if (last_sent == msg::DEVICE_STATUS) {
-                    commbridge->send(msg::response(true));
-                    last_sent = msg::RESPONSE;
+                    send(msg::response(true));
                 } else {
-                    commbridge->send(msg::device_status(true));
-                    last_sent = msg::DEVICE_STATUS;
-                    waiting_for_response = true;
+                    send(msg::device_status(true));
                 }
                 break;
             case msg::INSTRUCTIONS: // Store/Process instructions
                 DEBUG("Received instructions");
                 instr_msg_queue.push(msg);
-                commbridge->send(msg::response(true));
-                last_sent = msg::RESPONSE;
+                send(msg::response(true));
                 break;
             default:
                 DEBUG("Unexpected message type: ", msg.type);
-                commbridge->send(msg::response(false));
-                last_sent = msg::RESPONSE;
+                send(msg::response(false));
                 break;
         }
 
@@ -260,18 +256,14 @@ void Controller::instr_process() {
             if (command.coords.altitude < 0 || command.time.year < 2000) {
                 DEBUG("Instruction not possible");
                 DEBUG("command altitude:", command.coords.altitude * 180 / M_PI, "year:", command.time.year);
-                commbridge->send(msg::cmd_status(id, -2, 0));
-                last_sent = msg::CMD_STATUS;
-                waiting_for_response = true;
+                send(msg::cmd_status(id, -2, 0));
                 return;
             }
             
             
-            commbridge->send(msg::cmd_status(id, 2,
+            send(msg::cmd_status(id, 2,
                                              datetime_to_epoch(command.time.year, command.time.month, command.time.day,
                                                                command.time.hour, command.time.min, command.time.sec)));
-            last_sent = msg::CMD_STATUS;
-            waiting_for_response = true;
             commands.push_back(command);
             // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
@@ -280,10 +272,7 @@ void Controller::instr_process() {
             if (commands.size() > 0 && interest != NOW) clock->add_alarm(commands.front().time);
         } else {
             DEBUG("Error in instruction.");
-            // TODO: should we send back error message?
-            commbridge->send(msg::cmd_status(id, -1, 0));
-            last_sent = msg::CMD_STATUS;
-            waiting_for_response = true;
+            send(msg::cmd_status(id, -1, 0));
         }
     }
 }
@@ -401,7 +390,7 @@ void Controller::config_mode() {
                     std::string password = "";
                     int rc = input(password, TIMEOUT, true);
                     if (rc >= 0) {
-                        commbridge->send(msg::wifi(ssid, password));
+                        send(msg::wifi(ssid, password));
                         // TODO: do we need to wait for response?
                         std::fill(password.begin(), password.end(), '*');
                         std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
@@ -413,8 +402,7 @@ void Controller::config_mode() {
                 int port = 0;
                 if (ss >> address) {
                     if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
-                    commbridge->send(msg::server(address, port));
-                    // TODO: do we need to wait for response?
+                    send(msg::server(address, port));
                     std::cout << "Sent server details: " << address << " " << port << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -423,8 +411,7 @@ void Controller::config_mode() {
             } else if (token == "token") {
                 std::string token;
                 if (ss >> token) {
-                    commbridge->send(msg::api(token));
-                    // TODO: do we need to wait for response?
+                    send(msg::api(token));
                     std::cout << "Sent api token: " << token << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -456,8 +443,7 @@ void Controller::config_mode() {
             } else if (token == "debug_picture") {
                 int image_id = 0;
                 if (ss >> image_id) {
-                    commbridge->send(msg::picture(image_id));
-                    // TODO: do we need to wait for response?
+                    send(msg::picture(image_id));
                     std::cout << "Sent picture request: " << image_id << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -490,8 +476,7 @@ void Controller::config_mode() {
 
                         if (content.size() > 0) {
                             msg.content = content;
-                            commbridge->send(msg);
-                            // TODO: do we need to wait for response?
+                            send(msg);
                             std::cout << "Sent message with type " << type_str << std::endl;
                             if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                         } else {
@@ -636,8 +621,7 @@ void Controller::motor_control() {
             return;
         } else if (sec_difference > (60 * 5)) {
             DEBUG("Time difference of command and current time was too large (>5 minutes).");
-            commbridge->send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
-            last_sent = msg::MessageType::CMD_STATUS;
+            send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
             commands.front().time = clock->get_datetime();
             mctrl->off();
             state = COMM_READ;
@@ -651,10 +635,35 @@ void Controller::motor_control() {
         }
     } else {
         DEBUG("Tried to initiate picture taking with empty command vector.");
-        commbridge->send(msg::diagnostics(2, "Device tried to take picture with no command"));
-        last_sent = msg::MessageType::DIAGNOSTICS;
+        send(msg::diagnostics(2, "Device tried to take picture with no command"));
         mctrl->off();
         state = COMM_READ;
     }
     state = MOTOR_WAIT;
 }
+
+void Controller::send(const msg::Message mesg) {
+    if (mesg.type == msg::RESPONSE) {
+        commbridge->send(mesg);
+        return;
+    }
+    send_msg_queue.push(mesg);
+}
+
+void Controller::send_process() {  
+    if (send_msg_queue.size() <= 0) return;
+    if (waiting_for_response) return;
+    commbridge->send(send_msg_queue.front());
+    last_sent = send_msg_queue.front().type;
+    send_msg_queue.pop();
+}
+
+/*
+if (mesg.type != msg::RESPONSE) {
+        if (waiting_for_response) return false;
+        waiting_for_response = true;
+    }
+    last_sent = mesg.type;
+    commbridge->send(mesg);
+    return true;
+*/

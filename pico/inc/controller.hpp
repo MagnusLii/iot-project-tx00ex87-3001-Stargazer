@@ -17,6 +17,7 @@ class Controller {
     enum State {
         SLEEP,
         COMM_READ,
+        COMM_SEND,
         CHECK_QUEUES,
         COMM_PROCESS,
         INSTR_PROCESS,
@@ -45,6 +46,8 @@ class Controller {
     void trace();
     bool config_wait_for_response();
     void motor_control();
+    void send(const msg::Message mesg);
+    void send_process();
 
   private:
     State state = COMM_READ;
@@ -63,6 +66,7 @@ class Controller {
     bool check_commands = false;
 
     std::queue<msg::Message> instr_msg_queue;
+    std::queue<msg::Message> send_msg_queue;
     std::vector<Command> commands;
 
     std::shared_ptr<Clock> clock;
