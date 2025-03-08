@@ -10,7 +10,7 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
                            int optopin_horizontal, int optopin_vertical)
     : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
       opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
-      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(-90.0) {
+      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(-M_PI_2) {
     init_optoforks();
     motorcontrol = this;
     motor_horizontal->init(pio0, 5, CLOCKWISE);
