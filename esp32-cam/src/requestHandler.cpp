@@ -522,3 +522,23 @@ int64_t RequestHandler::parseTimestamp(const std::string &response) {
 bool RequestHandler::getTimeSyncedStatus() { return this->timeSynchronized; }
 
 void RequestHandler::setTimeSyncedStatus(bool status) { this->timeSynchronized = status; }
+
+bool RequestHandler::addRequestToQueue(QueueHandle_t queueHandle, QueueMessage message){
+    if (xQueueSend(queueHandle, &message, 0) != pdTRUE) {
+        DEBUG("Failed to send message to queue");
+        return false;
+    }
+    return true;
+}
+
+bool RequestHandler::addRequestToQueue(QueueID queueid, QueueMessage message){
+    switch (queueid) {
+        case QueueID::WEB_SRV_REQUEST_QUEUE:
+            return addRequestToQueue(this->webSrvRequestQueue, message);
+        case QueueID::WEB_SRV_RESPONSE_QUEUE:
+            return addRequestToQueue(this->webSrvResponseQueue, message);
+        default:
+            DEBUG("Invalid queue ID");
+            return false;
+    }
+}
