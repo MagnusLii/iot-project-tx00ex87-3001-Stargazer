@@ -57,6 +57,7 @@ class RequestHandler {
     int createImagePOSTRequest(unsigned char *file_buffer, const size_t buffer_max_size, int current_data_len,
                                const int64_t image_id);
     void createUserInstructionsGETRequest(std::string *requestPtr);
+    void updateUserInstructionsGETRequest();
     void createTimestampGETRequest(std::string *requestPtr);
 
     template <typename... Args>

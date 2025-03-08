@@ -183,6 +183,16 @@ void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
                        "\r\n");
 }
 
+void RequestHandler::updateUserInstructionsGETRequest() {
+    std::string getRequest;
+    this->createUserInstructionsGETRequest(&getRequest);
+    strncpy(this->getUserInsturctionsRequest.str_buffer, getRequest.c_str(),
+            sizeof(this->getUserInsturctionsRequest.str_buffer) - 1);
+    this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
+    this->getUserInsturctionsRequest.buffer_length = getRequest.length();
+    this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
+}
+
 void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
                   "/api/time"

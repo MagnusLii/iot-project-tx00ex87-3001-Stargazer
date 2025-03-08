@@ -370,7 +370,7 @@ void send_request_to_websrv_task(void *pvParameters) {
                     break;
 
                 case RequestType::POST:
-                    DEBUG("Request type ", request.requestType, " received.");
+                    DEBUG("Request type ", static_cast<int>(request.requestType), " received.");
 
 #ifdef USE_TLS
                     requestHandler->sendRequestTLS(string, &response);
@@ -505,9 +505,10 @@ void handle_uart_data_task(void *pvParameters) {
 
     WirelessHandler *wirelessHandler = handlers->wirelessHandler.get();
 
+    RequestHandler *requestHandler = handlers->requestHandler.get();
+
     std::string string;
     msg::Message msg;
-    size_t pos;
 
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_received_data_queue_handle(), &uartReceivedData,
@@ -604,11 +605,24 @@ void handle_uart_data_task(void *pvParameters) {
                         espPicoCommHandler->send_ACK_msg(true);
 
                         request.requestType = RequestType::POST;
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/command", "id",
-                                                                           std::stoi(msg.content[0].c_str()), "status",
-                                                                           msg.content[1].c_str());
+                        if (std::stoi(msg.content[2]) <= 0) {
+                            handlers->requestHandler->createGenericPOSTRequest(
+                                &string, "/api/command", "token",
+                                handlers->wirelessHandler->get_setting(Settings::WEB_TOKEN), "id",
+                                std::stoi(msg.content[0].c_str()), "status", std::stoi(msg.content[1].c_str()));
+                        } else {
+                            handlers->requestHandler->createGenericPOSTRequest(
+                                &string, "/api/command", "token",
+                                handlers->wirelessHandler->get_setting(Settings::WEB_TOKEN), "id",
+                                std::stoi(msg.content[0].c_str()), "status", std::stoi(msg.content[1].c_str()), "time",
+                                std::stoi(msg.content[2].c_str()));
+                        }
 
                         DEBUG("Command status message: ", string.c_str());
+
+                        request.buffer_length = string.size();
+                        strncpy(request.str_buffer, string.c_str(), string.size());
+                        request.str_buffer[string.size()] = '\0';
 
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
@@ -673,9 +687,9 @@ void handle_uart_data_task(void *pvParameters) {
 
                         // Create POST request.
                         request.requestType = RequestType::POST;
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "status",
-                                                                           std::stoi(msg.content[0].c_str()), "message",
-                                                                           msg.content[1].c_str());
+                        handlers->requestHandler->createGenericPOSTRequest(
+                            &string, "/api/diagnostics", "token", wirelessHandler->get_setting(Settings::WEB_TOKEN),
+                            "status", std::stoi(msg.content[0].c_str()), "message", msg.content[1].c_str());
 
                         strncpy(request.str_buffer, string.c_str(), string.size());
                         request.str_buffer[string.size()] = '\0';
@@ -713,33 +727,13 @@ void handle_uart_data_task(void *pvParameters) {
                         // Attempt to reconnect to Wi-Fi
                         wirelessHandler->connect(wirelessHandler->get_setting(Settings::WIFI_SSID),
                                                  wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
-
-                        // Clear variables
-                        string.clear();
                         break;
 
-                    case msg::MessageType::SERVER: // TODO: update msg fields when merged.
+                    case msg::MessageType::SERVER:
                         // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Find ":" in msg.content[0] and copy all info to string
-                        pos = msg.content[0].find_last_of(":");
-                        if (pos != std::string::npos) {
-                            string = msg.content[0].substr(0, pos - 1);
-                            DEBUG("Extracted string: ", string.c_str());
-                        } else {
-                            // TODO: diagnostics msg
-                            DEBUG("':' not found in the message content");
-                            break;
-                        }
-
                         // Update server settings
-                        wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_DOMAIN);
-                        string = msg.content[0].substr(pos + 1);
-                        DEBUG("Extracted string: ", string.c_str());
-                        wirelessHandler->set_setting(string.c_str(), string.size(), Settings::WEB_PORT);
-
-                        // Save settings to SD card
                         wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
                                                      Settings::WEB_DOMAIN);
                         wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(), Settings::WEB_PORT);
@@ -749,8 +743,8 @@ void handle_uart_data_task(void *pvParameters) {
                             DEBUG("Failed to save server settings to SD card");
                         }
 
-                        // Clear variables
-                        string.clear();
+                        requestHandler->updateUserInstructionsGETRequest();
+
                         break;
 
                     case msg::MessageType::API:
@@ -761,17 +755,13 @@ void handle_uart_data_task(void *pvParameters) {
                         wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
                                                      Settings::WEB_TOKEN);
 
-                        // Save settings to SD card
-                        wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
-                                                     Settings::WEB_TOKEN);
-
                         if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
                             0) {
                             DEBUG("Failed to save API token to SD card");
                         }
 
-                        // Clear variables
-                        string.clear();
+                        requestHandler->updateUserInstructionsGETRequest();
+
                         break;
 
                     default:
