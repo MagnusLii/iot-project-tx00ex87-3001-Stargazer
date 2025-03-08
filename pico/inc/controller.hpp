@@ -52,7 +52,6 @@ class Controller {
     Command current_command = {0};
     Command trace_command = {0};
     Celestial trace_object = MOON;
-    float compass_heading = 0;
     bool initialized = false;
     bool double_check = true;
     bool check_motor = false;

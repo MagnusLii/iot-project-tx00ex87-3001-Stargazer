@@ -10,11 +10,16 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
                            int optopin_horizontal, int optopin_vertical)
     : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
       opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
-      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false) {
+      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(-90.0) {
     init_optoforks();
     motorcontrol = this;
     motor_horizontal->init(pio0, 5, CLOCKWISE);
     motor_vertical->init(pio1, 5, CLOCKWISE);
+}
+
+void MotorControl::setHeading(double heading) {
+    // -90 degrees (half pi) because of physical orientation of camera
+    heading_correction = normalize_radians(-M_PI_2 + heading);
 }
 
 bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
@@ -22,6 +27,8 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
         DEBUG("Altitude below horizon, can't turn the motor");
         return false;
     }
+    coords.azimuth = normalize_radians(coords.azimuth + heading_correction);
+
     if (coords.azimuth > MAX_ANGLE) {
         coords.azimuth -= MAX_ANGLE;
         if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;

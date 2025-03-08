@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stepper-motor.hpp"
+#include "planet_finder.hpp"
 #include "pico/stdlib.h"
 #include <stdint.h>
 #include <cmath>
@@ -24,6 +25,7 @@ class MotorControl {
       bool isCalibrated(void) const;
       bool isCalibrating(void) const;
       bool isRunning(void) const;
+      void setHeading(double heading);
     private:
       void init_optoforks(void);
       void calibration_handler(Axis axis, bool rise);
@@ -36,4 +38,5 @@ class MotorControl {
       bool horizontal_calibrating;
       bool vertical_calibrating;
       bool handler_attached;
+      double heading_correction;
   };

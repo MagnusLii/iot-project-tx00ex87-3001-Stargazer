@@ -352,7 +352,8 @@ void Controller::config_mode() {
             } else if (token == "heading") {
                 float heading = 0;
                 if (ss >> heading) {
-                    compass_heading = heading;
+                    mctrl->setHeading(heading);
+                    DEBUG("Compass heading set to:", heading);
                 }
                 std::cout << "Heading set to: " << heading << std::endl; 
             } else if (token == "time") {
