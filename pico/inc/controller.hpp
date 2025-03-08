@@ -63,7 +63,7 @@ class Controller {
     bool input_received = false;
     bool waiting_for_response = false;
     bool esp_initialized = false;
-    bool check_commands = false;
+    int now_commands = 0;
 
     std::queue<msg::Message> instr_msg_queue;
     std::queue<msg::Message> send_msg_queue;

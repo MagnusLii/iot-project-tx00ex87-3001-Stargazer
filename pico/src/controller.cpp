@@ -73,7 +73,7 @@ void Controller::run() {
                     state = TRACE;
                 else if (mctrl->isCalibrated())
                     state = MOTOR_CONTROL;
-                else if (check_commands)
+                else if (now_commands > 0)
                     state = MOTOR_CALIBRATE;
                 else
                     state = SLEEP;
@@ -253,7 +253,7 @@ void Controller::instr_process() {
             command.id = id;
             if (interest == NOW) {
                 command.time = clock->get_datetime(); // we only add coordinates in the above function
-                check_commands = true;
+                now_commands++;
             }
             if (command.coords.altitude < 0 || command.time.year < 2000) {
                 DEBUG("Instruction not possible");
@@ -613,7 +613,7 @@ bool Controller::config_wait_for_response() {
 }
 
 void Controller::motor_control() {
-    check_commands = false;
+    if (now_commands > 0) now_commands--;
     if (commands.size() > 0) {
         int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
         if (sec_difference < -(60 * 5)) {
