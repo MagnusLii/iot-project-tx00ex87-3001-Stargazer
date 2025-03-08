@@ -140,10 +140,8 @@ bool Controller::init() {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
     }
     if (!clock->is_synced()) {
-        if (waiting_for_response && commbridge->ready_to_send()) {
-            send(msg::datetime_request());
-        } else if (!waiting_for_response) {
-            send(msg::datetime_request());
+        if (commbridge->ready_to_send()) {
+            commbridge->send(msg::datetime_request());
         }
     }
     // compass_heading = compass->getHeading();
@@ -390,7 +388,7 @@ void Controller::config_mode() {
                     std::string password = "";
                     int rc = input(password, TIMEOUT, true);
                     if (rc >= 0) {
-                        send(msg::wifi(ssid, password));
+                        commbridge->send(msg::wifi(ssid, password));
                         // TODO: do we need to wait for response?
                         std::fill(password.begin(), password.end(), '*');
                         std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
@@ -402,7 +400,7 @@ void Controller::config_mode() {
                 int port = 0;
                 if (ss >> address) {
                     if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
-                    send(msg::server(address, port));
+                    commbridge->send(msg::server(address, port));
                     std::cout << "Sent server details: " << address << " " << port << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -411,7 +409,7 @@ void Controller::config_mode() {
             } else if (token == "token") {
                 std::string token;
                 if (ss >> token) {
-                    send(msg::api(token));
+                    commbridge->send(msg::api(token));
                     std::cout << "Sent api token: " << token << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -443,7 +441,7 @@ void Controller::config_mode() {
             } else if (token == "debug_picture") {
                 int image_id = 0;
                 if (ss >> image_id) {
-                    send(msg::picture(image_id));
+                    commbridge->send(msg::picture(image_id));
                     std::cout << "Sent picture request: " << image_id << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -476,7 +474,7 @@ void Controller::config_mode() {
 
                         if (content.size() > 0) {
                             msg.content = content;
-                            send(msg);
+                            commbridge->send(msg);
                             std::cout << "Sent message with type " << type_str << std::endl;
                             if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                         } else {
