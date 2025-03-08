@@ -159,6 +159,8 @@ bool Controller::init() {
 
 void Controller::comm_process() {
     DEBUG("Processing messages");
+    double_check = true;
+    state = SLEEP;
     if (commbridge->ready_to_send() && waiting_for_response) {
         DEBUG("ESP didn't respond to message of type:", static_cast<int>(last_sent));
         send(msg::diagnostics(2, "ESP didn't respond to message"));
@@ -212,10 +214,7 @@ void Controller::comm_process() {
                 send(msg::response(false));
                 break;
         }
-
         msg_queue->pop();
-        double_check = true;
-        state = SLEEP;
     }
 }
 
