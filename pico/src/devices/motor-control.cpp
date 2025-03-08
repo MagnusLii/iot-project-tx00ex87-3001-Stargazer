@@ -28,12 +28,14 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
         return false;
     }
     coords.azimuth = normalize_radians(coords.azimuth + heading_correction);
+    DEBUG("azimuth after correction:", coords.azimuth);
 
     if (coords.azimuth > MAX_ANGLE) {
         coords.azimuth -= MAX_ANGLE;
         if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;
         else coords.altitude -= M_PI + 2 * coords.altitude;
     }
+    DEBUG("azimuth after mangling:", coords.azimuth);
     double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) / fabs(motor_vertical->get_position() - coords.altitude);
     double horizontal_speed = NATURAL_SPEED * ratio;
     motor_vertical->setSpeed(NATURAL_SPEED);
