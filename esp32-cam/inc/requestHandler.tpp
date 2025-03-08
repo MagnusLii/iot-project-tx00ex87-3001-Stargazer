@@ -6,8 +6,6 @@
 #include <sstream>
 #include <type_traits>
 
-
-// TODO: redo
 template <typename... Args>
 RequestHandlerReturnCode RequestHandler::createGenericPOSTRequest(std::string *requestPtr, const char *endpoint,
                                                                   Args... args) {
