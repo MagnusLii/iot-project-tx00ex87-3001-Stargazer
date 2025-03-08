@@ -270,7 +270,6 @@ void Controller::instr_process() {
             
             send(msg::cmd_status(id, 2, datetime_to_epoch(command.time)));
             commands.push_back(command);
-            // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
             DEBUG("Next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
                   (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
@@ -617,6 +616,7 @@ bool Controller::config_wait_for_response() {
 
 void Controller::motor_control() {
     if (now_commands > 0) now_commands--;
+    state = SLEEP;
     if (commands.size() > 0) {
         int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
         if (sec_difference < -(60 * 5)) {
@@ -628,8 +628,10 @@ void Controller::motor_control() {
             DEBUG("Time difference of command and current time was too large (>5 minutes).");
             send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
             commands.front().time = clock->get_datetime();
+            // TODO: wat fak
             mctrl->off();
             state = COMM_READ;
+            return;
         } else {
             current_command = commands.front();
             commands.erase(commands.begin());
@@ -637,6 +639,7 @@ void Controller::motor_control() {
                   "azimuth:", current_command.coords.azimuth * 180 / M_PI);
             mctrl->turn_to_coordinates(current_command.coords);
             check_motor = true;
+            state = MOTOR_WAIT;
         }
     } else {
         DEBUG("Tried to initiate picture taking with empty command vector.");
@@ -644,7 +647,6 @@ void Controller::motor_control() {
         mctrl->off();
         state = COMM_READ;
     }
-    state = MOTOR_WAIT;
 }
 
 void Controller::send(const msg::Message mesg) {
