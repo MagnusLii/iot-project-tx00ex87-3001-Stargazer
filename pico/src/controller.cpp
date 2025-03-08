@@ -53,7 +53,7 @@ void Controller::run() {
             DEBUG("Exited config mode: main loop");
         }
 
-        DEBUG("State: ", state);
+        // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
