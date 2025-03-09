@@ -11,7 +11,7 @@ function addUser() {
             "password": document.getElementById("password").value
         })
     }).then(response => response.text()).then(data => {
-        document.getElementById("message").innerHTML = data;
+        document.getElementById("feedback-user-message").innerHTML = data;
     }).catch(error => {
         alert(error);
     });
@@ -37,19 +37,37 @@ function deleteUser(id) {
 }
 
 function modifyUser() {
+    let user = document.getElementById("new-username").value;
+    let pass = document.getElementById("new-password").value;
+    let json_data = "{}";
+    if (user == "" && pass == "") {
+        document.getElementById("feedback-user-message").innerHTML = "Please enter a username and/or password";
+        return;
+    } else if (user == "") {
+        json_data = JSON.stringify({
+            "password": pass
+        })
+    } else if (pass == "") {
+        json_data = JSON.stringify({
+            "username": user
+        })
+    } else {
+        json_data = JSON.stringify({
+            "username": user,
+            "password": pass
+        })
+    }
+
     fetch(`/user`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            "username": document.getElementById("new-username").value,
-            "password": document.getElementById("new-password").value
-        })
+        body: json_data
     }).then(response => {
         if (!response.ok) {
             response.text().then(data => {
-                document.getElementById("modify-user-message").innerHTML = data;
+                document.getElementById("feedback-user-message").innerHTML = data;
             }).catch(() => {
                 throw new Error("Issue modifying user");
             })
