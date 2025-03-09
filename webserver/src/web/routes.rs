@@ -25,7 +25,7 @@ pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
         let html_last_pic = format!("src=\"{}\" alt=\"{}\"", last_pic.web_path, last_pic.name);
         html = html.replace("<!--LAST_PIC-->", &html_last_pic);
     } else {
-        html = html.replace("<!--LAST_PIC-->", "No images currently available");
+        html = html.replace("<!--LAST_PIC-->", "alt=\"No images currently available\"");
     }
 
     (StatusCode::OK, Html(html))
@@ -277,17 +277,23 @@ pub async fn diagnostics(
     } else if let Ok(diagnostics) =
         diagnostics::get_diagnostics(query.name, query.page, query.status, &state.db).await
     {
-        let html_diagnostics = diagnostics
-            .data
-            .iter()
-            .map(|diagnostic| {
-                format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                    diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
-                )
-            })
-            .collect::<Vec<String>>()
-            .join("\n");
+        let html_diagnostics = if !diagnostics.data.is_empty() {
+            diagnostics
+                .data
+                .iter()
+                .map(|diagnostic| {
+                    format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        } else {
+            "<tr><td colspan=\"4\">No diagnostics found</td></tr>".to_string()
+        };
+
+        html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
 
         let html_count = format!(
             "<a id=\"page_count\" class=\"not-link\" data-page=\"{}\" data-pages=\"{}\">{} / {}</a>",
