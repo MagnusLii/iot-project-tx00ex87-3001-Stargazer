@@ -19,7 +19,7 @@ bool DiagnosticsPoster::add_diagnostics_to_queue(std::string message, Diagnostic
         DEBUG("Error: Request string is empty after construction");
         return false;
     }
-    if (request.length() > BUFFER_SIZE) {
+    if (request.length() > BUFFER_SIZE - 1) {
         DEBUG("Error: Request string is too long");
         return false;
     }
@@ -28,7 +28,7 @@ bool DiagnosticsPoster::add_diagnostics_to_queue(std::string message, Diagnostic
     queueMessage.buffer_length = request.length();
     strncpy(queueMessage.str_buffer, request.c_str(), sizeof(queueMessage.str_buffer) - 1);
     request.clear(); // Clear to save memory
-    queueMessage.str_buffer[queueMessage.buffer_length - 1] = '\0';
+    queueMessage.str_buffer[queueMessage.buffer_length] = '\0';
     queueMessage.requestType = RequestType::POST;
 
     return this->requestHandler->addRequestToQueue(QueueID::WEB_SRV_REQUEST_QUEUE, queueMessage);
