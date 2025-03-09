@@ -2,6 +2,7 @@
 #include "TaskPriorities.hpp"
 #include "camera.hpp"
 #include "debug.hpp"
+#include "diagnosticsPoster.hpp"
 #include "espPicoUartCommHandler.hpp"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -150,7 +151,6 @@ void init_task(void *pvParameters) {
     auto handlers = std::make_shared<Handlers>();
     handlers->espPicoCommHandler = std::make_shared<EspPicoCommHandler>(UART_NUM_0);
 
-    // Initialize sdcardHandler
     Sd_card_mount_settings sd_card_settings;
     handlers->sdcardHandler = std::make_shared<SDcardHandler>(sd_card_settings);
     if (handlers->sdcardHandler->get_sd_card_status() != ESP_OK) {
@@ -161,13 +161,11 @@ void init_task(void *pvParameters) {
     uint32_t free_space = handlers->sdcardHandler->get_sdcard_free_space();
     if (free_space < 100000) {
         DEBUG("SD card storage getting low. Backup and clear the SD card.");
-        // TODO: Add diagnostics?
     }
 #ifdef ENABLE_CLEARING_SD_CARD
     else if (handlers->sdcardHandler->get_sdcard_free_space() < 10000) {
         DEBUG("SD card almost full. Clearing the SD card.");
         handlers->sdcardHandler->clear_sdcard();
-        // TODO: Add diagnostics msg
     }
 #endif // ENABLE_CLEARING_SD_CARD
 
@@ -203,7 +201,6 @@ void init_task(void *pvParameters) {
         settings[Settings::WEB_TOKEN] = "DEFAULT_WEB_TOKEN";
     }
 
-    // Set settings in wirelessHandler
     handlers->wirelessHandler->set_all_settings(settings);
     DEBUG("Settings read from SD card");
 
@@ -213,41 +210,37 @@ void init_task(void *pvParameters) {
     }
 #endif // PRINT_SETTINGS_READ_FROM_SDCARD
 
-    // Initialize Wi-Fi
     if (handlers->wirelessHandler->init() != ESP_OK) {
         DEBUG("Failed to initialize Wi-Fi");
         esp_restart();
     }
 
-    // Attempt to connect to wifi
     handlers->wirelessHandler->connect(handlers->wirelessHandler->get_setting(Settings::WIFI_SSID),
                                        handlers->wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
 
-    // Initialize request handler
     handlers->requestHandler = std::make_shared<RequestHandler>(handlers->wirelessHandler, handlers->sdcardHandler);
 
-    // Initialize camera
+    handlers->diagnosticsPoster =
+        std::make_shared<DiagnosticsPoster>(handlers->requestHandler, handlers->wirelessHandler);
+
     auto cameraHandler =
         std::make_shared<CameraHandler>(handlers->sdcardHandler, handlers->requestHandler->getWebSrvRequestQueue());
     handlers->cameraHandler = cameraHandler;
 
-    // Create Timers
     TimerHandle_t getRequestTmr = xTimerCreate("GETRequestTimer", pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD), pdTRUE,
                                                handlers->requestHandler.get(), get_request_timer_callback);
     TimerHandle_t getTimestampTmr = xTimerCreate("GETTimestampTimer", pdMS_TO_TICKS(20000), pdFALSE,
                                                  handlers->requestHandler.get(), get_timestamp_timer_callback);
 
-    //  Start timers
     xTimerStart(getRequestTmr, GET_REQUEST_TIMER_PERIOD);
     xTimerStart(getTimestampTmr, 0);
 
-    // Create tasks
     xTaskCreate(send_request_to_websrv_task, "send_request_to_websrv_task", 40960, handlers.get(), TaskPriorities::HIGH,
                 nullptr);
     xTaskCreate(uart_read_task, "uart_read_task", 4096, handlers.get(), TaskPriorities::ABSOLUTE, nullptr);
     xTaskCreate(handle_uart_data_task, "handle_uart_data_task", 8192, handlers.get(), TaskPriorities::MEDIUM, nullptr);
 
-    // Send ESP initialized message to Pico
+    // Send ESP initialized message to Pico to let it ESP is ready to communicate
     msg::Message msg = msg::device_status(true);
     std::string msg_str;
     convert_to_string(msg, msg_str);
@@ -278,10 +271,14 @@ void init_task(void *pvParameters) {
         DEBUG("Task Watchdog initialized successfully for both cores.");
     } else {
         DEBUG("Failed to initialize Task Watchdog: ", err);
+        handlers->diagnosticsPoster->add_diagnostics_to_queue("ESP failed to initialize Task Watchdog",
+                                                              DiagnosticsStatus::WARNING);
     }
 #endif
 
     DEBUG("Initialization complete. Deleting init task.");
+    handlers->diagnosticsPoster->add_diagnostics_to_queue("ESP: Initialization complete", DiagnosticsStatus::INFO);
+
     vTaskDelete(NULL);
 }
 
@@ -306,7 +303,7 @@ void send_request_to_websrv_task(void *pvParameters) {
     std::string uart_msg_str;
 
     SDcardHandler *sdcardHandler = handlers->sdcardHandler.get();
-    // std::string file_data;
+    DiagnosticsPoster *diagnosticsPoster = handlers->diagnosticsPoster.get();
 
     while (true) {
         // Wait for a request to be available
@@ -319,6 +316,7 @@ void send_request_to_websrv_task(void *pvParameters) {
             switch (request.requestType) {
                 case RequestType::UNDEFINED:
                     DEBUG("Undefined request received");
+
                     break;
 
                 case RequestType::GET_COMMANDS:
@@ -328,7 +326,6 @@ void send_request_to_websrv_task(void *pvParameters) {
 #else
                     requestHandler->sendRequest(request, &response);
 #endif
-                    // Parse the response
                     DEBUG("Response: ", response.str_buffer);
                     string = response.str_buffer;
                     if (JsonParser::parse(string, &parsed_results) != 0) {
@@ -336,23 +333,22 @@ void send_request_to_websrv_task(void *pvParameters) {
                         break;
                     }
 
-                    // Verify correct keys.
                     if (parsed_results.find("target") == parsed_results.end() ||
                         parsed_results.find("id") == parsed_results.end() ||
                         parsed_results.find("position") == parsed_results.end()) {
+
+                        diagnosticsPoster->add_diagnostics_to_queue(
+                            "ESP: Invalid response to GET_COMMANDS request received.", DiagnosticsStatus::ERROR);
                         DEBUG("Invalid response received");
                         break;
                     }
 
-                    // create instructions uart message
                     uart_msg =
                         msg::instructions(parsed_results["target"], parsed_results["id"], parsed_results["position"]);
                     convert_to_string(uart_msg, uart_msg_str);
 
-                    // Send the message to the Pico
                     espPicoCommHandler->send_data(uart_msg_str.c_str(), uart_msg_str.length());
 
-                    // Clear variables
                     parsed_results.clear();
                     response.buffer_length = 0;
                     response.str_buffer[0] = '\0';
@@ -371,7 +367,7 @@ void send_request_to_websrv_task(void *pvParameters) {
 
                 case RequestType::POST:
                     DEBUG("Request type ", static_cast<int>(request.requestType), " received.");
-
+                    DEBUG("Request: ", request.str_buffer);
 #ifdef USE_TLS
                     requestHandler->sendRequestTLS(string, &response);
 #else
@@ -379,6 +375,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 #endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: Post request returned non 200 response.",
+                                                                    DiagnosticsStatus::ERROR);
                         DEBUG("Request returned non-200 status code");
                         DEBUG("Request: ", string.c_str());
                         DEBUG("Response: ", response.str_buffer);
@@ -395,6 +393,8 @@ void send_request_to_websrv_task(void *pvParameters) {
 #endif
 
                     if (requestHandler->parseHttpReturnCode(response.str_buffer) != 200) {
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: GET_TIME request returned non 200 response.",
+                                                                    DiagnosticsStatus::ERROR);
                         DEBUG("Request returned non-200 status code");
                         DEBUG("Request: ", string.c_str());
                         DEBUG("Response: ", response.str_buffer);
@@ -404,6 +404,8 @@ void send_request_to_websrv_task(void *pvParameters) {
                     // Parse the response
                     if (sync_time(requestHandler->parseTimestamp(response.str_buffer)) !=
                         timeSyncLibReturnCodes::SUCCESS) {
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: Failed to sync time with server.",
+                                                                    DiagnosticsStatus::ERROR);
                         DEBUG("Failed to sync time");
                         break;
                     }
@@ -444,6 +446,8 @@ void uart_read_task(void *pvParameters) {
 
     int return_code;
 
+    DiagnosticsPoster *diagnosticsPoster = handlers->diagnosticsPoster.get();
+
     while (true) {
         if (xQueueReceive(espPicoCommHandler->get_uart_event_queue_handle(), (void *)&uart_event, portMAX_DELAY)) {
             switch (uart_event.type) {
@@ -455,23 +459,23 @@ void uart_read_task(void *pvParameters) {
                         DEBUG("Failed to read data from UART");
                         break;
                     }
-                    data_read_from_uart[uart_databuffer_len] = '\0'; // Null-terminate the received string
+                    data_read_from_uart[uart_databuffer_len] = '\0';
                     DEBUG("Data read from UART: ", data_read_from_uart);
-                    // Extract message from buffer
+
                     return_code =
                         extract_msg_from_uart_buffer(data_read_from_uart, &uart_databuffer_len, &uartReceivedData);
                     DEBUG("Return code: ", return_code);
                     while (return_code == 0) {
-                        // Check we're waiting for a response
                         if (espPicoCommHandler->get_waiting_for_response()) {
                             DEBUG("Waiting for response");
                             espPicoCommHandler->check_if_confirmation_msg(uartReceivedData);
-                        }
-                        // enqueue extracted message
-                        else {
+                        } else {
                             DEBUG("Enqueuing : ", uartReceivedData.buffer);
                             if (enqueue_with_retry(espPicoCommHandler->get_uart_received_data_queue_handle(),
                                                    &uartReceivedData, 0, RETRIES) == false) {
+                                diagnosticsPoster->add_diagnostics_to_queue(
+                                    "ESP: Failed to enqueue data received from uart for handling.",
+                                    DiagnosticsStatus::ERROR);
                                 DEBUG("Failed to enqueue received data");
                             }
                         }
@@ -507,6 +511,8 @@ void handle_uart_data_task(void *pvParameters) {
 
     RequestHandler *requestHandler = handlers->requestHandler.get();
 
+    DiagnosticsPoster *diagnosticsPoster = handlers->diagnosticsPoster.get();
+
     std::string string;
     msg::Message msg;
 
@@ -519,6 +525,8 @@ void handle_uart_data_task(void *pvParameters) {
 
                 switch (msg.type) {
                     case msg::MessageType::UNASSIGNED:
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: Unassigned message type received from Pico.",
+                                                                    DiagnosticsStatus::ERROR);
                         DEBUG("Unassigned message type received");
                         string.clear();
                         break;
@@ -531,7 +539,6 @@ void handle_uart_data_task(void *pvParameters) {
                     case msg::MessageType::DATETIME:
                         DEBUG("Datetime request received");
 
-                        // check if time is synced
                         if (handlers->requestHandler->getTimeSyncedStatus() == false) {
                             DEBUG("Time not synced, cannot respond to datetime request");
 
@@ -545,7 +552,6 @@ void handle_uart_data_task(void *pvParameters) {
                             convert_to_string(msg, string);
                             espPicoCommHandler->send_data(string.c_str(), string.length());
 
-                            // Waiting for confirmation response
                             espPicoCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length());
                             string.clear();
                         } else {
@@ -557,7 +563,7 @@ void handle_uart_data_task(void *pvParameters) {
                         DEBUG("INIT message received");
 
                         if (espPicoCommHandler->espInitMsgSent == false) {
-                            // Send own status and wait for confirmation
+
                             msg = msg::device_status(true);
                             convert_to_string(msg, string);
                             if (espPicoCommHandler->send_msg_and_wait_for_response(string.c_str(), string.length()) !=
@@ -566,16 +572,14 @@ void handle_uart_data_task(void *pvParameters) {
                                 break;
                             }
                         } else {
-                            // ack otherwise
+
                             espPicoCommHandler->send_ACK_msg(true);
                         }
 
                         espPicoCommHandler->espInitMsgSent = false;
 
-                        // send diagnostics message
-                        handlers->requestHandler->createGenericPOSTRequest(&string, "/api/diagnostics", "status",
-                                                                           std::stoi(msg.content[0]), "message",
-                                                                           "Pico init status received");
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: Pico initialized message received",
+                                                                    DiagnosticsStatus::INFO);
 
                         strncpy(request.str_buffer, string.c_str(), string.size());
                         request.str_buffer[string.size()] = '\0';
@@ -583,25 +587,24 @@ void handle_uart_data_task(void *pvParameters) {
 
                         DEBUG("Diagnostics message: ", request.str_buffer);
 
-                        // Enqueue the request
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
 
-                        // Clear variables
                         request.buffer_length = 0;
                         request.str_buffer[0] = '\0';
                         string.clear();
                         break;
 
                     case msg::MessageType::INSTRUCTIONS: // Should not be sent by Pico
+                        diagnosticsPoster->add_diagnostics_to_queue(
+                            "ESP: INSTRUCTIONS message type received from Pico.", DiagnosticsStatus::ERROR);
                         DEBUG("INSTRUCTIONS message sent by Pico");
                         string.clear();
                         break;
 
                     case msg::MessageType::CMD_STATUS:
-                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
                         request.requestType = RequestType::POST;
@@ -626,10 +629,12 @@ void handle_uart_data_task(void *pvParameters) {
 
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
+                            diagnosticsPoster->add_diagnostics_to_queue(
+                                "ESP: Failed to enqueue command status message for sending to server.",
+                                DiagnosticsStatus::ERROR);
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
 
-                        // Clear variables
                         request.buffer_length = 0;
                         request.str_buffer[0] = '\0';
                         string.clear();
@@ -637,24 +642,23 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::PICTURE:
-                        // Send confirmation message
+                        // The camera takes time to 'refresh', a delay is needed to make sure we're taking
+                        // an image of what were pointing at and not what we were pointing at previously.
+                        vTaskDelay(pdMS_TO_TICKS(10000));
 
-                        vTaskDelay(pdMS_TO_TICKS(10000)); // The camera has a delay
-
-                        // Convert UartReceivedData to QueueMessage
                         msg::convert_to_message(string, msg);
 
-                        // Take picture and save to sd card
                         cameraHandler->create_image_filename(filepath);
                         if (cameraHandler->take_picture_and_save_to_sdcard(filepath.c_str()) != 0) {
+                            diagnosticsPoster->add_diagnostics_to_queue(
+                                "ESP: Failed to take picture and save to SD card", DiagnosticsStatus::ERROR);
                             DEBUG("Failed to take picture and save to SD card");
                             break;
                         }
 
-                        // Send confirmation message
+                        // Confirm after taking image as the pico will unpower the motors after receiving an ack.
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Create queue message for enqueuing
                         request.requestType = RequestType::POST_IMAGE;
                         if (filepath.size() < BUFFER_SIZE) {
                             strncpy(request.imageFilename, filepath.c_str(), filepath.size());
@@ -668,13 +672,11 @@ void handle_uart_data_task(void *pvParameters) {
                         request.image_id = std::stoi(msg.content[0]);
                         DEBUG("Image ID: ", request.image_id);
 
-                        // Enqueue the request
                         if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
                                                RETRIES) == false) {
                             DEBUG("Failed to enqueue POST_IMAGE request");
                         }
 
-                        // Clear variables
                         request.buffer_length = 0;
                         request.imageFilename[0] = '\0';
                         filepath.clear();
@@ -682,38 +684,15 @@ void handle_uart_data_task(void *pvParameters) {
                         break;
 
                     case msg::MessageType::DIAGNOSTICS:
-                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Create POST request.
-                        request.requestType = RequestType::POST;
-                        handlers->requestHandler->createGenericPOSTRequest(
-                            &string, "/api/diagnostics", "token", wirelessHandler->get_setting(Settings::WEB_TOKEN),
-                            "status", std::stoi(msg.content[0].c_str()), "message", msg.content[1].c_str());
-
-                        strncpy(request.str_buffer, string.c_str(), string.size());
-                        request.str_buffer[string.size()] = '\0';
-                        request.buffer_length = string.size();
-
-                        DEBUG("Diagnostics message: ", request.str_buffer);
-
-                        // Enqueue the request
-                        if (enqueue_with_retry(handlers->requestHandler->getWebSrvRequestQueue(), &request, 0,
-                                               RETRIES) == false) {
-                            DEBUG("Failed to enqueue POST_IMAGE request");
-                        }
-
-                        // Clear variables
-                        request.buffer_length = 0;
-                        request.str_buffer[0] = '\0';
-                        string.clear();
+                        diagnosticsPoster->add_diagnostics_to_queue(
+                            msg.content[1], static_cast<DiagnosticsStatus>(std::stoi(msg.content[0].c_str())));
                         break;
 
                     case msg::MessageType::WIFI:
-                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Update Wi-Fi settings
                         wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
                                                      Settings::WIFI_SSID);
                         wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(),
@@ -721,56 +700,58 @@ void handle_uart_data_task(void *pvParameters) {
 
                         if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
                             0) {
+                            diagnosticsPoster->add_diagnostics_to_queue("ESP: Failed to save Wi-Fi settings to SD card",
+                                                                        DiagnosticsStatus::ERROR);
                             DEBUG("Failed to save Wi-Fi settings to SD card");
                         }
 
-                        // Attempt to reconnect to Wi-Fi
                         wirelessHandler->connect(wirelessHandler->get_setting(Settings::WIFI_SSID),
                                                  wirelessHandler->get_setting(Settings::WIFI_PASSWORD));
                         break;
 
                     case msg::MessageType::SERVER:
-                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Update server settings
                         wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
                                                      Settings::WEB_DOMAIN);
                         wirelessHandler->set_setting(msg.content[1].c_str(), msg.content[1].size(), Settings::WEB_PORT);
 
                         if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
                             0) {
+                            diagnosticsPoster->add_diagnostics_to_queue(
+                                "ESP: Failed to save server settings to SD card", DiagnosticsStatus::ERROR);
                             DEBUG("Failed to save server settings to SD card");
                         }
 
                         requestHandler->updateUserInstructionsGETRequest();
-
                         break;
 
                     case msg::MessageType::API:
-                        // Send confirmation message
                         espPicoCommHandler->send_ACK_msg(true);
 
-                        // Update API token
                         wirelessHandler->set_setting(msg.content[0].c_str(), msg.content[0].size(),
                                                      Settings::WEB_TOKEN);
 
                         if (wirelessHandler->save_settings_to_sdcard(*wirelessHandler->get_all_settings_pointer()) !=
                             0) {
+                            diagnosticsPoster->add_diagnostics_to_queue("ESP: Failed to save API token to SD card",
+                                                                        DiagnosticsStatus::ERROR);
                             DEBUG("Failed to save API token to SD card");
                         }
 
                         requestHandler->updateUserInstructionsGETRequest();
-
                         break;
 
                     default:
+                        diagnosticsPoster->add_diagnostics_to_queue("ESP: Unknown message type received from Pico.",
+                                                                    DiagnosticsStatus::ERROR);
                         DEBUG("Unknown message type received");
                         break;
                 }
 
             } else {
-                // TODO: Handle failed conversion or something idk...
+                diagnosticsPoster->add_diagnostics_to_queue("ESP: Failed to convert UART data to message",
+                                                            DiagnosticsStatus::ERROR);
                 DEBUG("Failed to convert received data to message");
             }
         }
