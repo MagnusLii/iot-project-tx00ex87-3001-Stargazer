@@ -194,18 +194,28 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
 
 pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = include_str!("../../html/keys.html").to_string();
-    let html_keys = keys::get_keys(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|key| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
-                key.id, key.name, key.api_token, key.id
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
+
+    let html_keys = match keys::get_keys(&state.db).await {
+        Ok(keys) => {
+            if keys.len() == 0 {
+                "<tr><td colspan=\"4\">No keys found</td></tr>".to_string()
+            } else {
+                keys.iter().map(|key| {
+                    format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
+                        key.id, key.name, key.api_token, key.id
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting keys: {}", e);
+            "<tr><td colspan=\"4\">Error getting keys</td></tr>".to_string()
+        }
+    };
+
     html = html.replace("<!--API_KEYS-->", &html_keys);
 
     (StatusCode::OK, Html(html))
@@ -389,12 +399,4 @@ pub async fn unknown_route() -> impl IntoResponse {
         StatusCode::NOT_FOUND,
         Html(std::include_str!("../../html/404.html")),
     )
-}
-
-pub async fn test(messages: axum_messages::Messages) -> impl IntoResponse {
-    let html = include_str!("../../html/images.html").to_string();
-
-    messages.error("Test error");
-
-    (StatusCode::OK, Html(html))
 }

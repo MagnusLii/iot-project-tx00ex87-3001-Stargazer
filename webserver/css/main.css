@@ -105,6 +105,18 @@ select option {
     opacity: 0.7;
 }
 
+button {
+    background-color: var(--color-2);
+    color: var(--color-5);
+    border-color: var(--color-5);
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
 /* HEADER */
 
 #header {
@@ -424,6 +436,19 @@ select option {
 
 #pagination a.not-link {
     cursor: default;
+}
+
+#pagination button {
+    background-color: var(--color-2);
+    color: var(--color-5);
+    border-color: var(--color-5);
+    min-width: 66px;
+    cursor: pointer;
+}
+
+#pagination button:disabled {
+    opacity: 0.3;
+    pointer-events: none;
 }
 
 /* KEY MANAGEMENT */

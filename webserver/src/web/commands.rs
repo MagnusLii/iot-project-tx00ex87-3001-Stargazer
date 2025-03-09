@@ -588,3 +588,12 @@ pub async fn fetch_command_statistics(db: &SqlitePool) -> Result<CommandStatisti
         in_progress,
     })
 }
+
+pub async fn delete_commands_by_key(db: &SqlitePool, key: i64) -> Result<(), Error> {
+    sqlx::query("DELETE FROM commands WHERE associated_key = ?")
+        .bind(key)
+        .execute(db)
+        .await?;
+
+    Ok(())
+}

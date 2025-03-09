@@ -1,4 +1,4 @@
-use crate::{err::Error, SharedState};
+use crate::{err::Error, web::commands::delete_commands_by_key, SharedState};
 use axum::{
     extract::{rejection::JsonRejection, Json, Query, State},
     http::StatusCode,
@@ -72,15 +72,24 @@ pub struct DeleteKeyQuery {
     id: i64,
 }
 
-// NOTE: Currently only allows deletion of keys that are not in use
 pub async fn remove_key(
     State(state): State<SharedState>,
     Query(key): Query<DeleteKeyQuery>,
 ) -> impl IntoResponse {
-    println!("Deleting key: {}", key.id);
-    delete_key(&state.db, key.id).await;
-
-    (StatusCode::OK, "Success\n")
+    println!("Deleting key and associated commands: {}", key.id);
+    match delete_commands_by_key(&state.db, key.id).await {
+        Ok(_) => {
+            delete_key(&state.db, key.id).await;
+        }
+        Err(e) => {
+            eprintln!("Error deleting commands: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Error deleting key and its commands",
+            );
+        }
+    }
+    (StatusCode::OK, "Success")
 }
 
 pub async fn verify_key(token: &str, db: &SqlitePool) -> bool {
