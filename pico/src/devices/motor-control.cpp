@@ -115,6 +115,7 @@ void MotorControl::calibrate(void) {
     if (!opto_vertical) return;
     motor_horizontal->stop();
     motor_vertical->stop();
+    DEBUG("Calibration started.");
 
     motor_horizontal->setSpeed(15);
     motor_vertical->setSpeed(15);
