@@ -6,7 +6,6 @@ function queuePicture() {
         "position": Number(document.getElementById("positions").value),
         "associated_key_id": Number(document.getElementById("selected_key").value)
     });
-    //console.log(data);
 
     fetch(`/control/command`, {
         method: "POST",
@@ -148,30 +147,6 @@ function deleteCommand(id) {
         }).catch(() => {
             alert("Issue deleting command");
         });
-    }
-}
-
-// Traverse through the table and add delete buttons to rows with status 0
-function deleteButtons() {
-    const table = document.getElementById("command-table");
-    const rows = table.getElementsByTagName("tr");
-    for (let i = 1; i < rows.length; i++) {
-        console.log(rows[i]);
-        const row = rows[i];
-        const cells = row.getElementsByTagName("td");
-        const status = cells[5].textContent;
-        if (status == "0") {
-            const cell = document.createElement("td");
-            cell.className = "command-cancel-button";
-            const deleteButton = document.createElement("button");
-            deleteButton.textContent = "Cancel C";
-            deleteButton.setAttribute("id", "del-" + cells[0].textContent);
-            console.log(cells[0].textContent);
-            console.log(deleteButton.id);
-            deleteButton.onclick = () => deleteCommand(cells[0].textContent);
-            cell.appendChild(deleteButton);
-            row.appendChild(cell);
-        }
     }
 }
 
