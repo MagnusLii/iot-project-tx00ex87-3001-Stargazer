@@ -136,6 +136,7 @@ void Controller::run() {
 void Controller::sanitize_commands() {
     if (commands.size() <= 0) return;
     if (now_commands > 0) return;
+    std::sort(commands.begin(), commands.end(), compare_time);
     Command front = commands.front();
     if (calculate_sec_difference(front.time, clock->get_datetime()) > 1) {
         DEBUG("Command was too old, discarding");
