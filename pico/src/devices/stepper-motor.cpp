@@ -95,6 +95,7 @@ void StepperMotor::morph_pio_pin_definitions(void) {
 }
 
 void StepperMotor::turnSteps(uint16_t steps) {
+    DEBUG("Motor turning", steps, "steps.");
     uint32_t word = ((programOffset + stepper_clockwise_offset_loop + 3 * sequenceCounter) << 16) | (steps);
     pio_sm_put_blocking(pioInstance, stateMachine, word);
 
