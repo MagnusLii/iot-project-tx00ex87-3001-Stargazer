@@ -91,6 +91,16 @@ body {
     }
 }
 
+select {
+    background-color: var(--color-2);
+    color: var(--color-5);
+}
+
+select option {
+    background-color: var(--color-2);
+    color: var(--color-5);
+}
+
 /* HEADER */
 
 #header {
