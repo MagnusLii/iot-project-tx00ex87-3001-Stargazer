@@ -12,6 +12,8 @@
 #include <pico/time.h>
 #include <pico/types.h>
 
+#define GPS_COORDS
+
 bool compare_time(const Command &a, const Command &b) {
     if (a.time.year != b.time.year) return a.time.year < b.time.year;
     if (a.time.month != b.time.month) return a.time.month < b.time.month;
@@ -150,12 +152,10 @@ void Controller::sanitize_commands() {
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
-    // if (!commands_fetched) {
-    //     int ret = storage->get_all_commands(commands);
-    //     DEBUG("Got", ret, "commands from local storage.");
-    //     commands_fetched = true;
-    // }
 
+    #ifdef GPS_COORDS
+    gps->set_coordinates(60.258656, 24.843641);
+    #endif
     if (!gps->get_coordinates().status) {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
     }
@@ -618,6 +618,7 @@ void Controller::trace() {
     }
     trace_command = trace_object.next_trace();
     if (trace_command.time.year == -1) {
+        DEBUG("Trace ended.");
         mctrl->off();
         trace_started = false;
         state = COMM_READ;
