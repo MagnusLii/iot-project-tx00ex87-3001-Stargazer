@@ -50,6 +50,7 @@ void Controller::run() {
             config_mode();
             DEBUG("Exited config mode: main loop");
         }
+        sanitize_commands();
 
         // DEBUG("State: ", state);
         switch (state) {
@@ -129,6 +130,19 @@ void Controller::run() {
                 state = COMM_READ;
                 break;
         }
+    }
+}
+
+void Controller::sanitize_commands() {
+    if (commands.size() <= 0) return;
+    if (now_commands > 0) return;
+    Command front = commands.front();
+    if (calculate_sec_difference(front.time, clock->get_datetime()) > 1) {
+        DEBUG("Command was too old, discarding");
+        send(msg::cmd_status(front.id, -2, 0));
+        commands.erase(commands.begin());
+    } else {
+        clock->add_alarm(front.time);
     }
 }
 
@@ -494,7 +508,10 @@ void Controller::config_mode() {
                 int planet;
                 if (ss >> planet) {
                     state = TRACE;
-                    trace_object = {(Planets)planet};
+                    trace_object = {static_cast<Planets>(planet)};
+
+                    DEBUG("Trace starting after exiting config mode. Trace object:");
+                    trace_object.print_planet();
                 }
             }
 #endif

@@ -49,6 +49,7 @@ class Controller {
     void motor_control();
     void send(const msg::Message mesg);
     void send_process();
+    void sanitize_commands();
 
   private:
     State state = COMM_READ;
