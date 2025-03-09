@@ -3,6 +3,7 @@
 #include "convert.hpp"
 #include "debug.hpp"
 #include "message.hpp"
+#include "date_utils.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -86,16 +87,7 @@ void Controller::run() {
                 state = COMM_READ;
                 break;
             case MOTOR_CONTROL:
-                // TODO: check if its actually the time to do stuff
-                if (commands.size() > 0) {
-                    if (commands.front().time.hour == clock->get_datetime().hour) {
-                        current_command =
-                            commands.front(); // TODO: Command needs to removed from vector after it's done
-                        mctrl->turn_to_coordinates(current_command.coords);
-                        check_motor = true;
-                    }
-                }
-                state = MOTOR_WAIT;
+                motor_control();
                 break;
             case MOTOR_WAIT:
                 if (mctrl->isRunning())
@@ -103,8 +95,8 @@ void Controller::run() {
                 else {
                     state = COMM_READ;
                     check_motor = false;
-                    int image_id = 1; // TODO: Replace with actual image id
-                    commbridge->send(msg::picture(image_id));
+                    
+                    commbridge->send(msg::picture(current_command.id));
                     last_sent = msg::PICTURE;
                     waiting_for_response = true;
                     waiting_for_camera = true;
@@ -156,8 +148,8 @@ bool Controller::init() {
             waiting_for_response = true;
         }
     }
-    compass_heading = compass->getHeading();
-    DEBUG("Got compass heading:", compass_heading);
+    // compass_heading = compass->getHeading();
+    // DEBUG("Got compass heading:", compass_heading);
     //  TODO: use compass to correct azimuth of commands
     if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
     if (!gps->get_coordinates().status) gps->locate_position(2);
@@ -241,7 +233,7 @@ void Controller::instr_process() {
         } else
             error = true;
 
-        int id; // TODO: Needs to be saved to Command
+        int id;
         if (!str_to_int(instr.content[1], id)) error = true;
 
         int position;
@@ -254,6 +246,7 @@ void Controller::instr_process() {
             Celestial celestial(planet);
             celestial.set_observer_coordinates(gps->get_coordinates());
             Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
+            command.id = id;
             if (command.time.year < 2000) {
                 DEBUG("Instruction not possible");
                 commbridge->send(msg::cmd_status(id, -2, 0));
@@ -320,6 +313,8 @@ void Controller::config_mode() {
                 std::cout << "Available commands:" << std::endl
                           << "help - print this help message" << std::endl
                           << "exit - exit config mode" << std::endl
+                          << "calibrate_compass - move the device while the compass calibrates" << std::endl
+                          << "heading - set compass heading of the device" << std::endl
                           << "time [unixtime] - view or set current time" << std::endl
                           << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
                           << "instruction <object_id> <command_id> <position_id> - add an instruction to the queue"
@@ -341,6 +336,16 @@ void Controller::config_mode() {
             } else if (token == "exit") {
                 exit = true;
                 std::cout << "Exiting config mode" << std::endl;
+            } else if (token == "calibrate_compass") {
+                std::cout << "Please move the device." << std::endl;
+                compass->calibrate();
+                std::cout << "Calibration done." << std::endl;
+            } else if (token == "heading") {
+                float heading = 0;
+                if (ss >> heading) {
+                    compass_heading = heading;
+                }
+                std::cout << "Heading set to: " << heading << std::endl; 
             } else if (token == "time") {
                 time_t timestamp = 0;
                 if (ss >> timestamp) {
@@ -608,4 +613,36 @@ bool Controller::config_wait_for_response() {
         }
     }
     return false;
+}
+
+void Controller::motor_control() {
+    // TODO: check if its actually the time to do stuff
+    if (commands.size() > 0) {
+        int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
+        if (sec_difference < -(60 * 5)) {
+            clock->add_alarm(commands.front().time);
+            mctrl->off();
+            state = SLEEP;
+            return;
+        } else if (sec_difference > (60 * 5)) {
+            DEBUG("Time difference of command and current time was too large (>5 minutes).");
+            commbridge->send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
+            last_sent = msg::MessageType::CMD_STATUS;
+            commands.front().time = clock->get_datetime();
+            mctrl->off();
+            state = COMM_READ;
+        } else {
+            current_command = commands.front();
+            commands.erase(commands.begin());
+            mctrl->turn_to_coordinates(current_command.coords);
+            check_motor = true;
+        }
+    } else {
+        DEBUG("Tried to initiate picture taking with empty command vector.");
+        commbridge->send(msg::diagnostics(2, "Device tried to take picture with no command"));
+        last_sent = msg::MessageType::DIAGNOSTICS;
+        mctrl->off();
+        state = COMM_READ;
+    }
+    state = MOTOR_WAIT;
 }
