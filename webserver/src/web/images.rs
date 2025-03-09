@@ -15,17 +15,39 @@ impl ImageDirectory {
     pub fn find_images(&self) -> Vec<PathBuf> {
         let mut images: Vec<PathBuf> = Vec::new();
 
-        for entry in self.path.read_dir().unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if self
-                .extensions
-                .contains(&path.extension().unwrap().to_str().unwrap().to_string())
-            {
-                //println!("Found image: {}", path.display());
-                images.push(path);
+        let read_dir;
+        match self.path.read_dir() {
+            Ok(dir) => {
+                read_dir = dir;
+            }
+            Err(e) => {
+                println!("Failed to read image directory: {}", e);
+                return images;
             }
         }
+
+        for entry in read_dir {
+            if entry.is_err() {
+                continue;
+            }
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                match extension.to_str() {
+                    Some(ext) => {
+                        if self.extensions.contains(&ext.to_string()) {
+                            //println!("Found image: {}", path.display());
+                            images.push(path);
+                        }
+                    }
+                    None => {
+                        println!("Failed to get image extension: {}", entry.path().display());
+                        continue;
+                    }
+                };
+            };
+        }
+
         images
     }
 }
@@ -74,7 +96,7 @@ pub async fn update_gallery() -> bool {
         .join("\n");
     html = html.replace("<!--IMAGES-->", &html_images);
 
-    let result = match fs::write(&tmp.join("sgwebserver/images.html"), html) {
+    let result = match fs::write(&tmp.join("stargazer-ws/images.html"), html) {
         Ok(_) => true,
         Err(e) => {
             eprintln!("Error updating images: {}", e);
@@ -111,11 +133,9 @@ pub async fn unregister_image(db: &SqlitePool, path: &str) {
 
 #[derive(FromRow)]
 pub struct Image {
-    //id: i64,
     pub name: String,
     path: String,
     pub web_path: String,
-    //command_id: i64,
 }
 
 async fn get_image_list(db: &SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
@@ -132,19 +152,13 @@ pub async fn check_images(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let images = dir.find_images();
 
-    /*
-    for image in &images {
-        println!("Image: {}", image.display());
-    }
-    */
-
     // Verify that all images in the database are present in the directory
     match get_image_list(&db).await {
         Ok(db_images) => {
             for db_image in &db_images {
                 if !images.contains(&PathBuf::from(&db_image.path)) {
                     eprintln!("Image {} not found in directory", db_image.path);
-                    unregister_image(&db, &db_image.path).await; // TODO: Might not want to do this
+                    unregister_image(&db, &db_image.path).await;
                 }
             }
 
@@ -170,14 +184,34 @@ async fn update_images(db: &SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec
         }
 
         // Correct naming scheme <date>-<id>-<name>.<ext>
-        let filename = image.file_name().unwrap().to_str().unwrap();
+        let filename_osstr = match image.file_name() {
+            Some(name) => name,
+            None => {
+                eprintln!("Failed to get image filename OsStr: {}", image.display());
+                continue;
+            }
+        };
+
+        let filename = match filename_osstr.to_str() {
+            Some(name) => name,
+            None => {
+                eprintln!(
+                    "Failed to convert image filename to &str: {}",
+                    image.display()
+                );
+                continue;
+            }
+        };
 
         let web_path = format!("/assets/images/{}", filename);
 
-        let filename = filename.split(".").next().unwrap();
+        let filename_without_ext = match filename.split(".").next() {
+            Some(name) => name,
+            None => filename,
+        };
 
         // Collect parts
-        let parts = filename.split("-").collect::<Vec<&str>>();
+        let parts = filename_without_ext.split("-").collect::<Vec<&str>>();
         if parts.len() != 3 {
             // Unexpected format/number of parts
             continue;

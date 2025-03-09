@@ -38,6 +38,12 @@ struct Args {
     /// HTTPS enabled for API even if HTTPS is otherwise disabled
     #[arg(long)]
     enable_https_api: bool,
+    /// Config file path
+    #[arg(short, long)]
+    config_file: Option<String>,
+    /// Working directory
+    #[arg(short, long)]
+    working_dir: Option<String>,
     /// Database directory
     #[arg(long)]
     db_dir: Option<String>,
@@ -54,6 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let settings = Settings::new(
+        args.config_file,
+        args.working_dir,
         args.address,
         args.port_http,
         args.port_https,
@@ -93,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let https_api = settings.enable_https_api;
 
     if !http && !http_api && !https && !https_api {
-        println!("Nothing is enabled. Exiting..");
+        println!("Nothing is enabled. Check your config file. Exiting...");
         return Ok(());
     }
 
@@ -122,6 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.user_db.clone(),
                 resources.api_db.clone(),
                 resources.image_dir.clone(),
+                resources.assets_dir.clone(),
                 resources.tls_config.clone(),
                 sec.api_only,
                 sec.secure,
@@ -131,6 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.user_db,
                 resources.api_db,
                 resources.image_dir,
+                resources.assets_dir,
                 resources.tls_config,
                 resources.primary_server.api_only,
                 resources.primary_server.secure,
@@ -155,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 resources.user_db,
                 resources.api_db,
                 resources.image_dir,
+                resources.assets_dir,
                 resources.tls_config,
                 resources.primary_server.api_only,
                 resources.primary_server.secure,
@@ -177,12 +188,13 @@ async fn server(
     user_db: SqlitePool,
     api_db: SqlitePool,
     image_dir: ImageDirectory,
+    assets_dir: String,
     tls_config: Option<RustlsConfig>,
     api_only: bool,
     https: bool,
 ) -> Result<(), &'static str> {
     let server: App;
-    match App::new(user_db, api_db, image_dir, tls_config).await {
+    match App::new(user_db, api_db, image_dir, assets_dir, tls_config).await {
         Ok(app) => server = app,
         Err(e) => {
             println!("Error during app initialization: {}", e);

@@ -9,6 +9,7 @@
 #include "requestHandler.hpp"
 #include "espPicoUartCommHandler.hpp"
 #include <memory>
+#include "diagnosticsPoster.hpp"
 
 struct Handlers {
     std::shared_ptr<WirelessHandler> wirelessHandler;
@@ -16,6 +17,7 @@ struct Handlers {
     std::shared_ptr<RequestHandler> requestHandler;
     std::shared_ptr<EspPicoCommHandler> espPicoCommHandler;
     std::shared_ptr<CameraHandler> cameraHandler;
+    std::shared_ptr<DiagnosticsPoster> diagnosticsPoster;
 };
 
 void get_request_timer_callback(void *pvParameters);

@@ -48,13 +48,9 @@ Prefix values:<br>
 `<10>` = Api token from Pico to ESP             
 
 Diagnostics values:<br>
-GPS status?<br>
-Compass readings Status?<br>
-~~Pico core temp?~~<br>
-Watchdog reboot status?<br>
-Motor calibration status?<br>
-ESP to Uart comm status<br>
-Reboot messages<br>
+`<1>` = Info<br>
+`<2>` = Warning<br>
+`<3>` = Error<br>
 
 
 ### Messages explained:

@@ -116,7 +116,8 @@ async fn populate_position_table(db: &SqlitePool) {
         "INSERT INTO object_positions VALUES 
         (1, 'Rising'),
         (2, 'Zenith'),
-        (3, 'Setting')",
+        (3, 'Setting'),
+        (4, 'Any')",
     )
     .execute(db)
     .await
