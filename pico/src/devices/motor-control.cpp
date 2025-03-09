@@ -34,7 +34,7 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
         if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;
         else coords.altitude -= M_PI + 2 * coords.altitude;
     }
-    DEBUG("Motor azimuth:", coords.azimuth * 180 / M_PI, "altitude:", coords.altitude * 180 / m_PI);
+    DEBUG("Motor azimuth:", coords.azimuth * 180 / M_PI, "altitude:", coords.altitude * 180 / M_PI);
     double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) / fabs(motor_vertical->get_position() - coords.altitude);
     double horizontal_speed = NATURAL_SPEED * ratio;
     motor_vertical->setSpeed(NATURAL_SPEED);
