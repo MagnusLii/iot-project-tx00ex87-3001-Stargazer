@@ -10,11 +10,16 @@ MotorControl::MotorControl(std::shared_ptr<StepperMotor> horizontal, std::shared
                            int optopin_horizontal, int optopin_vertical)
     : motor_horizontal(horizontal), motor_vertical(vertical), opto_horizontal(optopin_horizontal),
       opto_vertical(optopin_vertical), horizontal_calibrated(false), vertical_calibrated(false),
-      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false) {
+      horizontal_calibrating(false), vertical_calibrating(false), handler_attached(false), heading_correction(M_PI_2) {
     init_optoforks();
     motorcontrol = this;
     motor_horizontal->init(pio0, 5, CLOCKWISE);
     motor_vertical->init(pio1, 5, CLOCKWISE);
+}
+
+void MotorControl::setHeading(double heading) {
+    // -90 degrees (half pi) because of physical orientation of camera
+    heading_correction = normalize_radians(M_PI_2 + (heading * M_PI / 180.0));
 }
 
 bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
@@ -22,11 +27,14 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
         DEBUG("Altitude below horizon, can't turn the motor");
         return false;
     }
+    coords.azimuth = normalize_radians(coords.azimuth + heading_correction);
+
     if (coords.azimuth > MAX_ANGLE) {
         coords.azimuth -= MAX_ANGLE;
         if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;
         else coords.altitude -= M_PI + 2 * coords.altitude;
     }
+    DEBUG("Motor azimuth:", coords.azimuth * 180 / M_PI, "altitude:", coords.altitude * 180 / M_PI);
     double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) / fabs(motor_vertical->get_position() - coords.altitude);
     double horizontal_speed = NATURAL_SPEED * ratio;
     motor_vertical->setSpeed(NATURAL_SPEED);
@@ -107,6 +115,7 @@ void MotorControl::calibrate(void) {
     if (!opto_vertical) return;
     motor_horizontal->stop();
     motor_vertical->stop();
+    DEBUG("Calibration started.");
 
     motor_horizontal->setSpeed(15);
     motor_vertical->setSpeed(15);

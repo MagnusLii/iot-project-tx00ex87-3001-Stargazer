@@ -9,6 +9,15 @@ void datetime_increment_hour(datetime_t &date) {
     }
 }
 
+void datetime_increment_minute(datetime_t &date) {
+    date.min++;
+    if (date.min >= 60) {
+        date.min = 0;
+        datetime_increment_hour(date);
+    }
+}
+
+
 void datetime_add_hours(datetime_t &date, uint hours) {
     uint days_to_add = (date.hour + hours) / 24;
     date.hour = (date.hour + hours) - (days_to_add * 24);

@@ -12,6 +12,8 @@
 #include <pico/time.h>
 #include <pico/types.h>
 
+#define GPS_COORDS
+
 bool compare_time(const Command &a, const Command &b) {
     if (a.time.year != b.time.year) return a.time.year < b.time.year;
     if (a.time.month != b.time.month) return a.time.month < b.time.month;
@@ -23,8 +25,8 @@ bool compare_time(const Command &a, const Command &b) {
 
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
-                       std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), msg_queue(msg_queue) {}
+                       std::shared_ptr<Storage> storage, std::shared_ptr<std::queue<msg::Message>> msg_queue)
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), storage(storage), msg_queue(msg_queue) {}
 
 void Controller::run() {
     if (input_detected()) {
@@ -36,9 +38,7 @@ void Controller::run() {
         if (init()) {
             initialized = true;
             gps->set_mode(GPS::Mode::STANDBY);
-            commbridge->send(msg::device_status(true));
-            last_sent = msg::DEVICE_STATUS;
-            waiting_for_response = true;
+            send(msg::device_status(true));
             DEBUG("Initialized");
         } else {
             DEBUG("Failed to initialize");
@@ -52,12 +52,15 @@ void Controller::run() {
             config_mode();
             DEBUG("Exited config mode: main loop");
         }
+        sanitize_commands();
 
         // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
                 commbridge->read_and_parse(1000, true);
+            case COMM_SEND:
+                send_process();
             case CHECK_QUEUES:
                 if (msg_queue->size() > 0)
                     state = COMM_PROCESS;
@@ -73,6 +76,8 @@ void Controller::run() {
                     state = TRACE;
                 else if (mctrl->isCalibrated())
                     state = MOTOR_CONTROL;
+                else if (now_commands > 0)
+                    state = MOTOR_CALIBRATE;
                 else
                     state = SLEEP;
                 break;
@@ -95,10 +100,7 @@ void Controller::run() {
                 else {
                     state = COMM_READ;
                     check_motor = false;
-                    
-                    commbridge->send(msg::picture(current_command.id));
-                    last_sent = msg::PICTURE;
-                    waiting_for_response = true;
+                    send(msg::picture(current_command.id));
                     waiting_for_camera = true;
                 }
                 break;
@@ -114,9 +116,9 @@ void Controller::run() {
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    DEBUG("Sleeping");
-                    wait_for_event(get_absolute_time(), 30000000); // 30s TODO: Replace with actual max sleep time
-                    DEBUG("Waking up");
+                    // DEBUG("Sleeping");
+                    wait_for_event(get_absolute_time(), 100000); // 100ms TODO: Replace with actual max sleep time
+                    // DEBUG("Waking up");
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
                         state = MOTOR_CALIBRATE;
@@ -133,19 +135,33 @@ void Controller::run() {
     }
 }
 
+void Controller::sanitize_commands() {
+    if (commands.size() <= 0) return;
+    if (now_commands > 0) return;
+    std::sort(commands.begin(), commands.end(), compare_time);
+    Command front = commands.front();
+    if (calculate_sec_difference(front.time, clock->get_datetime()) > 1) {
+        DEBUG("Command was too old, discarding");
+        send(msg::cmd_status(front.id, -2, 0));
+        commands.erase(commands.begin());
+    } else {
+        clock->add_alarm(front.time);
+    }
+}
+
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
 
+    #ifdef GPS_COORDS
+    gps->set_coordinates(60.258656, 24.843641);
+    #endif
     if (!gps->get_coordinates().status) {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
     }
     if (!clock->is_synced()) {
-        if (waiting_for_response && commbridge->ready_to_send()) {
+        if (commbridge->ready_to_send()) {
             commbridge->send(msg::datetime_request());
-        } else if (!waiting_for_response) {
-            commbridge->send(msg::datetime_request());
-            waiting_for_response = true;
         }
     }
     // compass_heading = compass->getHeading();
@@ -163,25 +179,37 @@ bool Controller::init() {
 
 void Controller::comm_process() {
     DEBUG("Processing messages");
+    double_check = true;
+    state = SLEEP;
+    if (commbridge->ready_to_send() && waiting_for_response) {
+        DEBUG("ESP didn't respond to message of type:", static_cast<int>(last_sent));
+        send(msg::diagnostics(2, "ESP didn't respond to message"));
+        waiting_for_response = false;
+        if (last_sent == msg::PICTURE) {
+            state = MOTOR_OFF;
+        }
+    }
     while (msg_queue->size() > 0) {
         DEBUG(msg_queue->size());
         msg::Message msg = msg_queue->front();
-
+        DEBUG("Last sent is:", static_cast<int>(last_sent));
         waiting_for_response = false; // TODO: What are the places we should check this?
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
-                DEBUG("Received response");
-                if (msg.content[0] == "1") {
-                    if (last_sent == msg::PICTURE) { state = MOTOR_OFF; }
+            if (msg.content[0] == "1") {
+                    DEBUG("Received ack");
+                    if (last_sent == msg::PICTURE) {
+                        state = MOTOR_OFF;
+                    }
                 } else {
+                    DEBUG("Received nack");
                     if (last_sent == msg::PICTURE) { state = COMM_READ; }
                 } // TODO: Handle other responses?
                 break;
             case msg::DATETIME:
                 DEBUG("Received datetime");
                 clock->update(msg.content[0]);
-                commbridge->send(msg::response(true));
-                last_sent = msg::RESPONSE;
+                send(msg::response(true));
                 break;
             case msg::DEVICE_STATUS: // Send ACK or DEVICE_STATUS response back to ESP
                 DEBUG("Received ESP init");
@@ -191,37 +219,32 @@ void Controller::comm_process() {
                     esp_initialized = false;
                 }
                 if (last_sent == msg::DEVICE_STATUS) {
-                    commbridge->send(msg::response(true));
-                    last_sent = msg::RESPONSE;
+                    send(msg::response(true));
                 } else {
-                    commbridge->send(msg::device_status(true));
-                    last_sent = msg::DEVICE_STATUS;
-                    waiting_for_response = true;
+                    send(msg::device_status(true));
                 }
                 break;
             case msg::INSTRUCTIONS: // Store/Process instructions
                 DEBUG("Received instructions");
                 instr_msg_queue.push(msg);
-                commbridge->send(msg::response(true));
-                last_sent = msg::RESPONSE;
+                send(msg::response(true));
                 break;
             default:
                 DEBUG("Unexpected message type: ", msg.type);
-                commbridge->send(msg::response(false));
-                last_sent = msg::RESPONSE;
+                send(msg::response(false));
                 break;
         }
-
         msg_queue->pop();
-        double_check = true;
-        state = SLEEP;
     }
 }
 
 void Controller::instr_process() {
     DEBUG("Processing instructions");
     msg::Message instr = instr_msg_queue.front();
+    instr_msg_queue.pop();
+    double_check = true;
     bool error = false;
+    state = SLEEP;
     Planets planet = MOON;
     if (instr.content.size() == 3 && instr.type == msg::INSTRUCTIONS) {
         int planet_num;
@@ -238,45 +261,39 @@ void Controller::instr_process() {
 
         int position;
         if (str_to_int(instr.content[2], position)) {
-            if (position < 1 || position > 3) error = true;
+            if (position < 1 || position > 4) error = true;
         } else
             error = true;
 
         if (!error) {
             Celestial celestial(planet);
+            Interest_point interest = static_cast<Interest_point>(position);
             celestial.set_observer_coordinates(gps->get_coordinates());
-            Command command = celestial.get_interest_point_command((Interest_point)position, clock->get_datetime());
+            Command command = celestial.get_interest_point_command(interest, clock->get_datetime());
             command.id = id;
-            if (command.time.year < 2000) {
+            if (interest == NOW) {
+                command.time = clock->get_datetime(); // we only add coordinates in the above function
+                now_commands++;
+            }
+            if (command.coords.altitude < 0 || command.time.year < 2000) {
                 DEBUG("Instruction not possible");
-                commbridge->send(msg::cmd_status(id, -2, 0));
-                last_sent = msg::CMD_STATUS;
-                waiting_for_response = true;
+                DEBUG("command altitude:", command.coords.altitude * 180 / M_PI, "year:", command.time.year);
+                send(msg::cmd_status(id, -2, 0));
                 return;
             }
-            commbridge->send(msg::cmd_status(id, 2,
-                                             datetime_to_epoch(command.time.year, command.time.month, command.time.day,
-                                                               command.time.hour, command.time.min, command.time.sec)));
-            last_sent = msg::CMD_STATUS;
-            waiting_for_response = true;
+            
+            
+            send(msg::cmd_status(id, 2, datetime_to_epoch(command.time)));
             commands.push_back(command);
-            // TODO: correct azimuth
             std::sort(commands.begin(), commands.end(), compare_time);
             DEBUG("Next command: ", (int)commands.front().time.year, (int)commands.front().time.month,
                   (int)commands.front().time.day, (int)commands.front().time.hour, (int)commands.front().time.min);
-            if (commands.size() > 0) clock->add_alarm(commands.front().time);
+            if (commands.size() > 0 && interest != NOW) clock->add_alarm(commands.front().time);
         } else {
             DEBUG("Error in instruction.");
-            // TODO: should we send back error message?
-            commbridge->send(msg::cmd_status(id, -1, 0));
-            last_sent = msg::CMD_STATUS;
-            waiting_for_response = true;
+            send(msg::cmd_status(id, -1, 0));
         }
     }
-
-    instr_msg_queue.pop();
-    double_check = true;
-    state = SLEEP;
 }
 
 void Controller::config_mode() {
@@ -343,7 +360,8 @@ void Controller::config_mode() {
             } else if (token == "heading") {
                 float heading = 0;
                 if (ss >> heading) {
-                    compass_heading = heading;
+                    mctrl->setHeading(heading);
+                    DEBUG("Compass heading set to:", heading);
                 }
                 std::cout << "Heading set to: " << heading << std::endl; 
             } else if (token == "time") {
@@ -404,7 +422,6 @@ void Controller::config_mode() {
                 if (ss >> address) {
                     if (!(ss >> port)) { std::cout << "No port specified" << std::endl; }
                     commbridge->send(msg::server(address, port));
-                    // TODO: do we need to wait for response?
                     std::cout << "Sent server details: " << address << " " << port << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -414,7 +431,6 @@ void Controller::config_mode() {
                 std::string token;
                 if (ss >> token) {
                     commbridge->send(msg::api(token));
-                    // TODO: do we need to wait for response?
                     std::cout << "Sent api token: " << token << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -447,7 +463,6 @@ void Controller::config_mode() {
                 int image_id = 0;
                 if (ss >> image_id) {
                     commbridge->send(msg::picture(image_id));
-                    // TODO: do we need to wait for response?
                     std::cout << "Sent picture request: " << image_id << std::endl;
                     if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                 } else {
@@ -481,7 +496,6 @@ void Controller::config_mode() {
                         if (content.size() > 0) {
                             msg.content = content;
                             commbridge->send(msg);
-                            // TODO: do we need to wait for response?
                             std::cout << "Sent message with type " << type_str << std::endl;
                             if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
                         } else {
@@ -495,7 +509,10 @@ void Controller::config_mode() {
                 int planet;
                 if (ss >> planet) {
                     state = TRACE;
-                    trace_object = {(Planets)planet};
+                    trace_object = {static_cast<Planets>(planet)};
+
+                    DEBUG("Trace starting after exiting config mode. Trace object:");
+                    trace_object.print_planet();
                 }
             }
 #endif
@@ -551,7 +568,7 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
 void Controller::wait_for_event(absolute_time_t abs_time, int max_sleep_time) {
     while (!clock->is_alarm_ringing() && !input_detected() &&
            absolute_time_diff_us(abs_time, get_absolute_time()) < max_sleep_time) {
-        sleep_ms(1000); // TODO: TBD
+        sleep_ms(50); // TODO: TBD
     }
 }
 
@@ -580,21 +597,35 @@ void Controller::trace() {
         }
         trace_object.start_trace(start.time, difference);
         trace_started = true;
+        trace_pause = true;
         state = MOTOR_CALIBRATE;
         return;
     }
     if (mctrl->isRunning()) {
         state = COMM_READ;
         return;
+    } else if (trace_pause) {
+        trace_time = time_us_64();
+        trace_pause = false;
+        state = COMM_READ;
+       return;
+    } else {
+        uint64_t current_time = time_us_64();
+        if (current_time - trace_time < 1000000) { // 1 second
+            state = COMM_READ;
+            return;
+        }
     }
     trace_command = trace_object.next_trace();
     if (trace_command.time.year == -1) {
+        DEBUG("Trace ended.");
         mctrl->off();
         trace_started = false;
         state = COMM_READ;
         return;
     }
     mctrl->turn_to_coordinates(trace_command.coords);
+    trace_pause = true;
     DEBUG("Trace coordinates altitude:", trace_command.coords.altitude * 180.0 / M_PI,
           "azimuth:", trace_command.coords.azimuth * 180.0 / M_PI);
     DEBUG("Trace Date day:", (int)trace_command.time.day, "hour", (int)trace_command.time.hour, "min",
@@ -616,7 +647,8 @@ bool Controller::config_wait_for_response() {
 }
 
 void Controller::motor_control() {
-    // TODO: check if its actually the time to do stuff
+    if (now_commands > 0) now_commands--;
+    state = SLEEP;
     if (commands.size() > 0) {
         int sec_difference = calculate_sec_difference(commands.front().time, clock->get_datetime());
         if (sec_difference < -(60 * 5)) {
@@ -626,23 +658,51 @@ void Controller::motor_control() {
             return;
         } else if (sec_difference > (60 * 5)) {
             DEBUG("Time difference of command and current time was too large (>5 minutes).");
-            commbridge->send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
-            last_sent = msg::MessageType::CMD_STATUS;
+            send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
             commands.front().time = clock->get_datetime();
+            // TODO: wat fak
             mctrl->off();
             state = COMM_READ;
+            return;
         } else {
             current_command = commands.front();
             commands.erase(commands.begin());
+            DEBUG("turning to altitude:", current_command.coords.altitude * 180 / M_PI,
+                  "azimuth:", current_command.coords.azimuth * 180 / M_PI);
             mctrl->turn_to_coordinates(current_command.coords);
             check_motor = true;
+            state = MOTOR_WAIT;
         }
     } else {
         DEBUG("Tried to initiate picture taking with empty command vector.");
-        commbridge->send(msg::diagnostics(2, "Device tried to take picture with no command"));
-        last_sent = msg::MessageType::DIAGNOSTICS;
+        send(msg::diagnostics(2, "Device tried to take picture with no command"));
         mctrl->off();
         state = COMM_READ;
     }
-    state = MOTOR_WAIT;
 }
+
+void Controller::send(const msg::Message mesg) {
+    if (mesg.type == msg::RESPONSE) {
+        commbridge->send(mesg);
+        return;
+    }
+    send_msg_queue.push(mesg);
+}
+
+void Controller::send_process() {  
+    if (send_msg_queue.size() <= 0) return;
+    if (waiting_for_response) return;
+    commbridge->send(send_msg_queue.front());
+    last_sent = send_msg_queue.front().type;
+    send_msg_queue.pop();
+}
+
+/*
+if (mesg.type != msg::RESPONSE) {
+        if (waiting_for_response) return false;
+        waiting_for_response = true;
+    }
+    last_sent = mesg.type;
+    commbridge->send(mesg);
+    return true;
+*/

@@ -111,6 +111,6 @@ int CommBridge::read_and_parse(const uint16_t timeout_ms, bool reset_on_activity
 }
 
 bool CommBridge::ready_to_send() {
-    if (get_absolute_time() - last_sent_time > 10000000) return true; // 10 seconds waited
+    if (get_absolute_time() - last_sent_time > 20 * 1000000) return true; // 10 seconds waited
     return false;
 }

@@ -42,7 +42,7 @@
 // Enables clearing the SD card when space is low
 #define ENABLE_CLEARING_SD_CARD
 
-#define SAVE_TEST_SETTINGS_TO_SDCARD
+// #define SAVE_TEST_SETTINGS_TO_SDCARD
 
 // #define PRINT_SETTINGS_READ_FROM_SDCARD
 

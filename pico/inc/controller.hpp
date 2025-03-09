@@ -6,6 +6,7 @@
 #include "commbridge.hpp"
 #include "compass.hpp"
 #include "convert.hpp"
+#include "storage.hpp"
 #include "gps.hpp"
 #include "motor-control.hpp"
 #include "planet_finder.hpp"
@@ -17,6 +18,7 @@ class Controller {
     enum State {
         SLEEP,
         COMM_READ,
+        COMM_SEND,
         CHECK_QUEUES,
         COMM_PROCESS,
         INSTR_PROCESS,
@@ -30,7 +32,7 @@ class Controller {
   public:
     Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
-               std::shared_ptr<std::queue<msg::Message>> msg_queue);
+               std::shared_ptr<Storage> storage, std::shared_ptr<std::queue<msg::Message>> msg_queue);
 
     void run();
 
@@ -45,6 +47,9 @@ class Controller {
     void trace();
     bool config_wait_for_response();
     void motor_control();
+    void send(const msg::Message mesg);
+    void send_process();
+    void sanitize_commands();
 
   private:
     State state = COMM_READ;
@@ -52,7 +57,6 @@ class Controller {
     Command current_command = {0};
     Command trace_command = {0};
     Celestial trace_object = MOON;
-    float compass_heading = 0;
     bool initialized = false;
     bool double_check = true;
     bool check_motor = false;
@@ -61,8 +65,13 @@ class Controller {
     bool input_received = false;
     bool waiting_for_response = false;
     bool esp_initialized = false;
+    bool commands_fetched = false;
+    bool trace_pause = true;
+    uint64_t trace_time = 0;
+    int now_commands = 0;
 
     std::queue<msg::Message> instr_msg_queue;
+    std::queue<msg::Message> send_msg_queue;
     std::vector<Command> commands;
 
     std::shared_ptr<Clock> clock;
@@ -70,5 +79,6 @@ class Controller {
     std::shared_ptr<Compass> compass;
     std::shared_ptr<CommBridge> commbridge;
     std::shared_ptr<MotorControl> mctrl;
+    std::shared_ptr<Storage> storage;
     std::shared_ptr<std::queue<msg::Message>> msg_queue;
 };

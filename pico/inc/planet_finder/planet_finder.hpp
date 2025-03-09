@@ -30,8 +30,9 @@ enum Interest_point {
     ASCENDING=1,
     ZENITH,
     DESCENDING,
+    NOW,
     ABOVE,
-    BELOW
+    BELOW,
 };
 
 

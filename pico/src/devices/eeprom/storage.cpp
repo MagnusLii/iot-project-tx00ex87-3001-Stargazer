@@ -128,13 +128,14 @@ int Storage::get_all_commands(std::vector<Command> &vector) {
 
             if (stored_crc != other_crc) {
                 DEBUG("Checksum doesn't match");
+            } else {
+                memcpy(&command, buffer, sizeof(Command));
+                vector.push_back(command);
             }
-            memcpy(&command, buffer, sizeof(Command));
-            vector.push_back(command);
         }
         page += 64;
     }
-    return i;
+    return vector.size();
 }
 
 bool Storage::write_page(uint16_t address, const uint8_t *data, size_t size) {
@@ -145,7 +146,7 @@ bool Storage::write_page(uint16_t address, const uint8_t *data, size_t size) {
     int result = i2c_write_timeout_us(i2c, 0x50, buffer, size + 2, false, 1000);
     //    i2c_write_blocking(i2c, 0x50, buffer, size + 2, false);
     sleep_ms(10);
-    return (result == size + 2);
+    return (result == static_cast<int>((size + 2u)));
 }
 
 uint16_t crc16(const uint8_t *data, size_t length) {

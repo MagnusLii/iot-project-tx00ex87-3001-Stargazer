@@ -7,12 +7,14 @@
 #include "controller.hpp"
 #include "debug.hpp"
 #include "gps.hpp"
+#include "storage.hpp"
 #include "message.hpp"
 #include "motor-control.hpp"
 #include "stepper-motor.hpp"
 
 #include <memory>
 #include <queue>
+
 
 int main() {
     stdio_init_all();
@@ -31,6 +33,7 @@ int main() {
     DEBUG("GPS initialized");
     auto compass = std::make_shared<Compass>(i2c0, 17, 16);
     DEBUG("Compass initialized");
+    auto storage = std::make_shared<Storage>(i2c1, 26, 27);
 
     auto queue = std::make_shared<std::queue<msg::Message>>();
     DEBUG("Queue initialized");
@@ -51,7 +54,7 @@ int main() {
     auto mctrl = std::make_shared<MotorControl>(mh, mv, opto_horizontal, opto_vertical);
     DEBUG("MotorControl initialized");
 
-    Controller controller(clock, gps, compass, commbridge, mctrl, queue);
+    Controller controller(clock, gps, compass, commbridge, mctrl, storage, queue);
     DEBUG("Controller initialized");
     for (;;) {
         controller.run();
