@@ -603,6 +603,14 @@ void Controller::trace() {
     if (mctrl->isRunning()) {
         state = COMM_READ;
         return;
+    } else if (trace_pause) {
+        trace_time = time_us_64();
+        trace_pause = false;
+        state = COMM_READ;
+       return;
+    } else if (current_time - trace_time > 1000000) { // 1 second
+        state = COMM_READ;
+        return;
     }
     trace_command = trace_object.next_trace();
     if (trace_command.time.year == -1) {

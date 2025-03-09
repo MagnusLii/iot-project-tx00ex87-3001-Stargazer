@@ -66,6 +66,8 @@ class Controller {
     bool waiting_for_response = false;
     bool esp_initialized = false;
     bool commands_fetched = false;
+    bool trace_pause = true;
+    uint64_t trace_time = 0;
     int now_commands = 0;
 
     std::queue<msg::Message> instr_msg_queue;
