@@ -47,3 +47,13 @@ function prevPage() {
     window.location.href = `${url}${query}`
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+    const page = Number(document.getElementById("page_count").dataset.page);
+    const pages = Number(document.getElementById("page_count").dataset.pages);
+    if (page == 1) {
+        document.getElementById("prev-page").disabled = true;
+    }
+    if (page >= pages) {
+        document.getElementById("next-page").disabled = true;
+    }
+})
