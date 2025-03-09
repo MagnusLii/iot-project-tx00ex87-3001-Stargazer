@@ -1,3 +1,5 @@
+#ifndef DIAGNOSTICSPOSTER_HPP
+#define DIAGNOSTICSPOSTER_HPP
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -19,3 +21,5 @@ class DiagnosticsPoster {
     std::shared_ptr<RequestHandler> requestHandler;
     std::shared_ptr<WirelessHandler> wirelessHandler;
 };
+
+#endif // DIAGNOSTICSPOSTER_HPP
