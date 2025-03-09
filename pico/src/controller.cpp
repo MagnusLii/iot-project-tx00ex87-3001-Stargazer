@@ -597,6 +597,7 @@ void Controller::trace() {
         }
         trace_object.start_trace(start.time, difference);
         trace_started = true;
+        trace_pause = true;
         state = MOTOR_CALIBRATE;
         return;
     }
@@ -608,9 +609,12 @@ void Controller::trace() {
         trace_pause = false;
         state = COMM_READ;
        return;
-    } else if (current_time - trace_time > 1000000) { // 1 second
-        state = COMM_READ;
-        return;
+    } else {
+        uint64_t current_time = time_us_64();
+        if (current_time - trace_time < 1000000) { // 1 second
+            state = COMM_READ;
+            return;
+        }
     }
     trace_command = trace_object.next_trace();
     if (trace_command.time.year == -1) {
