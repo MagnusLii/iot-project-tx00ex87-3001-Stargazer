@@ -624,6 +624,7 @@ void Controller::trace() {
         return;
     }
     mctrl->turn_to_coordinates(trace_command.coords);
+    trace_pause = true;
     DEBUG("Trace coordinates altitude:", trace_command.coords.altitude * 180.0 / M_PI,
           "azimuth:", trace_command.coords.azimuth * 180.0 / M_PI);
     DEBUG("Trace Date day:", (int)trace_command.time.day, "hour", (int)trace_command.time.hour, "min",
