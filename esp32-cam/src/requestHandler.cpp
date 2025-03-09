@@ -183,6 +183,16 @@ void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
                        "\r\n");
 }
 
+void RequestHandler::updateUserInstructionsGETRequest() {
+    std::string getRequest;
+    this->createUserInstructionsGETRequest(&getRequest);
+    strncpy(this->getUserInsturctionsRequest.str_buffer, getRequest.c_str(),
+            sizeof(this->getUserInsturctionsRequest.str_buffer) - 1);
+    this->getUserInsturctionsRequest.str_buffer[sizeof(this->getUserInsturctionsRequest.str_buffer) - 1] = '\0';
+    this->getUserInsturctionsRequest.buffer_length = getRequest.length();
+    this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
+}
+
 void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
                   "/api/time"
@@ -512,3 +522,23 @@ int64_t RequestHandler::parseTimestamp(const std::string &response) {
 bool RequestHandler::getTimeSyncedStatus() { return this->timeSynchronized; }
 
 void RequestHandler::setTimeSyncedStatus(bool status) { this->timeSynchronized = status; }
+
+bool RequestHandler::addRequestToQueue(QueueHandle_t queueHandle, QueueMessage message){
+    if (xQueueSend(queueHandle, &message, 0) != pdTRUE) {
+        DEBUG("Failed to send message to queue");
+        return false;
+    }
+    return true;
+}
+
+bool RequestHandler::addRequestToQueue(QueueID queueid, QueueMessage message){
+    switch (queueid) {
+        case QueueID::WEB_SRV_REQUEST_QUEUE:
+            return addRequestToQueue(this->webSrvRequestQueue, message);
+        case QueueID::WEB_SRV_RESPONSE_QUEUE:
+            return addRequestToQueue(this->webSrvResponseQueue, message);
+        default:
+            DEBUG("Invalid queue ID");
+            return false;
+    }
+}

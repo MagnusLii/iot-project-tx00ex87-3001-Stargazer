@@ -30,6 +30,10 @@ pub async fn send_diagnostics(
         return (StatusCode::UNAUTHORIZED, "Unauthorized");
     }
 
+    if payload.status < 1 || payload.status > 3 {
+        return (StatusCode::BAD_REQUEST, "Invalid status");
+    }
+
     println!(
         "New diagnostic data: [{}] {}",
         payload.status, payload.message
@@ -41,7 +45,7 @@ pub async fn send_diagnostics(
         return (StatusCode::INTERNAL_SERVER_ERROR, "Error saving diagnostic");
     }
 
-    (StatusCode::OK, "Success\n")
+    (StatusCode::OK, "Success")
 }
 
 async fn new_diagnostic(

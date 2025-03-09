@@ -67,18 +67,24 @@ long long datetime_to_seconds(const datetime_t &dt) {
 }
 
 int calculate_hour_difference(const datetime_t &dt1, const datetime_t &dt2) {
+    long long diff_seconds = calculate_sec_difference(dt1, dt2);
+    long long diff_hours = diff_seconds / 3600;
+
+    return static_cast<int>(diff_hours);
+}
+
+int calculate_sec_difference(const datetime_t &dt1, const datetime_t &dt2) {
     long long seconds1 = datetime_to_seconds(dt1);
     long long seconds2 = datetime_to_seconds(dt2);
-
     if (seconds1 == -1 || seconds2 == -1) {
         // Handle invalid datetime_t values (mktime failed)
         return 0; // Or some error code
     }
+    return static_cast<int>(seconds2 - seconds1);
+}
 
-    long long diff_seconds = seconds2 - seconds1;
-    long long diff_hours = diff_seconds / 3600;
-
-    return static_cast<int>(diff_hours);
+int64_t datetime_to_epoch(datetime_t date) {
+    return datetime_to_epoch(date.year, date.month, date.day, date.hour, date.min, date.sec);
 }
 
 /*

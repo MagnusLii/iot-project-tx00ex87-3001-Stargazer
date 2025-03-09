@@ -47,6 +47,11 @@ enum class RequestHandlerReturnCode {
     MEM_ALLOCATION_FAIL,
 };
 
+enum QueueID {
+    WEB_SRV_REQUEST_QUEUE,
+    WEB_SRV_RESPONSE_QUEUE,
+};
+
 class RequestHandler {
   public:
     RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler, std::shared_ptr<SDcardHandler> sdcardHandler);
@@ -57,6 +62,7 @@ class RequestHandler {
     int createImagePOSTRequest(unsigned char *file_buffer, const size_t buffer_max_size, int current_data_len,
                                const int64_t image_id);
     void createUserInstructionsGETRequest(std::string *requestPtr);
+    void updateUserInstructionsGETRequest();
     void createTimestampGETRequest(std::string *requestPtr);
 
     template <typename... Args>
@@ -75,7 +81,7 @@ class RequestHandler {
 
     RequestHandlerReturnCode sendRequest(const char *request, const size_t request_len, QueueMessage *response);
     RequestHandlerReturnCode sendRequest(const unsigned char *request, const size_t request_len,
-                                                         QueueMessage *response);
+                                         QueueMessage *response);
     RequestHandlerReturnCode sendRequest(const QueueMessage message, QueueMessage *response);
     RequestHandlerReturnCode sendRequest(std::string request, QueueMessage *response);
     RequestHandlerReturnCode sendRequestTLS(const char *request, const size_t request_len, QueueMessage *response);
@@ -89,6 +95,9 @@ class RequestHandler {
 
     bool getTimeSyncedStatus();
     void setTimeSyncedStatus(bool status);
+
+    bool addRequestToQueue(QueueHandle_t queueHandle, QueueMessage message);
+    bool addRequestToQueue(QueueID queueid, QueueMessage message);
 
   private:
     // Helper functions for createGenericPOSTRequest

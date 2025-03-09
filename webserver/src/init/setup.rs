@@ -45,7 +45,7 @@ pub async fn setup(
         Err(e) => panic!("Error setting up API database: {}", e),
     };
 
-    match setup_cache_dir("sgwebserver").await {
+    match setup_cache_dir("stargazer-ws").await {
         Ok(_) => {}
         Err(e) => panic!("Error setting up tmp dir: {}", e),
     };
@@ -150,7 +150,6 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<SqlitePool, sqlx::E
     Ok(api_db)
 }
 
-// TODO: Reevaluate need for this
 pub async fn setup_cache_dir(tmp_dir: &str) -> Result<(), io::Error> {
     let cache_dir_path = env::temp_dir().join(tmp_dir);
     fs::create_dir_all(&cache_dir_path).await?;
@@ -163,7 +162,45 @@ pub async fn setup_cache_dir(tmp_dir: &str) -> Result<(), io::Error> {
 pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
     let assets_path = Path::new(assets_dir_path);
 
-    fs::create_dir_all(assets_path.join("images")).await?;
+    if let Ok(_) = fs::create_dir_all(assets_path).await {
+        if !assets_path.join("main.css").exists() {
+            let main_css = std::include_str!("../../css/main.css");
+            fs::write(assets_path.join("main.css"), main_css).await?;
+        }
+
+        fs::create_dir_all(assets_path.join("images")).await?;
+
+        match fs::create_dir_all(assets_path.join("js")).await {
+            Ok(_) => {
+                if !assets_path.join("js/commands.js").exists() {
+                    let commands_js = std::include_str!("../../js/commands.js");
+                    fs::write(assets_path.join("js/commands.js"), commands_js).await?;
+                }
+                if !assets_path.join("js/diagnostics.js").exists() {
+                    let diagnostics_js = std::include_str!("../../js/diagnostics.js");
+                    fs::write(assets_path.join("js/diagnostics.js"), diagnostics_js).await?;
+                }
+                if !assets_path.join("js/images.js").exists() {
+                    let images_js = std::include_str!("../../js/images.js");
+                    fs::write(assets_path.join("js/images.js"), images_js).await?;
+                }
+                if !assets_path.join("js/keys.js").exists() {
+                    let keys_js = std::include_str!("../../js/keys.js");
+                    fs::write(assets_path.join("js/keys.js"), keys_js).await?;
+                }
+                if !assets_path.join("js/sitewide.js").exists() {
+                    let sitewide_js = std::include_str!("../../js/sitewide.js");
+                    fs::write(assets_path.join("js/sitewide.js"), sitewide_js).await?;
+                }
+                if !assets_path.join("js/users.js").exists() {
+                    let users_js = std::include_str!("../../js/users.js");
+                    fs::write(assets_path.join("js/users.js"), users_js).await?;
+                }
+            }
+            Err(e) => eprintln!("Error creating assets/js directory: {}", e),
+        }
+    }
+
     Ok(())
 }
 
