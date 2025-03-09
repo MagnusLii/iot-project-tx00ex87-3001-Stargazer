@@ -108,6 +108,7 @@ impl App {
             .route("/api/diagnostics", post(api::diagnostics::send_diagnostics))
             .route("/api/time", get(api::time_srv::time))
             .with_state(self.shared_state)
+            .route("/favicon.ico", get(routes::favicon))
             .fallback(routes::unknown_route);
 
         if !https {

@@ -34,7 +34,6 @@ body {
 .main-content {
     background-color: var(--color-2);
     margin: 0 50px 50px 50px;
-    min-height: 300px;
 }
 
 @media only screen and (max-width: 768px) {
@@ -99,6 +98,11 @@ select {
 select option {
     background-color: var(--color-2);
     color: var(--color-5);
+}
+
+::placeholder {
+    color: var(--color-5);
+    opacity: 0.7;
 }
 
 /* HEADER */

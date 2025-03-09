@@ -7,7 +7,7 @@ use crate::{
 use axum::{
     extract::{rejection::QueryRejection, Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Redirect},
 };
 use serde::Deserialize;
 
@@ -378,6 +378,10 @@ pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
     }
 
     (StatusCode::OK, Html(html))
+}
+
+pub async fn favicon() -> impl IntoResponse {
+    Redirect::to("/assets/favicon.ico")
 }
 
 pub async fn unknown_route() -> impl IntoResponse {
