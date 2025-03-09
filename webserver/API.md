@@ -62,7 +62,7 @@ Optional fields:
 
 Example:
 ```
-curl -H "Content-Type: application/json" --request POST --data "{\"token\":\"ae07ddd0-5dc1-47d2-98ab-9cea274f1f61\",\"id\":1,\"response\":false}" 127.0.0.1:7878/api/command
+curl -H "Content-Type: application/json" --request POST --data "{\"token\":\"ae07ddd0-5dc1-47d2-98ab-9cea274f1f61\",\"id\":1,\"status\":2}" 127.0.0.1:7878/api/command
 ```
 
 ## `/api/diagnostics`

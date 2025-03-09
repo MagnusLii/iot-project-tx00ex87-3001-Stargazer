@@ -24,8 +24,8 @@ Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
     uint8_t config_a[2] = {CONFIG_A, 0x70}; // Configuration for CONFIG_A
     uint8_t config_b[2] = {CONFIG_B, 0xa0}; // Configuration for CONFIG_B
 
-    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_a, 2, true);
-    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_b, 2, true);
+    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_a, 2, false);
+    i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_b, 2, false);
 }
 
 // Read raw data from the compass
