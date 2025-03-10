@@ -1,7 +1,7 @@
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use sqlx::SqlitePool;
-use webserver::{
+use stargazer_ws::{
     app::App,
     init::{settings::Settings, setup::setup},
     web::images::ImageDirectory,

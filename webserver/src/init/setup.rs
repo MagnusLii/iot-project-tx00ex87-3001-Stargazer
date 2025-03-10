@@ -167,6 +167,10 @@ pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
             let main_css = std::include_str!("../../css/main.css");
             fs::write(assets_path.join("main.css"), main_css).await?;
         }
+        if !assets_path.join("favicon.ico").exists() {
+            let favicon = std::include_bytes!("../../icons/favicon.ico");
+            fs::write(assets_path.join("favicon.ico"), favicon).await?;
+        }
 
         fs::create_dir_all(assets_path.join("images")).await?;
 

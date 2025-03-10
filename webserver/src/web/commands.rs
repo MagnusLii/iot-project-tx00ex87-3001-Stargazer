@@ -49,6 +49,14 @@ pub async fn new_command(
         payload.target, payload.position, payload.associated_key_id
     );
 
+    if payload.target < 1 || payload.target > 9 {
+        return (StatusCode::BAD_REQUEST, "Invalid target");
+    }
+
+    if payload.position < 1 || payload.position > 4 {
+        return (StatusCode::BAD_REQUEST, "Invalid position");
+    }
+
     create_command(
         &state.db,
         payload.target,
@@ -57,7 +65,8 @@ pub async fn new_command(
     )
     .await
     .unwrap();
-    (StatusCode::OK, "Success\n")
+
+    (StatusCode::OK, "Success")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -578,4 +587,13 @@ pub async fn fetch_command_statistics(db: &SqlitePool) -> Result<CommandStatisti
         failed,
         in_progress,
     })
+}
+
+pub async fn delete_commands_by_key(db: &SqlitePool, key: i64) -> Result<(), Error> {
+    sqlx::query("DELETE FROM commands WHERE associated_key = ?")
+        .bind(key)
+        .execute(db)
+        .await?;
+
+    Ok(())
 }

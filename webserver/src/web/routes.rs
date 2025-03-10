@@ -7,7 +7,7 @@ use crate::{
 use axum::{
     extract::{rejection::QueryRejection, Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Redirect},
 };
 use serde::Deserialize;
 
@@ -25,7 +25,7 @@ pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
         let html_last_pic = format!("src=\"{}\" alt=\"{}\"", last_pic.web_path, last_pic.name);
         html = html.replace("<!--LAST_PIC-->", &html_last_pic);
     } else {
-        html = html.replace("<!--LAST_PIC-->", "No images currently available");
+        html = html.replace("<!--LAST_PIC-->", "alt=\"No images currently available\"");
     }
 
     (StatusCode::OK, Html(html))
@@ -194,18 +194,28 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
 
 pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = include_str!("../../html/keys.html").to_string();
-    let html_keys = keys::get_keys(&state.db)
-        .await
-        .unwrap()
-        .iter()
-        .map(|key| {
-            format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
-                key.id, key.name, key.api_token, key.id
-            )
-        })
-        .collect::<Vec<String>>()
-        .join("\n");
+
+    let html_keys = match keys::get_keys(&state.db).await {
+        Ok(keys) => {
+            if keys.len() == 0 {
+                "<tr><td colspan=\"4\">No keys found</td></tr>".to_string()
+            } else {
+                keys.iter().map(|key| {
+                    format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td><button onclick=\"deleteKey({})\">Delete</button></td></tr>",
+                        key.id, key.name, key.api_token, key.id
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting keys: {}", e);
+            "<tr><td colspan=\"4\">Error getting keys</td></tr>".to_string()
+        }
+    };
+
     html = html.replace("<!--API_KEYS-->", &html_keys);
 
     (StatusCode::OK, Html(html))
@@ -277,17 +287,23 @@ pub async fn diagnostics(
     } else if let Ok(diagnostics) =
         diagnostics::get_diagnostics(query.name, query.page, query.status, &state.db).await
     {
-        let html_diagnostics = diagnostics
-            .data
-            .iter()
-            .map(|diagnostic| {
-                format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-                    diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
-                )
-            })
-            .collect::<Vec<String>>()
-            .join("\n");
+        let html_diagnostics = if !diagnostics.data.is_empty() {
+            diagnostics
+                .data
+                .iter()
+                .map(|diagnostic| {
+                    format!(
+                        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                        diagnostic.name, diagnostic.status, diagnostic.message, diagnostic.datetime
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        } else {
+            "<tr><td colspan=\"4\">No diagnostics found</td></tr>".to_string()
+        };
+
+        html = html.replace("<!--DIAGNOSTICS-->", &html_diagnostics);
 
         let html_count = format!(
             "<a id=\"page_count\" class=\"not-link\" data-page=\"{}\" data-pages=\"{}\">{} / {}</a>",
@@ -374,17 +390,13 @@ pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+pub async fn favicon() -> impl IntoResponse {
+    Redirect::to("/assets/favicon.ico")
+}
+
 pub async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
         Html(std::include_str!("../../html/404.html")),
     )
-}
-
-pub async fn test(messages: axum_messages::Messages) -> impl IntoResponse {
-    let html = include_str!("../../html/images.html").to_string();
-
-    messages.error("Test error");
-
-    (StatusCode::OK, Html(html))
 }
