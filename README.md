@@ -61,7 +61,7 @@ This is an example of how to list things you need to use the software and how to
 - Docker: https://www.docker.com/get-started/
 - Rust: https://www.rust-lang.org/tools/install
 
-See <a href="ASSEMBLY.MD">ASSEMBLY.MD</a> for details on building the physical device
+See <a href="Assembly.MD">ASSEMBLY.MD</a> for details on building the physical device
 
 optional:
 - Terminal connection software such as putty or minicom
