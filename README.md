@@ -159,7 +159,8 @@ When booting the device for the first time you'll need to provide the following 
   The certificate needs to begin with `-----BEGIN CERTIFICATE-----` and end with `-----END CERTIFICATE-----`.
 
   IMPORTANT: The final line needs to include a 16bit crc in little endian ordering. A comma is prepended to the crc eg: `,4B37`<br>
-  If any setting is missing or if the file is improperly formatted the device will not be able to initialize code/components related to   said settings.
+  If any setting is missing or if the file is improperly formatted the device will not be able to initialize code/components related to said settings.<br>
+  An example `settings.txt` can be found at <a href="example-settings.txt">/example-settings.txt</a> 
 
 
 ### Operating the device from the server:
