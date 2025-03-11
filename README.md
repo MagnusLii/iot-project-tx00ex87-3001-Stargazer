@@ -1,6 +1,6 @@
 <a id="readme-top"></a>
 
-<h1 align="center">Stargazer</h1>
+<img src="banner.png" alt="stargazer" style="display:block;margin-left: auto;margin-right: auto;width: 100%"/>
 
   <p align="center">
     Amateur astronomy device
@@ -61,7 +61,7 @@ This is an example of how to list things you need to use the software and how to
 - Docker: https://www.docker.com/get-started/
 - Rust: https://www.rust-lang.org/tools/install
 
-See <LINK TO ASSEMBLY MD> for details on building the physical device
+See <a href="ASSEMBLY.MD">ASSEMBLY.MD</a> for details on building the physical device
 
 optional:
 - Terminal connection software such as putty or minicom
