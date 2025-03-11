@@ -225,7 +225,8 @@ int SDcardHandler::read_file(const char *filename, std::string &read_data_storag
     return 0;
 }
 
-int SDcardHandler::read_file_base64(const char *filename, unsigned char *read_data_ptr, const size_t read_data_buffer_len) {
+int SDcardHandler::read_file_base64(const char *filename, unsigned char *read_data_ptr,
+                                    const size_t read_data_buffer_len) {
     ScopedMutex lock(file_mutex); // Automatically locks and unlocks the mutex
 
     std::string full_filename_str = this->mount_point + "/" + filename;
@@ -272,9 +273,6 @@ int SDcardHandler::read_file_base64(const char *filename, unsigned char *read_da
 
     int ret = mbedtls_base64_encode(read_data_ptr, read_data_buffer_len, &actual_base64_len,
                                     (const unsigned char *)scoped_read_buffer, read_size);
-
-
-
 
     free(scoped_read_buffer);
 
@@ -423,11 +421,15 @@ int SDcardHandler::save_setting(const Settings settingID, const std::string &val
 
 int SDcardHandler::read_setting(const Settings settingID, std::string &value) {
     std::unordered_map<Settings, std::string> settings;
-    if (read_all_settings(settings) != 0) {
+    int read_return = read_all_settings(settings);
+    if (read_return == 0) {
+    } else if (read_return == 5) {
+        DEBUG("Failed to read web token, setting to default value");
+        settings[Settings::WEB_TOKEN] = "-----BEGIN CERTIFICATE-----\nDEFAULT_WEB_TOKEN\n-----END CERTIFICATE-----";
+    } else {
         DEBUG("Failed to read settings");
         return 1; // Failed to read settings
     }
-
     value = settings[settingID];
     return 0; // Success
 }

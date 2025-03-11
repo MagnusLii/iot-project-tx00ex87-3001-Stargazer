@@ -190,7 +190,12 @@ void init_task(void *pvParameters) {
     }
 #endif // SAVE_TEST_SETTINGS_TO_SDCARD
 
-    if (handlers->sdcardHandler->read_all_settings(settings) != 0) {
+    int read_return = handlers->sdcardHandler->read_all_settings(settings);
+
+    if (read_return == 0) {
+    } else if (read_return == 5) {
+        settings[Settings::WEB_TOKEN] = "-----BEGIN CERTIFICATE-----\nDEFAULT_WEB_TOKEN\n-----END CERTIFICATE-----";
+    } else {
         DEBUG("Failed to read settings from SD card");
 
         DEBUG("Setting settings to default values");
@@ -198,7 +203,6 @@ void init_task(void *pvParameters) {
         settings[Settings::WIFI_PASSWORD] = "DEFAULT_WIFI_PASSWORD";
         settings[Settings::WEB_DOMAIN] = "DEFAULT_WEB_SERVER";
         settings[Settings::WEB_PORT] = "DEFAULT_WEB_PORT";
-        settings[Settings::WEB_TOKEN] = "DEFAULT_WEB_TOKEN";
     }
 
     handlers->wirelessHandler->set_all_settings(settings);
