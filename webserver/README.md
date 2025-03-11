@@ -1,6 +1,5 @@
 # Requirements
-- Cargo (build)
-- sqlite3
+- Cargo/rustc (tested on version 1.84)
 
 # API
 The API currently has the following endpoints:
