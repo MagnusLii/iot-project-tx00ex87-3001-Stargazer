@@ -1,11 +1,11 @@
-# PINS
-### 1 - GP0       - UART0 TX - COM
-### 2 - GP1       - UART0 RX - COM
+#  PINS
+### 1 - GP0       - UART0 TX - ESP RX
+### 2 - GP1       - UART0 RX - ESP TX
 ### 3 - GND       - 
 ### 4 - GP2       - 
 ### 5 - GP3       - 
-### 6 - GP4       - UART1 TX - GPS
-### 7 - GP5       - UART1 RX - GPS
+### 6 - GP4       - UART1 TX - GPS RX
+### 7 - GP5       - UART1 RX - GPS TX
 ### 8 - GND       - 
 ### 9 - GP6       - LN4 - MOTOR HORIZONTAL
 ### 10 - GP7      - LN3 - MOTOR HORIZONTAL
@@ -17,7 +17,7 @@
 ### 16 - GP12     - 
 ### 17 - GP13     - 
 ### 18 - GND      - 
-### 19 - GP14     - NC - OPTO VERTICAL
+### 19 - GP14     - 
 ### 20 - GP15     - OPTO VERTICAL
 ### 21 - GP16     - I2C0 SDA - COMPASS
 ### 22 - GP17     - I2C0 SCL - COMPASS
@@ -36,6 +36,6 @@
 ### 35 - ADC_VREF -  
 ### 36 - 3V3OUT   - 
 ### 37 - 3V3EN    - 
-### 38 - GND      - 
-### 39 - VSYS     - 
+### 38 - GND      - GND - ESP (any ground pin will do)
+### 39 - VSYS     - 5V - ESP
 ### 40 - VBUS     - 
