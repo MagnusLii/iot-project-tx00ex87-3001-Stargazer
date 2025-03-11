@@ -1,6 +1,6 @@
 <a id="readme-top"></a>
 
-<h1 align="center">Stargazer</h1>
+<img src="banner.png" alt="stargazer" style="display:block;margin-left: auto;margin-right: auto;width: 100%"/>
 
   <p align="center">
     Amateur astronomy device
