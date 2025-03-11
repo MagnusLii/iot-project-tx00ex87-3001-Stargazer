@@ -1,5 +1,5 @@
 # Requirements
-- Cargo/rustc (tested on version 1.84)
+- Cargo/rustc (build, tested on version 1.84)
 
 # API
 The API currently has the following endpoints:
