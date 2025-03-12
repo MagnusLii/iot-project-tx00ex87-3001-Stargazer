@@ -11,6 +11,21 @@
 #include "mbedtls/platform.h"
 #include "esp_heap_caps.h"
 
+/**
+ * @brief Initializes the TLSWrapper class, setting up necessary contexts for network communication and TLS operations.
+ * 
+ * This constructor initializes various components required for TLS communication:
+ * - Network context (`net_ctx`) for socket-based communication.
+ * - SSL context (`ssl`) for establishing secure connections.
+ * - SSL configuration (`ssl_conf`) for configuring the SSL connection.
+ * - CTR-DRBG (random number generator) context (`ctr_drbg`) for secure random number generation.
+ * - Entropy context (`entropy`) for gathering entropy data.
+ * - CA certificate context (`ca_cert`) for validating remote certificates.
+ * 
+ * Additionally, it attempts to seed the random number generator (RNG) using entropy data, and provides debug capabilities if TLS debugging is enabled.
+ * 
+ * @note If any initialization fails, the constructor will log the error and attempt re-initialization for the network context.
+ */
 TLSWrapper::TLSWrapper() {
     // Initialize net context
     mbedtls_net_init(&this->net_ctx);
@@ -51,6 +66,18 @@ TLSWrapper::TLSWrapper() {
     }
 }
 
+/**
+ * @brief Destructor for the TLSWrapper class.
+ * 
+ * This destructor cleans up and frees the resources allocated for TLS communication:
+ * - Closes any active connections and cleans up the network context.
+ * - Frees the SSL context (`ssl`) and configuration (`ssl_conf`).
+ * - Releases the CTR-DRBG (random number generator) context (`ctr_drbg`).
+ * - Frees the entropy context (`entropy`) used for random number generation.
+ * - Frees the CA certificate context (`ca_cert`) used for certificate validation.
+ * 
+ * It ensures that all memory and resources allocated during the lifetime of the `TLSWrapper` object are properly released.
+ */
 TLSWrapper::~TLSWrapper() {
     close();
     mbedtls_ssl_free(&this->ssl);
@@ -60,6 +87,15 @@ TLSWrapper::~TLSWrapper() {
     mbedtls_x509_crt_free(&this->ca_cert);
 }
 
+/**
+ * @brief Checks if the network context (net_ctx) is valid.
+ * 
+ * This function checks the validity of the network context by verifying if the file descriptor (`fd`) is not equal to `-1`.
+ * If the file descriptor is invalid, the function attempts to reinitialize the network context by freeing and initializing it again.
+ * It then checks whether the network context's socket file descriptor is still invalid, returning `true` if it is invalid, or `false` if it is valid.
+ * 
+ * @return `true` if the network context's file descriptor is invalid; `false` if it is valid.
+ */
 bool TLSWrapper::is_net_ctx_valid() {
     if (this->net_ctx.fd != -1) {
         mbedtls_net_free(&this->net_ctx);
@@ -70,6 +106,22 @@ bool TLSWrapper::is_net_ctx_valid() {
     return (this->net_ctx.fd == -1); // Check if the socket is valid
 }
 
+/**
+ * @brief Establishes a TCP connection and performs a TLS handshake with a specified host and port.
+ * 
+ * This function first validates the input arguments (`host`, `port`, and `root_cert`) to ensure they are not null or empty. It then checks the validity of the network context. 
+ * A TCP connection is established with the specified host and port using the `mbedtls_net_connect` function. 
+ * Afterward, it sets up SSL configuration with default values and enables certificate verification (unless explicitly disabled). 
+ * If certificate verification is enabled, the provided CA certificate is parsed and set up for use in the TLS connection. 
+ * The SSL setup is completed, and a TLS handshake is initiated. 
+ * If any step fails, an appropriate error message is logged, and the function returns `false`. If the connection and handshake succeed, it returns `true`.
+ * 
+ * @param host The hostname or IP address of the server to connect to.
+ * @param port The port to use for the connection.
+ * @param root_cert The root certificate to use for verifying the server's certificate.
+ * 
+ * @return `true` if the connection and TLS handshake are successful; `false` otherwise.
+ */
 bool TLSWrapper::connect(const char *host, const char *port, const char *root_cert) {
     if (!host || !port || !root_cert) {
         DEBUG("Invalid arguments: host, port, or root_cert is null");
@@ -159,20 +211,68 @@ bool TLSWrapper::connect(const char *host, const char *port, const char *root_ce
     return true;
 }
 
+/**
+ * @brief Sends data over an established TLS connection.
+ * 
+ * This function uses the `mbedtls_ssl_write` function to send the provided data through the TLS connection.
+ * The data is written to the connection using the `ssl` context. The function returns the result of the `mbedtls_ssl_write` call, 
+ * which indicates the number of bytes written or an error code.
+ * 
+ * @param data The data to be sent over the connection.
+ * @param len The length of the data to be sent.
+ * 
+ * @return The number of bytes written on success, or a negative error code on failure.
+ */
 int TLSWrapper::send(const char *data, size_t len) {
     return mbedtls_ssl_write(&this->ssl, (const unsigned char *)data, len);
 }
 
+/**
+ * @brief Receives data from an established TLS connection.
+ * 
+ * This function uses the `mbedtls_ssl_read` function to receive data from the TLS connection and store it in the provided buffer.
+ * The data is read from the connection using the `ssl` context. The function returns the number of bytes read, 
+ * or a negative error code if an error occurs during the read operation.
+ * 
+ * @param buffer The buffer where the received data will be stored.
+ * @param maxLen The maximum number of bytes to read into the buffer.
+ * 
+ * @return The number of bytes read on success, or a negative error code on failure.
+ */
 int TLSWrapper::receive(char *buffer, size_t maxLen) {
     return mbedtls_ssl_read(&this->ssl, (unsigned char *)buffer, maxLen);
 }
 
+/**
+ * @brief Closes the TLS connection and frees associated resources.
+ * 
+ * This function sends a close notification to the peer via `mbedtls_ssl_close_notify`, 
+ * then frees the network context (`net_ctx`) to release any allocated resources. 
+ * It effectively terminates the TLS session and prepares the context for reuse or cleanup.
+ * 
+ * @return void
+ */
 void TLSWrapper::close() {
     mbedtls_ssl_close_notify(&this->ssl);
     mbedtls_net_free(&this->net_ctx);
 }
 
 #ifdef TLS_DEBUG
+/**
+ * @brief Callback function for mbedtls debugging output.
+ * 
+ * This function is used as a callback for mbedtls debug messages. It prints debug
+ * information, including the debug level, file, line number, and the message string,
+ * to the debug output.
+ * 
+ * @param ctx   A pointer to the context (unused in this implementation).
+ * @param level The mbedtls debug level.
+ * @param file  The source file where the debug message originated.
+ * @param line  The line number in the source file where the debug message originated.
+ * @param str   The debug message string.
+ * 
+ * @return void
+ */
 void mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str) {
     DEBUG("mbedtls debug ", level, " : ", file, " : ", line, " : ", str);
 }
