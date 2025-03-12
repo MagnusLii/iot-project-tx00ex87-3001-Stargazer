@@ -53,14 +53,13 @@
 // ----------------------------------------------------------
 
 /**
- * Callback function triggered by the timer to send a GET request for user instructions.
+ * @brief Timer callback function that sends a User Instructions GET request.
  *
- * @param timer - The timer handle that triggered this callback. It is used to retrieve the associated
- *                `RequestHandler` instance to interact with the web server request queue.
- *                The `RequestHandler` instance is retrieved from the timer's user data.
+ * This function is called when the associated timer expires. It retrieves the `RequestHandler` instance
+ * from the timer's ID, then sends a User Instructions GET request to the web server request queue.
+ * After sending the request, a debug message is logged indicating the action.
  *
- * This function retrieves the `RequestHandler` object using the timer's ID, sends the user instructions
- * GET request to the web server request queue, and logs that the request has been sent.
+ * @param timer The timer handle that triggered this callback.
  */
 void get_request_timer_callback(TimerHandle_t timer) {
     RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
@@ -68,7 +67,15 @@ void get_request_timer_callback(TimerHandle_t timer) {
     DEBUG("Userinstructions GET request sent");
 }
 
-// Timer stops itself if time is synced
+/**
+ * @brief Timer callback function that sends a Timestamp GET request if time is not synchronized.
+ *
+ * This function is called when the associated timer expires. It checks if the time synchronization status
+ * is `true`. If it is, the timer is stopped. Otherwise, it sends a Timestamp GET request to the web server
+ * request queue and restarts the timer to send the request periodically.
+ * 
+ * @param timer The timer handle that triggered this callback.
+ */
 void get_timestamp_timer_callback(TimerHandle_t timer) {
     RequestHandler *requestHandler = (RequestHandler *)pvTimerGetTimerID(timer);
 
@@ -83,6 +90,20 @@ void get_timestamp_timer_callback(TimerHandle_t timer) {
     xTimerStart(timer, pdMS_TO_TICKS(GET_REQUEST_TIMER_PERIOD));
 }
 
+/**
+ * @brief Attempts to enqueue an item with a specified number of retries.
+ *
+ * This function attempts to send an item to a queue, retrying up to the specified number of times
+ * if the queue is full or the operation fails. If the item is successfully enqueued, it returns `true`.
+ * If all retries are exhausted without successfully enqueuing the item, it returns `false`.
+ *
+ * @param queue The queue handle to which the item will be enqueued.
+ * @param item A pointer to the item to be enqueued.
+ * @param ticks_to_wait The maximum time to wait for space in the queue before timing out.
+ * @param retries The number of retry attempts to enqueue the item.
+ * 
+ * @return `true` if the item is successfully enqueued, `false` if all retries fail.
+ */
 bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t ticks_to_wait, int retries) {
     while (retries > 0) {
         if (xQueueSend(queue, item, ticks_to_wait) == pdTRUE) { return true; }
@@ -91,6 +112,20 @@ bool enqueue_with_retry(const QueueHandle_t queue, const void *item, TickType_t 
     return false;
 }
 
+/**
+ * @brief Attempts to read a file from the SD card with a specified number of retries.
+ *
+ * This function attempts to read the contents of a file from the SD card. If the read operation fails,
+ * it will retry the operation up to the specified number of times. If the file is successfully read, 
+ * it returns `true`. If all retries are exhausted without successfully reading the file, it returns `false`.
+ *
+ * @param sdcardHandler A pointer to an instance of `SDcardHandler` responsible for accessing the SD card.
+ * @param filename The name of the file to be read.
+ * @param file_data A reference to a string that will hold the read file data.
+ * @param retries The number of retry attempts to read the file.
+ * 
+ * @return `true` if the file is successfully read, `false` if all retries fail.
+ */
 bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filename, std::string &file_data,
                           int retries) {
     while (retries > 0) {
@@ -100,6 +135,23 @@ bool read_file_with_retry(SDcardHandler *sdcardHandler, const std::string &filen
     return false;
 }
 
+/**
+ * @brief Reads a file from the SD card, encodes it in Base64, and sends it via a POST request.
+ *
+ * This function attempts to read a file from the SD card, encodes it in Base64, and sends it in a POST 
+ * request using the provided `RequestHandler` object. If the file is successfully read and the request 
+ * is successfully sent, it returns `true`. In case of failure during any of the operations (file reading, 
+ * Base64 encoding, or request sending), it returns `false`. The image data is sent either over a secure 
+ * TLS connection or a regular connection, depending on the compilation settings.
+ *
+ * @param sdcardHandler A pointer to an instance of `SDcardHandler` responsible for accessing the SD card.
+ * @param requesthandler A pointer to an instance of `RequestHandler` responsible for creating and sending the request.
+ * @param filename The name of the file to be read and sent.
+ * @param image_id The ID of the image to be included in the request.
+ * @param response A pointer to a `QueueMessage` object where the response will be stored.
+ * 
+ * @return `true` if the file was successfully read, Base64 encoded, and the request sent, `false` otherwise.
+ */
 bool read_file_base64_and_send(SDcardHandler *sdcardHandler, RequestHandler *requesthandler,
                                const std::string &filename, const int64_t image_id, QueueMessage *response) {
     size_t file_size = 300000;
@@ -134,7 +186,17 @@ bool read_file_base64_and_send(SDcardHandler *sdcardHandler, RequestHandler *req
     return true;
 }
 
-// Timer restarts itself if connection is still not established
+/**
+ * @brief Callback function for the Wi-Fi reconnect timer.
+ *
+ * This function is invoked by the timer to attempt reconnecting to the Wi-Fi network. It retrieves the SSID 
+ * and password from the settings, then attempts to connect using the `WirelessHandler` object. If the connection 
+ * is unsuccessful, the timer is restarted to retry the connection after a specified period.
+ *
+ * @param timer The timer handle that triggered this callback. It contains the reference to the `WirelessHandler` object.
+ * 
+ * @note The timer will only restart if the connection attempt fails, ensuring continuous retries until successful.
+ */
 void wifi_reconnect_timer_callback(TimerHandle_t timer) {
     WirelessHandler *wirelessHandler = (WirelessHandler *)pvTimerGetTimerID(timer);
     wirelessHandler->connect(wirelessHandler->get_setting(Settings::WIFI_SSID),
