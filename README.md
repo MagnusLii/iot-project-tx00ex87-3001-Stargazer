@@ -31,7 +31,6 @@
 
 
 
-<!-- ABOUT THE PROJECT -->
 ## About The Project
 
 The Stargazer is an easy to set up device that will take pictures of celestial objects at the most opportune times. Stargazer uses a simple and easy to use web interface to drive the device and see the beautiful pictures instantly when they happen. The pictures are also saved locally on an SD card for a convenient way of transferring and handling the pictures. Stargazer can also be driven completely offline using a laptop or a computer, making using the device flexible to use even when you have no internet connectivity.
@@ -51,19 +50,15 @@ The Stargazer is an easy to set up device that will take pictures of celestial o
 
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
-
 ### Prerequisites
 
-This is an example of how to list things you need to use the software and how to install them.
 - ESP-idf: https://github.com/espressif/esp-idf
 - Docker: https://www.docker.com/get-started/
 - Rust: https://www.rust-lang.org/tools/install
 
 See <a href="ASSEMBLY.md">ASSEMBLY.md</a> for details on building the physical device
 
-optional:
+**Optional:**
 - Terminal connection software such as putty or minicom
 
 ### Installation
@@ -82,13 +77,16 @@ optional:
     ```sh
     cp build/stargazer.uf2 <PATH TO PICO USB DEVICE PATH>
     ```
+
+<a id="Build-and-flash-ESP"></a>
+
 4. Build and flash ESP<br>
-    Set the ESP into flash mode.
+    Set the ESP into flash mode by connecting **GPIO0** to **GND** and power cycling the ESP.
     ```sh
     cd esp32-cam
     idf.py -p <PORT> flash
     ```
-    Reboot the ESP out of flash mode.
+    Reboot the ESP out of flash mode by disconnecting **GPIO0** from **GND** and power cycling the ESP.
   
 5. Build the webserver
    ```sh
@@ -150,19 +148,29 @@ When booting the device for the first time you'll need to provide the following 
  - `Webserver domain` - The FQDN or IP address through which the server can be accessed.
  - `Webserver port` - The port used to communicated with the server (default is 8080).
  - `Webserver token` - Token generated in the webserver to enable API calls.
- Optional:
+
+ **Optional:**
+
  - `Certificate` - Certificate to enable TLS connections. Only needed if you intend to use TLS to connect to your webserver.
 
- These settings can be set either by using the appropriate commands in direct control mode see: <a href="#direct-control">Operating the device directly</a>
+<a id="Settings-file"></a>
 
-  or by setting them in a file called settings.txt on the SDcard connected to the ESP.<br>
+ These settings can be set either by using the appropriate commands in direct control mode see: <a href="#direct-control">Operating the device directly:</a>
+
+  alternatevly by setting them in a file called settings.txt on the SDcard connected to the ESP.<br>
   If creating the settings file the settings need to be in the same order as above with each setting on a new line.<br>
   The certificate needs to begin with `-----BEGIN CERTIFICATE-----` and end with `-----END CERTIFICATE-----`.
 
-  IMPORTANT: The final line needs to include a 16bit crc in little endian ordering. A comma is prepended to the crc eg: `,4B37`<br>
+  **IMPORTANT:** The final line needs to include a 16bit crc in little endian ordering. A comma is prepended to the crc eg: `,4B37`<br>
   If any setting is missing or if the file is improperly formatted the device will not be able to initialize code/components related to said settings.<br>
-  An example `settings.txt` can be found at <a href="example-settings.txt">example-settings.txt</a> 
+  An example `settings.txt` can be found at <a href="example-settings.txt">/example-settings.txt.</a> <br>
+  **NOTE:** the file must be renamed to `settings.txt`.<br>
 
+  A third option is to define your values in `/esp32-cam/testMacros.hpp`, uncomment `# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSAVE_TEST_SETTINGS_TO_SDCARD")`<br>
+  by removing the `#` in `/esp32-cam/CMakeLists.txt` and then build the project as described in <a href="#Build-and-flash-ESP">Build and flash ESP</a> <br>
+  **NOTE:** Doing this will cause the settings defined in `/esp32-cam/testMacros.hpp` to be written onto `settings.txt` each time the ESP is restarted.
+
+  <a href="#CMAKE-flags">Read here for more information about CMAKE flags</a> <br>
 
 ### Operating the device from the server:
 The command options are as follows:<br>
@@ -176,7 +184,21 @@ The command options are as follows:<br>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<a id="CMAKE-flags"></a>
 
+## CMAKE flags
+The following CMAKE flags can be enabled in <a href="3D-models/CMakeLists.txt">3D-models/CMakeLists.txt</a>.<br>
+Enabling these flags changes the way the device operates.
+ - set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_ESP_DEBUG")<br>
+   If enabled it will cause the ESP to send debug logs to the UART connection.<br>
+   **NOTE:** These logs will cause problems for the pico and thus should not be turned on for normal operations, only if you wish to debug something.<br><br>
+ - set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_TLS")<br>
+   If enabled it will force the ESP to use TLS when connecting to the webserver.<br>
+   **NOTE:** Due to the increased memory requirements of TLS this can cause the upload of larger images to fail due to insufficient memory on the AIthinker ESP32-cam module.<br><br>
+ - set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSAVE_TEST_SETTINGS_TO_SDCARD")<br>
+   If enabled the ESP will write settings defined in `/esp32-cam/testMacros.hpp` to `settings.txt` on the SD card on boot.<br>
+   This is useful if you do no wish to perform the other methods described in <a href="#Settings-file">Enabling operation from webserver</a>.<br>
+   **NOTE:** Having this enabled will cause the settings to we written each time the ESP reboots causing settings to be lost if changed.
 
 <!-- LICENSE -->
 ## License
