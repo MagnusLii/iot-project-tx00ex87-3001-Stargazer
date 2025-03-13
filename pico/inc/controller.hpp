@@ -6,14 +6,14 @@
 #include "commbridge.hpp"
 #include "compass.hpp"
 #include "convert.hpp"
-#include "storage.hpp"
 #include "gps.hpp"
 #include "motor-control.hpp"
 #include "planet_finder.hpp"
 #include "stepper-motor.hpp"
+#include "storage.hpp"
 #include "structs.hpp"
 
-//#define GPS_COORDS
+// #define GPS_COORDS
 
 /**
  * @class Controller

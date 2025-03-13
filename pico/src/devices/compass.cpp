@@ -14,7 +14,7 @@
 #define TO_UT (100.0 / 1090.0)
 
 Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
-    : I2C_PORT(I2C_PORT_VAL),  SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
+    : I2C_PORT(I2C_PORT_VAL), SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
     i2c_init(I2C_PORT, 400000); // 400 kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
@@ -152,7 +152,7 @@ float Compass::getHeading() {
     // Convert raw values to microtesla
     float x_uT = x * TO_UT;
     float y_uT = y * TO_UT;
-    //float z_uT = z * TO_UT;
+    // float z_uT = z * TO_UT;
 
     // Calculate heading
     float heading = atan2(y_uT, x_uT);

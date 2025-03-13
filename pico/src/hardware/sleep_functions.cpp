@@ -18,9 +18,9 @@ bool sleep() {
     clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_CLK_RTC_RTC_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_RTC_BITS;
     // Turn off all the clocks except the ones relating to UART, USB and Timer (I hope)
     clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS |
-                               CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS |
-                               CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS |
-                               CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
+                           CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS |
+                           CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS |
+                           CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
 
     stdio_flush();
 
