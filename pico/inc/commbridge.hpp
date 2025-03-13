@@ -1,17 +1,22 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include "pico/stdlib.h"
+#include "pico/time.h"
+
+#include "PicoUart.hpp"
+#include "message.hpp"
+
 #include <memory>
 #include <queue>
-#include "message.hpp"
-#include "PicoUart.hpp"
-#include "pico/stdlib.h"
+#include <string>
+#include <vector>
 
 #define RBUFFER_SIZE 64
-#define RWAIT_MS 20
+#define RWAIT_MS     20
 
-
+/**
+ * @brief Handles communication between the Raspberry Pi Pico and the ESP32.
+ */
 class CommBridge {
   public:
     CommBridge(std::shared_ptr<PicoUart> uart, std::shared_ptr<std::queue<msg::Message>> queue);

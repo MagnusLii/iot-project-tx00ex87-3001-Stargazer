@@ -3,6 +3,10 @@
 #include <vector>
 #include <cstdint>
 
+/**
+ * @class RingBuffer
+ * @brief Class implementing a ring buffer for UART communication.
+ */
 class RingBuffer {
 public:
     explicit RingBuffer(int size);

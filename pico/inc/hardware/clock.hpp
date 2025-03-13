@@ -8,6 +8,10 @@
 #include <ctime>
 #include <string>
 
+/**
+ * @class Clock
+ * @brief Class for handling RTC timekeeping and alarms.
+ */
 class Clock {
   public:
     Clock();
