@@ -384,9 +384,7 @@ void Controller::config_mode() {
                 std::cout << "Exiting config mode" << std::endl;
             } else if (token == "heading") {
                 float heading = 0;
-                if (ss >> heading) {
-                    mctrl->setHeading(heading);
-                }
+                if (ss >> heading) { mctrl->setHeading(heading); }
                 std::cout << "Heading set to: " << heading << std::endl;
             } else if (token == "time") {
                 time_t timestamp = 0;

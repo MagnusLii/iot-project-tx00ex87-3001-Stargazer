@@ -10,7 +10,7 @@
 /**
  * @brief Pointer to the active Clock instance.
  */
-static Clock* clock_inst = nullptr;
+static Clock *clock_inst = nullptr;
 
 /**
  * @brief Constructs a Clock object and initializes the RTC.
@@ -27,9 +27,7 @@ Clock::Clock() {
  */
 void Clock::update(std::string &str) {
     size_t converted;
-    if (time_t timestamp = std::stoll(str, &converted); converted == str.size()) {
-        update(timestamp);
-    }
+    if (time_t timestamp = std::stoll(str, &converted); converted == str.size()) { update(timestamp); }
 }
 
 /**
@@ -49,16 +47,10 @@ void Clock::update(time_t timestamp) {
     int8_t min = static_cast<int8_t>(timeinfo->tm_min);
     int8_t sec = static_cast<int8_t>(timeinfo->tm_sec);
 
-    datetime_t now = {
-        .year = year,
-        .month = month,
-        .day = day,
-        .hour = hour,
-        .min = min,
-        .sec = sec
-    };
+    datetime_t now = {.year = year, .month = month, .day = day, .hour = hour, .min = min, .sec = sec};
 
-    DEBUG("Received time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":", unsigned(now.min), ":", unsigned(now.sec));
+    DEBUG("Received time: ", now.year, "-", unsigned(now.month), "-", unsigned(now.day), " ", unsigned(now.hour), ":",
+          unsigned(now.min), ":", unsigned(now.sec));
 
     if (rtc_set_datetime(&now)) {
         DEBUG("TIME SYNCED");
@@ -66,7 +58,6 @@ void Clock::update(time_t timestamp) {
     } else {
         DEBUG("TIME NOT SYNCED");
     }
-
 }
 
 /**
@@ -83,9 +74,7 @@ datetime_t Clock::get_datetime() const {
  * @brief Checks if the RTC time has been successfully synchronized.
  * @return True if synchronized, otherwise false.
  */
-bool Clock::is_synced() const {
-    return synced;
-}
+bool Clock::is_synced() const { return synced; }
 
 /**
  * @brief Alarm handler function triggered when the alarm rings.
@@ -99,17 +88,13 @@ void alarm_handler() {
  * @brief Sets an alarm for a given datetime.
  * @param datetime The datetime at which the alarm should trigger.
  */
-void Clock::add_alarm(datetime_t datetime) {
-    rtc_set_alarm(&datetime, &alarm_handler);
-}
+void Clock::add_alarm(datetime_t datetime) { rtc_set_alarm(&datetime, &alarm_handler); }
 
 /**
  * @brief Checks if the alarm is currently ringing.
  * @return True if the alarm is active, otherwise false.
  */
-bool Clock::is_alarm_ringing() const {
-    return alarm_wakeup;
-}
+bool Clock::is_alarm_ringing() const { return alarm_wakeup; }
 
 /**
  * @brief Clears the active alarm.

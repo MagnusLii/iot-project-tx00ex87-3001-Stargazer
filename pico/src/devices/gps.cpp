@@ -195,15 +195,15 @@ int GPS::parse_gpgga() {
     };
 
     // GPGGA also has a bunch of other stuff we don't need
-    //std::getline(ss, token, ','); // Quality
-    //std::getline(ss, token, ','); // Number of satellites
-    //std::getline(ss, token, ','); // Horizontal dilution of precision
-    //std::getline(ss, token, ','); // Altitude
-    //std::getline(ss, token, ','); // Altitude units
-    //std::getline(ss, token, ','); // Undulation
-    //std::getline(ss, token, ','); // Undulation units
-    //std::getline(ss, token, ','); // Age of differential GPS data
-    //std::getline(ss, token, ','); // Differential reference station ID and checksum
+    // std::getline(ss, token, ','); // Quality
+    // std::getline(ss, token, ','); // Number of satellites
+    // std::getline(ss, token, ','); // Horizontal dilution of precision
+    // std::getline(ss, token, ','); // Altitude
+    // std::getline(ss, token, ','); // Altitude units
+    // std::getline(ss, token, ','); // Undulation
+    // std::getline(ss, token, ','); // Undulation units
+    // std::getline(ss, token, ','); // Age of differential GPS data
+    // std::getline(ss, token, ','); // Differential reference station ID and checksum
 
     return 0;
 }
@@ -257,7 +257,6 @@ int GPS::parse_gpgll() {
 
     return 0;
 }
-
 
 /**
  * @brief Converts NMEA coordinate format to decimal degrees.
@@ -320,4 +319,3 @@ void GPS::alwayslocate_mode() {
     DEBUG("Sending AlwaysLocate mode command to GPS");
     uart->write(pmtk, sizeof(pmtk));
 }
-
