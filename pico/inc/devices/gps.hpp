@@ -1,19 +1,21 @@
 #pragma once
 
-#include "PicoUart.hpp"
+#include "hardware/timer.h"
 #include "pico/stdlib.h"
-#include "structs.hpp"
-#include <hardware/timer.h>
+
+#include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
 
-// struct Coordinates {
-//     double latitude;
-//     double longitude;
-//     bool status;
-// };
+#include "PicoUart.hpp"
+#include "structs.hpp"
 
+/**
+ * @class GPS
+ * @brief Handles communication with a Quectel L80 GPS module over UART.
+ */
 class GPS {
   public:
     enum class Mode {
