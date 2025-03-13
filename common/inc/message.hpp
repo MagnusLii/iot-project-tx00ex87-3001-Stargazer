@@ -8,6 +8,11 @@
 
 namespace msg {
 
+/**
+ * @enum MessageType
+ * @brief Enumeration of message types.
+ * @details This enumeration defines the possible message types.
+ */
 enum MessageType {
     UNASSIGNED = 0,    // don't use
     RESPONSE = 1,      // Response message (ACK/NACK)
@@ -22,6 +27,11 @@ enum MessageType {
     API = 10,          // Send api token
 };
 
+/**
+ * @struct Message
+ * @brief Structure representing a message.
+ * @details This structure contains a message type and a vector of strings representing the message content.
+ */
 struct Message {
     MessageType type;
     std::vector<std::string> content;
