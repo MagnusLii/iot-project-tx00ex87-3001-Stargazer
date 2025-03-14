@@ -153,7 +153,7 @@ When booting the device for the first time you'll need to provide the following 
 
  These settings can be set either by using the appropriate commands in direct control mode see: 
  
- <p align="left"><a href="#direct-control">### - Operating the device directly:</a></p>
+ <p align="left"><a href="#direct-control">Operating the device directly</a></p>
 
   or by setting them in a file called settings.txt on the SDcard connected to the ESP.<br>
   If creating the settings file the settings need to be in the same order as above with each setting on a new line.<br>
