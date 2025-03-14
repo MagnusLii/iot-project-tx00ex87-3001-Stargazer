@@ -116,7 +116,8 @@ Run the server
   ```
 
 <a id="direct-control"></a>
-### - Operating the device directly:
+
+### Operating the device directly:
 The device can be operated directly by connecting to the Pico via USB cable and opening a terminal connection with a baud rate of 115200.<br>
 Sending any character puts the Pico into command mode which allows for using commands to operate the whole system.<br>
 
