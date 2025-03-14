@@ -100,8 +100,6 @@ target_link_libraries(${PROJECT_NAME}
     hardware_gpio
     hardware_rtc
     hardware_pio
-    hardware_rosc
-    hardware_sleep
     message
     crc
     convert
@@ -113,8 +111,6 @@ target_link_libraries(${PROJECT_NAME}_test
     hardware_gpio
     hardware_rtc
     hardware_pio
-    hardware_rosc
-    hardware_sleep
     message
     crc
     convert
