@@ -61,7 +61,7 @@ This is an example of how to list things you need to use the software and how to
 - Docker: https://www.docker.com/get-started/
 - Rust: https://www.rust-lang.org/tools/install
 
-See <a href="Assembly.MD">ASSEMBLY.MD</a> for details on building the physical device
+See <a href="ASSEMBLY.md">ASSEMBLY.md</a> for details on building the physical device
 
 optional:
 - Terminal connection software such as putty or minicom
@@ -151,9 +151,7 @@ When booting the device for the first time you'll need to provide the following 
  Optional:
  - `Certificate` - Certificate to enable TLS connections. Only needed if you intend to use TLS to connect to your webserver.
 
- These settings can be set either by using the appropriate commands in direct control mode see: 
- 
- <p align="left"><a href="#direct-control">Operating the device directly</a></p>
+ These settings can be set either by using the appropriate commands in direct control mode see: <a href="#direct-control">Operating the device directly</a>
 
   or by setting them in a file called settings.txt on the SDcard connected to the ESP.<br>
   If creating the settings file the settings need to be in the same order as above with each setting on a new line.<br>
@@ -161,7 +159,7 @@ When booting the device for the first time you'll need to provide the following 
 
   IMPORTANT: The final line needs to include a 16bit crc in little endian ordering. A comma is prepended to the crc eg: `,4B37`<br>
   If any setting is missing or if the file is improperly formatted the device will not be able to initialize code/components related to said settings.<br>
-  An example `settings.txt` can be found at <a href="example-settings.txt">/example-settings.txt</a> 
+  An example `settings.txt` can be found at <a href="example-settings.txt">example-settings.txt</a> 
 
 
 ### Operating the device from the server:
