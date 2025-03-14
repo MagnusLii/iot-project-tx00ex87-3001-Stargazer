@@ -4,7 +4,6 @@ set(PICO_BOARD pico)
 
 # Include build functions from Pico SDK
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
-include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
 project(pico-stargazer C CXX ASM)
 set(CMAKE_C_STANDARD 17)
