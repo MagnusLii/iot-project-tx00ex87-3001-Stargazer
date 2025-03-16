@@ -7,14 +7,33 @@
 
 #include "debug.hpp"
 
+/**
+ * @brief Constructor to initialize the Storage class.
+ *
+ * Initializes the I2C communication with the EEPROM.
+ *
+ * @param i2c Pointer to the I2C instance.
+ * @param sda_pin SDA pin number.
+ * @param scl_pin SCL pin number.
+ */
 Storage::Storage(i2c_inst_t *i2c, uint sda_pin, uint scl_pin) {
     this->i2c = i2c;
     eeprom_init_i2c(i2c, sda_pin, scl_pin, BAUD_RATE, WRITE_CYCLE_MAX_MS);
 }
 
+/**
+ * @brief Stores a command in EEPROM.
+ *
+ * Searches for an empty space in EEPROM and writes the command if space is found.
+ *
+ * @param command The command to store.
+ *
+ * @return bool Returns true if the command was successfully stored, false if EEPROM is full.
+ */
 bool Storage::store_command(Command &command) {
     uint8_t buffer[sizeof(Command) + 3];
     int page = START_ADDR;
+
     for (int i = 0; i < 512; ++i) {
         eeprom_read_page(i2c, page, buffer, sizeof(buffer));
         sleep_ms(10);
@@ -22,16 +41,28 @@ bool Storage::store_command(Command &command) {
         page += 64;
         if (page == EEPROM_SIZE) { return false; }
     }
-    write(command, page);
-    return true;
+
+    return write(command, page);
 }
 
+/**
+ * @brief Retrieves a command from EEPROM by its ID.
+ *
+ * Reads EEPROM pages sequentially until the matching ID is found.
+ *
+ * @param command The command object to store the retrieved data.
+ * @param id The unique identifier of the command.
+ *
+ * @return bool Returns true if the command is found and valid, false otherwise.
+ */
 bool Storage::get_command(Command &command, uint64_t id) {
     uint8_t buffer[sizeof(Command) + 3];
     int page = START_ADDR;
+
     for (int i = 0; i < 512; ++i) {
         eeprom_read_page(i2c, page, buffer, sizeof(buffer));
         sleep_ms(10);
+
         if (buffer[sizeof(Command)] == 1 && static_cast<uint64_t>(buffer[0]) == id) {
             uint16_t stored_crc = (buffer[sizeof(Command) + 1] << 8) | buffer[sizeof(Command) + 2];
             uint16_t other_crc = crc16(buffer, sizeof(Command));
@@ -40,15 +71,27 @@ bool Storage::get_command(Command &command, uint64_t id) {
                 DEBUG("Checksum doesn't match");
                 return false;
             }
+
             memcpy(&command, buffer, sizeof(Command));
             return true;
         }
+
         page += 64;
         if (page == EEPROM_SIZE) { return false; }
     }
     return false;
 }
 
+/**
+ * @brief Writes a command to a specific EEPROM address.
+ *
+ * Computes a CRC16 checksum and writes both the command and checksum to EEPROM.
+ *
+ * @param command The command to write.
+ * @param addr The EEPROM address to write to.
+ *
+ * @return bool Returns true if the write operation was successful, false otherwise.
+ */
 bool Storage::write(Command &command, uint addr) {
     uint8_t buffer[sizeof(Command) + 3];
     buffer[sizeof(Command)] = 1;
@@ -58,33 +101,14 @@ bool Storage::write(Command &command, uint addr) {
     buffer[sizeof(Command) + 1] = crc >> 8;
     buffer[sizeof(Command) + 2] = crc & 0xFF;
 
-    size_t total_size = sizeof(buffer);
-
-    if (!write_page(addr, buffer, total_size)) { return false; }
-
-    return true;
+    return write_page(addr, buffer, sizeof(buffer));
 }
 
-bool Storage::read(Command &command, uint addr) {
-
-    uint8_t buffer[sizeof(Command) + 3];
-
-    eeprom_read_page(i2c, addr, buffer, sizeof(buffer));
-    sleep_ms(10);
-
-    uint16_t stored_crc = (buffer[sizeof(Command) + 1] << 8) | buffer[sizeof(Command) + 2];
-    uint16_t other_crc = crc16(buffer, sizeof(Command));
-
-    if (stored_crc != other_crc) {
-        DEBUG("Checksum doesn't match");
-        return false;
-    }
-
-    memcpy(&command, buffer, sizeof(Command));
-
-    return true;
-}
-
+/**
+ * @brief Clears the entire EEPROM memory.
+ *
+ * Iterates through all EEPROM pages and writes zeroes.
+ */
 void Storage::clear_eeprom() {
     uint8_t empty_data[64] = {0};
 
@@ -97,58 +121,16 @@ void Storage::clear_eeprom() {
     }
 }
 
-bool Storage::delete_command(uint64_t id) {
-    uint8_t buffer[sizeof(Command) + 3];
-    uint8_t empty_buff[64] = {0};
-    int page = START_ADDR;
-    for (int i = 0; i < 512; ++i) {
-        eeprom_read_page(i2c, page, buffer, sizeof(buffer));
-        sleep_ms(10);
-        if (buffer[sizeof(Command)] == 1 && static_cast<uint64_t>(buffer[0]) == id) {
-            eeprom_write_page(i2c, page, empty_buff, sizeof(empty_buff));
-            return true;
-        }
-        page += 64;
-        if (page == EEPROM_SIZE) { return false; }
-    }
-    return false;
-}
-
-int Storage::get_all_commands(std::vector<Command> &vector) {
-    int i = 0;
-    uint8_t buffer[sizeof(Command) + 3];
-    int page = START_ADDR;
-    for (; i < 512; ++i) {
-        Command command;
-        eeprom_read_page(i2c, page, buffer, sizeof(buffer));
-        sleep_ms(10);
-        if (buffer[sizeof(Command)] == 1) {
-            uint16_t stored_crc = (buffer[sizeof(Command) + 1] << 8) | buffer[sizeof(Command) + 2];
-            uint16_t other_crc = crc16(buffer, sizeof(Command));
-
-            if (stored_crc != other_crc) {
-                DEBUG("Checksum doesn't match");
-            } else {
-                memcpy(&command, buffer, sizeof(Command));
-                vector.push_back(command);
-            }
-        }
-        page += 64;
-    }
-    return vector.size();
-}
-
-bool Storage::write_page(uint16_t address, const uint8_t *data, size_t size) {
-    uint8_t buffer[size + 2];
-    buffer[0] = address >> 8;
-    buffer[1] = address & 0xFF;
-    memcpy(buffer + 2, data, size);
-    int result = i2c_write_timeout_us(i2c, 0x50, buffer, size + 2, false, 1000);
-    //    i2c_write_blocking(i2c, 0x50, buffer, size + 2, false);
-    sleep_ms(10);
-    return (result == static_cast<int>((size + 2u)));
-}
-
+/**
+ * @brief Computes a CRC16 checksum.
+ *
+ * Uses a polynomial-based algorithm to generate a checksum for error detection.
+ *
+ * @param data Pointer to the data buffer.
+ * @param length Size of the data buffer.
+ *
+ * @return uint16_t The computed CRC16 checksum.
+ */
 uint16_t crc16(const uint8_t *data, size_t length) {
     uint8_t x;
     uint16_t crc = 0xFFFF;
@@ -156,8 +138,7 @@ uint16_t crc16(const uint8_t *data, size_t length) {
     while (length--) {
         x = crc >> 8 ^ *data++;
         x ^= x >> 4;
-        crc =
-            (crc << 8) ^ (static_cast<uint16_t>(x << 12)) ^ (static_cast<uint16_t>(x << 5)) ^ static_cast<uint16_t>(x);
+        crc = (crc << 8) ^ (static_cast<uint16_t>(x << 12)) ^ (static_cast<uint16_t>(x << 5)) ^ static_cast<uint16_t>(x);
     }
     return crc;
 }

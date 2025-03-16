@@ -13,6 +13,15 @@
 // Conversion from raw value to microteslas (uT)
 #define TO_UT (100.0 / 1090.0)
 
+/**
+ * @brief Constructor for Compass class, initializes I2C communication.
+ *
+ * Sets up I2C pins, configures pull-ups, and initializes compass registers.
+ *
+ * @param I2C_PORT_VAL Pointer to the I2C instance.
+ * @param SCL_PIN_VAL GPIO pin number for SCL.
+ * @param SDL_PIN_VAL GPIO pin number for SDA.
+ */
 Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
     : I2C_PORT(I2C_PORT_VAL),  SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
     i2c_init(I2C_PORT, 400000); // 400 kHz
@@ -32,7 +41,16 @@ Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
     i2c_write_blocking(I2C_PORT, COMPASS_ADDR, config_b, 2, false);
 }
 
-// Read raw data from the compass
+/**
+ * @brief Reads raw x, y, and z values from the compass sensor.
+ *
+ * Communicates with the compass over I2C to retrieve 6 bytes of data
+ * representing the raw magnetic field strengths.
+ *
+ * @param x Reference to store the x-axis raw value.
+ * @param y Reference to store the y-axis raw value.
+ * @param z Reference to store the z-axis raw value.
+ */
 void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     uint8_t buf[2] = {MODE_REG, CONFIG_B};
     uint8_t data[6];
@@ -41,7 +59,6 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
         DEBUG("Can't read compass");
         return;
     }
-    // i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 2, false);
     sleep_ms(10);
 
     // Request data
@@ -57,8 +74,6 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
         DEBUG("Can't read compass");
         return;
     }
-    // i2c_write_blocking(I2C_PORT, COMPASS_ADDR, buf, 1, false);
-    // i2c_read_blocking(I2C_PORT, COMPASS_ADDR, data, 6, false);
 
     // Combine high and low bytes
     x = ((int16_t)data[0] << 8) | data[1];
@@ -66,6 +81,12 @@ void Compass::readRawData(int16_t &x, int16_t &y, int16_t &z) {
     y = ((int16_t)data[4] << 8) | data[5];
 }
 
+/**
+ * @brief Calibrates the compass by determining offsets for x, y, and z axes.
+ *
+ * The function repeatedly measures raw values and determines the min/max
+ * values to calculate offsets, ensuring more accurate readings.
+ */
 void Compass::calibrate() {
     CalibrationMaxValue maxValue = {0, 0, 0};
     CalibrationMinValue minValue = {0, 0, 0};
@@ -85,50 +106,26 @@ void Compass::calibrate() {
         readRawData(x, y, z);
         if ((std::fabs(x) > 600) || (std::fabs(y) > 600) || (std::fabs(z) > 600)) continue;
 
-        if (minValue.X > x) {
-            minValue.X = x;
-        } else if (maxValue.X < x) {
-            maxValue.X = x;
-        }
+        if (minValue.X > x) minValue.X = x;
+        else if (maxValue.X < x) maxValue.X = x;
 
-        if (minValue.Y > y) {
-            minValue.Y = y;
-        } else if (maxValue.Y < y) {
-            maxValue.Y = y;
-        }
+        if (minValue.Y > y) minValue.Y = y;
+        else if (maxValue.Y < y) maxValue.Y = y;
 
-        if (minValue.Z > z) {
-            minValue.Z = z;
-        } else if (maxValue.Z < z) {
-            maxValue.Z = z;
-        }
+        if (minValue.Z > z) minValue.Z = z;
+        else if (maxValue.Z < z) maxValue.Z = z;
 
         if (xRotationFlag) {
-            if (std::fabs(x) > 50) {
-                xRotationFlag = false;
-                xCount++;
-            }
-        } else {
-            if (std::fabs(x) < 40) { xRotationFlag = true; }
-        }
+            if (std::fabs(x) > 50) { xRotationFlag = false; xCount++; }
+        } else if (std::fabs(x) < 40) { xRotationFlag = true; }
 
         if (yRotationFlag) {
-            if (std::fabs(y) > 50) {
-                yRotationFlag = false;
-                yCount++;
-            }
-        } else {
-            if (std::fabs(y) < 40) { yRotationFlag = true; }
-        }
+            if (std::fabs(y) > 50) { yRotationFlag = false; yCount++; }
+        } else if (std::fabs(y) < 40) { yRotationFlag = true; }
 
         if (zRotationFlag) {
-            if (std::fabs(z) > 50) {
-                zRotationFlag = false;
-                zCount++;
-            }
-        } else {
-            if (std::fabs(z) < 40) { zRotationFlag = true; }
-        }
+            if (std::fabs(z) > 50) { zRotationFlag = false; zCount++; }
+        } else if (std::fabs(z) < 40) { zRotationFlag = true; }
 
         sleep_ms(30);
     }
@@ -140,7 +137,14 @@ void Compass::calibrate() {
     DEBUG("Calibration done");
 }
 
-// Calculate heading in degrees
+/**
+ * @brief Computes and returns the compass heading in degrees.
+ *
+ * Uses the raw x and y values to determine the direction the compass is pointing,
+ * factoring in a declination angle specific to the location.
+ *
+ * @return float The heading in degrees (0-360).
+ */
 float Compass::getHeading() {
     int16_t x, y, z;
     readRawData(x, y, z);
@@ -149,24 +153,15 @@ float Compass::getHeading() {
     y -= yRawValueOffset;
     z -= zRawValueOffset;
 
-    // Convert raw values to microtesla
     float x_uT = x * TO_UT;
     float y_uT = y * TO_UT;
-    //float z_uT = z * TO_UT;
 
-    // Calculate heading
     float heading = atan2(y_uT, x_uT);
-
-    // This is the declination angle in radians, converted from +10* 16'. It is taken around Helsinki / Vantaa.
     float declinationAngle = 0.18;
     heading += declinationAngle;
 
     if (heading < 0) heading += 2 * M_PI;
+    if (heading > 2 * M_PI) heading -= 2 * M_PI;
 
-    if (heading > 2 * M_PI) { heading -= 2 * M_PI; }
-
-    // convert radians to degrees
-    float headingDegrees = heading * 180 / M_PI;
-
-    return headingDegrees;
+    return heading * 180 / M_PI;
 }
