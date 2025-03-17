@@ -1,17 +1,32 @@
 use sqlx::{FromRow, SqlitePool};
 use std::{env, fs, path::PathBuf};
 
+/// Represents an image directory
 #[derive(Clone)]
 pub struct ImageDirectory {
+    /// The path to the image directory
     pub path: PathBuf,
+    /// The list of image extensions to search for
     pub extensions: Vec<String>,
 }
 
 impl ImageDirectory {
+    /// Creates a new ImageDirectory
+    /// 
+    /// # Arguments
+    /// * `path` - The path to the image directory
+    /// * `extensions` - The list of image extensions to search for
+    /// 
+    /// # Returns
+    /// An ImageDirectory struct
     pub fn new(path: PathBuf, extensions: Vec<String>) -> Self {
         Self { path, extensions }
     }
 
+    /// Finds images in the directory
+    /// 
+    /// # Returns
+    /// A Vec of PathBufs containing the image paths
     pub fn find_images(&self) -> Vec<PathBuf> {
         let mut images: Vec<PathBuf> = Vec::new();
 
@@ -53,6 +68,7 @@ impl ImageDirectory {
 }
 
 impl Default for ImageDirectory {
+    /// Creates a ImageDirectory with default values
     fn default() -> Self {
         Self {
             path: PathBuf::from("./assets/images"),
@@ -68,6 +84,13 @@ impl Default for ImageDirectory {
     }
 }
 
+/// Generates a URL for an image
+/// 
+/// # Arguments
+/// * `path` - The path to the image
+/// 
+/// # Returns
+/// A String containing the image URL
 fn generate_image_url(path: &PathBuf) -> String {
     format!(
         "/assets/images/{}",
@@ -75,6 +98,13 @@ fn generate_image_url(path: &PathBuf) -> String {
     )
 }
 
+/// Generates HTML for a list of images
+/// 
+/// # Arguments
+/// * `images` - A Vec of PathBufs containing the image paths
+/// 
+/// # Returns
+/// A String containing the HTML
 pub fn generate_html(images: Vec<PathBuf>) -> String {
     let mut html = String::new();
     for image in images {
@@ -83,6 +113,10 @@ pub fn generate_html(images: Vec<PathBuf>) -> String {
     html
 }
 
+/// Updates the gallery HTML file
+/// 
+/// # Returns
+/// A boolean indicating if the update was successful
 pub async fn update_gallery() -> bool {
     let tmp = env::temp_dir();
     let directory = ImageDirectory::default();
@@ -107,6 +141,18 @@ pub async fn update_gallery() -> bool {
     result
 }
 
+/// Registers an image in the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `name` - The name of the image
+/// * `path` - The path to the image
+/// * `web_path` - The web path to the image
+/// * `command_id` - The ID of the command that generated the image
+/// 
+/// # Returns
+/// * Empty result if successful
+/// * A sqlx::Error if the query fails
 pub async fn register_image(
     db: &SqlitePool,
     name: &str,
@@ -126,18 +172,35 @@ pub async fn register_image(
     Ok(())
 }
 
+/// Unregisters an image from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `path` - The path to the image
 pub async fn unregister_image(db: &SqlitePool, path: &str) {
     let sql = "DELETE FROM images WHERE path = ?";
     sqlx::query(sql).bind(path).execute(db).await.unwrap();
 }
 
+/// Represents an image stored in the database
 #[derive(FromRow)]
 pub struct Image {
+    /// The name of the image
     pub name: String,
+    /// The path to the image
     path: String,
+    /// The web path to the image
     pub web_path: String,
 }
 
+/// Fetches a list of images from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * A Vec of Images
+/// * A sqlx::Error if the query fails
 async fn get_image_list(db: &SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
     let sql = "SELECT * FROM images";
     let images = sqlx::query_as(sql).fetch_all(db).await?;
@@ -145,6 +208,16 @@ async fn get_image_list(db: &SqlitePool) -> Result<Vec<Image>, sqlx::Error> {
     Ok(images)
 }
 
+/// Checks the images in the directory against the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `dir` - The ImageDirectory
+/// * `update` - A boolean indicating if the database should be updated
+/// 
+/// # Returns
+/// * Empty result if successful
+/// * An error if the operation fails
 pub async fn check_images(
     db: &SqlitePool,
     dir: &ImageDirectory,
@@ -174,6 +247,12 @@ pub async fn check_images(
     Ok(())
 }
 
+/// Updates the images in the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `dir_images` - A Vec of PathBufs containing the image paths
+/// * `db_images` - A Vec of Images
 async fn update_images(db: &SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec<Image>) {
     for image in &dir_images {
         let path = image.to_str().expect("Failed to get path");
@@ -234,6 +313,16 @@ async fn update_images(db: &SqlitePool, dir_images: Vec<PathBuf>, db_images: Vec
     }
 }
 
+/// Fetches a list of images with pagination from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `page` - The page number to fetch
+/// * `page_size` - The number of images per page
+/// 
+/// # Returns
+/// * A Vec of Images
+/// * A sqlx::Error if the query fails
 pub async fn get_image_info(
     db: &SqlitePool,
     mut page: u32,
@@ -262,6 +351,14 @@ pub async fn get_image_info(
     Ok(images)
 }
 
+/// Fetches the total number of images in the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * The number of images
+/// * A sqlx::Error if the query fails
 pub async fn get_image_count(db: &SqlitePool) -> Result<u64, sqlx::Error> {
     let count = sqlx::query_scalar("SELECT COUNT(*) FROM images")
         .fetch_one(db)
@@ -270,6 +367,14 @@ pub async fn get_image_count(db: &SqlitePool) -> Result<u64, sqlx::Error> {
     Ok(count)
 }
 
+/// Fetches the last image from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * The last image
+/// * A sqlx::Error if the query fails
 pub async fn get_last_image(db: &SqlitePool) -> Result<Image, sqlx::Error> {
     let image = sqlx::query_as("SELECT * FROM images ORDER BY id DESC")
         .fetch_one(db)

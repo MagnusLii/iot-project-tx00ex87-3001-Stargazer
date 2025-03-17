@@ -11,6 +11,13 @@ use axum::{
 };
 use serde::Deserialize;
 
+/// The root route for the webserver
+/// 
+/// # Arguments
+/// * `state` - The shared state of the webserver
+///
+/// # Returns
+/// * A HTTP response containing the home page
 pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/home.html").to_string();
 
@@ -31,11 +38,23 @@ pub async fn root(State(state): State<SharedState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/// Represents a query for the gallery route
 #[derive(Debug, Deserialize)]
 pub struct GalleryQuery {
+    /// Optional page number
     page: Option<u32>,
+    /// Optional page size
     psize: Option<u32>,
 }
+
+/// The gallery route for the webserver
+/// 
+/// # Arguments
+/// * `state` - The shared state of the webserver
+/// * `query` - The query parameters for the gallery route
+/// 
+/// # Returns
+/// * A HTTP response containing the gallery page
 pub async fn gallery(
     State(state): State<SharedState>,
     query: Result<Query<GalleryQuery>, QueryRejection>,
@@ -129,6 +148,13 @@ pub async fn gallery(
     }
 }
 
+/// The control route for the webserver
+/// 
+/// # Arguments
+/// * `state` - The shared state of the webserver
+/// 
+/// # Returns
+/// * A HTTP response containing the control commands page
 pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = std::include_str!("../../html/control.html").to_string();
 
@@ -192,6 +218,13 @@ pub async fn control(State(state): State<SharedState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/// The keys route for the webserver
+/// 
+/// # Arguments
+/// * `state` - The shared state of the webserver
+/// 
+/// # Returns
+/// * A HTTP response containing the API keys page
 pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     let mut html = include_str!("../../html/keys.html").to_string();
 
@@ -221,13 +254,25 @@ pub async fn api_keys(State(state): State<SharedState>) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/// Represents a query for the diagnostics route
 #[derive(Debug, Deserialize)]
 pub struct DiagnosticQuery {
+    /// Optional name filter
     name: Option<String>,
+    /// Optional page number
     page: Option<u32>,
+    /// Optional status filter
     status: Option<u8>,
 }
 
+/// The diagnostics route for the webserver
+/// 
+/// # Arguments
+/// * `state` - The shared state of the webserver
+/// * `query` - The query parameters for the diagnostics route
+/// 
+/// # Returns
+/// * A HTTP response containing the diagnostics page
 pub async fn diagnostics(
     State(state): State<SharedState>,
     query: Result<Query<DiagnosticQuery>, QueryRejection>,
@@ -336,6 +381,14 @@ pub async fn diagnostics(
     (StatusCode::OK, Html(html))
 }
 
+/// The users route for the webserver
+/// 
+/// # Arguments
+/// * `auth_session` - The authentication session
+/// 
+/// # Returns
+/// * A HTTP response containing the user management page
+/// * A HTTP response containing the forbidden page
 pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
     let forbidden = include_str!("../../html/user_management_403.html").to_string();
     if let Some(user) = auth_session.user {
@@ -378,6 +431,13 @@ pub async fn user_management(auth_session: AuthSession) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/// The user route for the webserver
+/// 
+/// # Arguments
+/// * `auth_session` - The authentication session
+/// 
+/// # Returns
+/// * A HTTP response containing the current user page
 pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
     let mut html = include_str!("../../html/user.html").to_string();
 
@@ -390,10 +450,18 @@ pub async fn user_page(auth_session: AuthSession) -> impl IntoResponse {
     (StatusCode::OK, Html(html))
 }
 
+/// Route to redirect to the favicon
+/// 
+/// # Returns
+/// * A HTTP response redirecting to the favicon
 pub async fn favicon() -> impl IntoResponse {
     Redirect::to("/assets/favicon.ico")
 }
 
+/// Route to handle unknown routes
+/// 
+/// # Returns
+/// * A HTTP response containing the 404 page
 pub async fn unknown_route() -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,

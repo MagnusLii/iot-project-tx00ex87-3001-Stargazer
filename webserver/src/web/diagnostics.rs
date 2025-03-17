@@ -2,6 +2,7 @@ use crate::err::Error;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 
+/// Represents a diagnostics table page
 pub struct Diagnostics {
     pub page: u64,
     pub pages: u64,
@@ -10,6 +11,7 @@ pub struct Diagnostics {
 }
 
 impl std::fmt::Debug for Diagnostics {
+    /// Formats the Diagnostics struct for debugging
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Diagnostics")
             .field("page", &self.page)
@@ -20,14 +22,30 @@ impl std::fmt::Debug for Diagnostics {
     }
 }
 
+/// Represents a diagnostics table row from the database
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct DiagnosticsSql {
+    /// The name of the key/device related to the diagnostic
     pub name: String,
+    /// The status of the diagnostic
     pub status: String,
+    /// The message of the diagnostic
     pub message: String,
+    /// The datetime of the diagnostic
     pub datetime: String,
 }
 
+/// Fetches diagnostics from the database
+/// 
+/// # Arguments
+/// * `name` - The name of the key/device to filter by
+/// * `page` - The page number to fetch
+/// * `status` - The status of the diagnostics to filter by
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * A Diagnostics struct containing the diagnostics data
+/// * An Error if the query fails
 pub async fn get_diagnostics(
     name: Option<String>,
     page: Option<u32>,
@@ -156,16 +174,25 @@ pub async fn get_diagnostics(
         }
     };
 
-    dbg!(&result);
+    //dbg!(&result);
 
     Ok(result)
 }
 
+/// Represents a diagnostic status row from the database
 #[derive(Debug, Deserialize, FromRow)]
 pub struct DiagnosticNamesSql {
     pub name: String,
 }
 
+/// Fetches the list of valid device names from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * A Vec of DiagnosticNamesSql containing the device names
+/// * An Error if the query fails
 pub async fn get_diagnostics_names(db: &SqlitePool) -> Result<Vec<DiagnosticNamesSql>, Error> {
     let names = sqlx::query_as(
         "SELECT DISTINCT keys.name AS name
