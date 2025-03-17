@@ -21,23 +21,25 @@ All available configuration options can be found in the <a href="example-config.
 
 # Usage
 ```
+Stargazer webserver
+
 Usage: stargazer-ws [OPTIONS]
 
 Options:
-  -a, --address <ADDRESS>          Server address
-  -p, --port-http <PORT_HTTP>      HTTP port
-  -s, --port-https <PORT_HTTPS>    HTTPS port
-      --disable-http               HTTP disable
-      --enable-http                HTTP enable
-      --enable-http-api            HTTP enabled for API even if HTTP is otherwise disabled
-      --disable-https              HTTPS disable
-      --enable-https               HTTPS enable
-      --enable-https-api           HTTPS enabled for API even if HTTPS is otherwise disabled
-  -c, --config-file <CONFIG_FILE>  Config file path
-  -w, --working-dir <WORKING_DIR>  Working directory
-      --db-dir <DB_DIR>            Database directory
-      --assets-dir <ASSETS_DIR>    Assets directory
-      --certs-dir <CERTS_DIR>      Certificate directory
+  -a, --address <ADDRESS>          Set server address
+  -p, --port-http <PORT_HTTP>      Set HTTP port
+  -s, --port-https <PORT_HTTPS>    Set HTTPS port
+      --disable-http               Disable HTTP
+      --enable-http                Enable HTTP
+      --enable-http-api            Enable HTTP API if HTTP is disabled
+      --disable-https              Disable HTTPS
+      --enable-https               Enable HTTPS
+      --enable-https-api           Enable HTTPS API if HTTPS is disabled
+  -c, --config-file <CONFIG_FILE>  Set config file to use (default: config.toml)
+  -w, --working-dir <WORKING_DIR>  Set working directory
+      --db-dir <DB_DIR>            Set database directory
+      --assets-dir <ASSETS_DIR>    Set assets directory
+      --certs-dir <CERTS_DIR>      Set certificate directory
   -h, --help                       Print help
   -V, --version                    Print version
 ```
