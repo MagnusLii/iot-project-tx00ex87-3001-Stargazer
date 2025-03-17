@@ -30,13 +30,9 @@
 </details>
 
 
-
 ## About The Project
 
 The Stargazer is an easy to set up device that will take pictures of celestial objects at the most opportune times. Stargazer uses a simple and easy to use web interface to drive the device and see the beautiful pictures instantly when they happen. The pictures are also saved locally on an SD card for a convenient way of transferring and handling the pictures. Stargazer can also be driven completely offline using a laptop or a computer, making using the device flexible to use even when you have no internet connectivity.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 
 ### Built With
@@ -44,8 +40,6 @@ The Stargazer is an easy to set up device that will take pictures of celestial o
 * [![Pico-SDK][Pico-SDK-badge]][Pico-SDK-url]
 * [![ESPidf][ESP-IDF-badge]][ESP-idf-url]
 * [![rustup/Cargo][rustup-badge]][rustup-url]
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ## Getting Started
@@ -100,11 +94,6 @@ See <a href="ASSEMBLY.md">ASSEMBLY.md</a> for details on building the physical d
     ```sh
     cargo install
     ```
-   
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 ## Usage
 
@@ -179,11 +168,9 @@ The command options are as follows:<br>
 * Image Position:<br>
 `Rising`: Takes a picture when the celestial object rises from the horizon.<br>
 `Zenith`: Takes a picture at the zenith of the celestial object.<br>
-`Setting`: Takes a picture when the celestial object close to setting beneath the horizon
+`Setting`: Takes a picture when the celestial object close to setting beneath the horizon<br>
 `Any`: Takes a picture at the current given time.<br>
 
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <a id="CMAKE-flags"></a>
 
@@ -206,7 +193,6 @@ Enabling these flags changes the way the device operates.
 
 Distributed under the ISC License. See `LICENSE` for more information.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
