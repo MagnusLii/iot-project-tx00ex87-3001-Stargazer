@@ -7,19 +7,39 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 
+/// Represents an API key stored in the database
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Key {
+    /// The ID of the key
     pub id: i64,
+    /// The API token
     pub api_token: String,
+    /// The name of the key
     pub name: String,
 }
 
+/// Get all keys from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * A vector of `Key` objects
+/// * An `Error` if the query fails
 pub async fn get_keys(db: &SqlitePool) -> Result<Vec<Key>, Error> {
     let keys: Vec<Key> = sqlx::query_as("SELECT * FROM keys").fetch_all(db).await?;
 
     Ok(keys)
 }
 
+/// Create a new key in the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `name` - The name of the key
+/// 
+/// # Returns
+/// The API token of the new key
 async fn create_key(db: &SqlitePool, name: String) -> String {
     let api_key = uuid::Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO keys (api_token, name) VALUES (?, ?)")
@@ -31,6 +51,11 @@ async fn create_key(db: &SqlitePool, name: String) -> String {
     api_key
 }
 
+/// Delete a key from the database
+/// 
+/// # Arguments
+/// * `db` - The database connection pool
+/// * `id` - The ID of the key to delete
 async fn delete_key(db: &SqlitePool, id: i64) {
     sqlx::query("DELETE FROM keys WHERE id = ?")
         .bind(id)
@@ -39,11 +64,21 @@ async fn delete_key(db: &SqlitePool, id: i64) {
         .unwrap();
 }
 
+/// Name of the key to create wrapped in a JSON payload
 #[derive(Deserialize)]
 pub struct NewKeyJson {
+    /// The name of the key
     name: String,
 }
 
+/// The route handler for creating a new key
+/// 
+/// # Arguments
+/// * `state` - The shared state of the application
+/// * `payload` - The JSON payload containing the name of the key
+/// 
+/// # Returns
+/// * A HTTP response containing the API token of the new key
 pub async fn new_key(
     State(state): State<SharedState>,
     payload: Result<Json<NewKeyJson>, JsonRejection>,
@@ -67,11 +102,21 @@ pub async fn new_key(
     }
 }
 
+/// Query parameters for deleting a key
 #[derive(Deserialize)]
 pub struct DeleteKeyQuery {
+    /// The ID of the key to delete
     id: i64,
 }
 
+/// The route handler for deleting a key
+/// 
+/// # Arguments
+/// * `state` - The shared state of the application
+/// * `key` - The query parameters containing the ID of the key to delete
+/// 
+/// # Returns
+/// A HTTP response indicating success or failure
 pub async fn remove_key(
     State(state): State<SharedState>,
     Query(key): Query<DeleteKeyQuery>,
@@ -92,6 +137,15 @@ pub async fn remove_key(
     (StatusCode::OK, "Success")
 }
 
+/// Verify that a key is valid
+/// 
+/// # Arguments
+/// * `token` - The API token to verify
+/// * `db` - The database connection pool
+/// 
+/// # Returns
+/// * `true` if the key is valid
+/// * `false` if the key is invalid
 pub async fn verify_key(token: &str, db: &SqlitePool) -> bool {
     let keys = get_keys(db).await.unwrap();
     for key in keys {

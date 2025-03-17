@@ -59,8 +59,6 @@ cd target/release/
 stargazer-ws
 ```
 
-
-
 # API
 The API currently has the following endpoints:
 

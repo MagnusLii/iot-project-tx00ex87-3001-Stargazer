@@ -1,5 +1,6 @@
 use tokio::task;
 
+/// Combined error type for common errors in the webserver.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -12,6 +13,7 @@ pub enum Error {
     Password(#[from] PasswordError),
 }
 
+/// Error type for password hashing and verification.
 #[cfg(feature = "pw_hash")]
 #[derive(Debug, thiserror::Error)]
 pub enum PasswordError {
@@ -25,6 +27,7 @@ pub enum PasswordError {
     Other,
 }
 
+/// Error type for password verification.
 #[cfg(not(feature = "pw_hash"))]
 #[derive(Debug, thiserror::Error)]
 pub enum PasswordError {

@@ -26,6 +26,8 @@ use std::net::TcpListener;
 use time::Duration;
 use tower_http::services::ServeDir;
 
+/// The Main application object
+/// Multiple instances of this struct can be created to serve different parts of the application
 pub struct App {
     shared_state: SharedState,
     session_store: MemoryStore,
@@ -36,6 +38,18 @@ pub struct App {
 }
 
 impl App {
+    /// Create a new application object
+    /// 
+    /// # Arguments
+    /// * `user_db` - The user database connection pool
+    /// * `api_db` - The API database connection pool
+    /// * `image_dir` - The directory containing images
+    /// * `assets_dir` - The directory containing assets
+    /// * `tls_config` - The TLS configuration (if one exists)
+    /// 
+    /// # Returns
+    /// * An `App` object
+    /// * An error if the initialization fails
     pub async fn new(
         user_db: SqlitePool,
         api_db: SqlitePool,
@@ -61,6 +75,15 @@ impl App {
         })
     }
 
+    /// Start a server and serve the web application and API
+    /// 
+    /// # Arguments
+    /// * `address` - The address to bind to
+    /// * `https` - Whether to use HTTPS
+    /// 
+    /// # Returns
+    /// * `Ok(())` if the server exited successfully
+    /// * An error if the server failed
     pub async fn serve(self, address: &str, https: bool) -> Result<(), Box<dyn std::error::Error>> {
         let session_layer = SessionManagerLayer::new(self.session_store)
             .with_secure(false)
@@ -94,8 +117,6 @@ impl App {
             .route("/login", get(login_page))
             .route("/login", post(login))
             .route("/logout", get(logout))
-            //.route("/test", get(crate::web::routes::test))
-            //.route("/test", post(commands::request_commands_info))
             .layer(MessagesManagerLayer)
             .layer(auth_layer)
             .nest_service("/assets", ServeDir::new(&self.assets_dir))
@@ -138,6 +159,15 @@ impl App {
         Ok(())
     }
 
+    /// Start a server and serve the API only
+    /// 
+    /// # Arguments
+    /// * `address` - The address to bind to
+    /// * `https` - Whether to use HTTPS
+    /// 
+    /// # Returns
+    /// * `Ok(())` if the server exited successfully
+    /// * An error if the server failed
     pub async fn serve_api_only(
         self,
         address: &str,

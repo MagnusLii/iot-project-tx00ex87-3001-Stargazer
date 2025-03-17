@@ -11,46 +11,46 @@ use stargazer_ws::{
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Server address
+    /// Set server address
     #[arg(short, long)]
     address: Option<String>,
-    /// HTTP port
+    /// Set HTTP port
     #[arg(short, long)]
     port_http: Option<u16>,
-    /// HTTPS port
+    /// Set HTTPS port
     #[arg(short = 's', long)]
     port_https: Option<u16>,
-    /// HTTP disable
+    /// Disable HTTP
     #[arg(long, conflicts_with = "enable_http")]
     disable_http: bool,
-    /// HTTP enable
+    /// Enable HTTP
     #[arg(long)]
     enable_http: bool,
-    /// HTTP enabled for API even if HTTP is otherwise disabled
+    /// Enable HTTP API if HTTP is disabled
     #[arg(long)]
     enable_http_api: bool,
-    /// HTTPS disable
+    /// Disable HTTPS
     #[arg(long, conflicts_with = "enable_https")]
     disable_https: bool,
-    /// HTTPS enable
+    /// Enable HTTPS
     #[arg(long)]
     enable_https: bool,
-    /// HTTPS enabled for API even if HTTPS is otherwise disabled
+    /// Enable HTTPS API if HTTPS is disabled
     #[arg(long)]
     enable_https_api: bool,
-    /// Config file path
+    /// Set config file to use (default: config.toml)
     #[arg(short, long)]
     config_file: Option<String>,
-    /// Working directory
+    /// Set working directory
     #[arg(short, long)]
     working_dir: Option<String>,
-    /// Database directory
+    /// Set database directory
     #[arg(long)]
     db_dir: Option<String>,
-    /// Assets directory
+    /// Set assets directory
     #[arg(long)]
     assets_dir: Option<String>,
-    /// Certificate directory
+    /// Set certificate directory
     #[arg(long)]
     certs_dir: Option<String>,
 }
@@ -183,6 +183,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// Starts a server on the given address with selected options
+/// 
+/// # Arguments
+/// * `address` - The address to bind to
+/// * `user_db` - The user database connection pool
+/// * `api_db` - The API database connection pool
+/// * `image_dir` - The directory containing images
+/// * `assets_dir` - The directory containing assets
+/// * `tls_config` - The TLS configuration (if one exists)
+/// * `api_only` - Whether to only serve the API
+/// * `https` - Whether to use HTTPS
+/// 
+/// # Returns
+/// * `Ok(())` if the server exited successfully
+/// * `Err(&'static str)` if there was an error
 async fn server(
     address: String,
     user_db: SqlitePool,
