@@ -8,16 +8,42 @@ use sqlx::SqlitePool;
 use std::{env, path::Path};
 use tokio::{fs, io};
 
+/// Represents the application resources returned by the setup function.
 pub struct Resources {
+    /// The user database connection pool.
     pub user_db: SqlitePool,
+    /// The API database connection pool.
     pub api_db: SqlitePool,
+    /// The image directory.
     pub image_dir: ImageDirectory,
+    /// The assets directory path.
     pub assets_dir: String,
+    /// The TLS configuration, if enabled.
     pub tls_config: Option<RustlsConfig>,
+    /// The primary server details.
     pub primary_server: ServerDetails,
+    /// The secondary server details, if applicable.
     pub secondary_server: Option<ServerDetails>,
 }
 
+/// Main setup function for the webserver to ensure everything is correct and
+/// in the places where they should be.
+///
+/// # Arguments
+///
+/// * `user_db_path`: Path to the user database.
+/// * `api_db_path`: Path to the API database.
+/// * `assets_dir_path`: Path to the assets directory.
+/// * `certs_dir_path`: Path to the certificates directory.
+/// * `tls`: Whether TLS is enabled.
+/// * `address`: The server address.
+/// * `http_port`: The HTTP port.
+/// * `https_port`: The HTTPS port.
+/// * `mode`: The application mode.
+///
+/// # Returns
+///
+/// A `Result` containing the `Resources` instance or an error.
 pub async fn setup(
     user_db_path: &str,
     api_db_path: &str,
@@ -52,7 +78,6 @@ pub async fn setup(
 
     match setup_file_dirs(assets_dir_path).await {
         Ok(_) => {
-            /* TODO: Create a function for this */
             image_dir = ImageDirectory::new(
                 Path::new(assets_dir_path).join("images"),
                 vec![
@@ -64,7 +89,7 @@ pub async fn setup(
             images::check_images(&api_db, &image_dir, true)
                 .await
                 .unwrap();
-            /* TODO: Create a function for this */
+
             assets_dir = String::from(assets_dir_path);
         }
         Err(e) => panic!("Error setting up file dirs: {}", e),
@@ -97,6 +122,15 @@ pub async fn setup(
     })
 }
 
+/// Sets up the user database if it doesn't exist.
+///
+/// # Arguments
+///
+/// * `user_db_path`: Path to the user database.
+///
+/// # Returns
+///
+/// A `Result` containing the `SqlitePool` or a `sqlx::Error`
 pub async fn setup_user_database(user_db_path: &str) -> Result<SqlitePool, sqlx::Error> {
     let path = Path::new(user_db_path);
     let exists = path.exists();
@@ -121,6 +155,15 @@ pub async fn setup_user_database(user_db_path: &str) -> Result<SqlitePool, sqlx:
     Ok(user_db) // Return the user_db
 }
 
+/// Sets up the API database if it doesn't exist.
+///
+/// # Arguments
+///
+/// * `api_db_path`: Path to the API database.
+///
+/// # Returns
+///
+/// A `Result` containing the `SqlitePool` or a `sqlx::Error`.
 pub async fn setup_api_database(api_db_path: &str) -> Result<SqlitePool, sqlx::Error> {
     let path = Path::new(api_db_path);
     let exists = path.exists();
@@ -150,15 +193,31 @@ pub async fn setup_api_database(api_db_path: &str) -> Result<SqlitePool, sqlx::E
     Ok(api_db)
 }
 
+/// Sets up the cache directory.
+///
+/// # Arguments
+///
+/// * `tmp_dir`: The name of the temporary directory.
+///
+/// # Returns
+///
+/// Returns a `Result` indicating success or an `io::Error`.
 pub async fn setup_cache_dir(tmp_dir: &str) -> Result<(), io::Error> {
     let cache_dir_path = env::temp_dir().join(tmp_dir);
     fs::create_dir_all(&cache_dir_path).await?;
     Ok(())
 }
 
-// Creates the assets and images directories if they don't exist
-// This is mostly for purposes of preventing the server from crashing if the directories are missing
-// but at least the assets directory should be there and populated before the server is started
+/// Sets up the file directories and populates them if necessary, 
+/// This includes assets, css, js and images.
+///
+/// # Arguments
+///
+/// * `assets_dir_path`: Path to the assets directory.
+///
+/// # Returns
+///
+/// A `Result` indicating success or an `io::Error`.
 pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
     let assets_path = Path::new(assets_dir_path);
 
@@ -208,6 +267,19 @@ pub async fn setup_file_dirs(assets_dir_path: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
+/// Sets up the TLS configuration.
+///
+/// # Arguments
+///
+/// * `certs_dir_path`: Path to the certificates directory.
+///
+/// # Returns
+///
+/// A `Result` containing the `RustlsConfig` or an `io::Error`.
+/// 
+/// # Panics
+///
+/// Panics if the server certificate or key is not found.
 pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::Error> {
     let crt_path = Path::new(certs_dir_path).join("server.crt");
     match crt_path.try_exists() {
@@ -246,12 +318,28 @@ pub async fn setup_tls_config(certs_dir_path: &str) -> Result<RustlsConfig, io::
     Ok(tls_config)
 }
 
+/// Represents the individual server details.
 pub struct ServerDetails {
+    /// The server address.
     pub address: String,
+    /// Whether the server is using HTTPS
     pub secure: bool,
+    /// Whether the server is API only.
     pub api_only: bool,
 }
 
+/// Sets up the server details based on the mode.
+/// 
+/// # Arguments
+/// 
+/// * `address`: The server address.
+/// * `http_port`: The HTTP port.
+/// * `https_port`: The HTTPS port.
+/// * `mode`: The application mode.
+///
+/// # Returns
+/// 
+/// A `Result` containing the primary and secondary `ServerDetails` or an error.
 async fn setup_server_details(
     address: &str,
     http_port: u16,

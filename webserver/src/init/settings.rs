@@ -1,21 +1,52 @@
 use config::{Config, ConfigError, File};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+/// Represents the application settings.
 #[derive(Debug)]
 pub struct Settings {
+    /// The address to bind to.
     pub address: String,
+    /// The HTTP port.
     pub port_http: u16,
+    /// The HTTPS port.
     pub port_https: u16,
+    /// Enables HTTP.
     pub enable_http: bool,
+    /// Enables HTTP API only mode.
     pub enable_http_api: bool,
+    /// Enables HTTPS.
     pub enable_https: bool,
+    /// Enables HTTPS API only mode.
     pub enable_https_api: bool,
+    /// The directory for the database.
     pub db_dir: String,
+    /// The directory for assets.
     pub assets_dir: String,
+    /// The directory for TLS certificates.
     pub certs_dir: String,
 }
 
 impl Settings {
+    /// Creates a new `Settings` instance by loading configuration from a file and applying overrides.
+    ///
+    /// # Arguments
+    ///
+    /// * `config_file`: Optional path to the configuration file.
+    /// * `working_dir`: Optional working directory.
+    /// * `address`: Optional override for the address.
+    /// * `port_http`: Optional override for the HTTP port.
+    /// * `port_https`: Optional override for the HTTPS port.
+    /// * `enable_http`: Optional override for enabling HTTP.
+    /// * `enable_http_api`: Optional override for enabling HTTP API only mode.
+    /// * `enable_https`: Optional override for enabling HTTPS.
+    /// * `enable_https_api`: Optional override for enabling HTTPS API only mode.
+    /// * `db_dir`: Optional override for the database directory.
+    /// * `assets_dir`: Optional override for the assets directory.
+    /// * `certs_dir`: Optional override for the certificates directory.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the `Settings` instance or a `ConfigError`.
     pub fn new(
         config_file: Option<String>,
         working_dir: Option<String>,
@@ -49,7 +80,6 @@ impl Settings {
         let assets_dir_default = format!("{}/assets", wd);
         let certs_dir_default = format!("{}/certs", wd);
 
-        // Config file
         let config_file = match config_file {
             Some(config_file_path) => match std::fs::exists(&config_file_path) {
                 Ok(true) => config_file_path,
@@ -111,6 +141,7 @@ impl Settings {
         })
     }
 
+    /// Prints the loaded settings to the console.
     pub fn print(&self) {
         println!("Address: {}", self.address);
         if self.enable_http {
@@ -136,6 +167,11 @@ impl Settings {
         println!("Certs Dir: {}", self.certs_dir);
     }
 
+    /// Determines the application's operating mode based on the loaded settings.
+    ///
+    /// # Returns
+    ///
+    /// * `Mode` enum representing the application mode based on the settings.
     pub fn get_mode(&self) -> Mode {
         match (
             self.enable_http,
@@ -156,6 +192,7 @@ impl Settings {
     }
 }
 
+/// Represents the application mode.
 #[derive(Debug, Clone)]
 pub enum Mode {
     None,
@@ -170,6 +207,7 @@ pub enum Mode {
 }
 
 impl From<u8> for Mode {
+    /// Converts a `u8` value to a `Mode` enum.
     fn from(mode: u8) -> Self {
         match mode {
             0 => Mode::None,
