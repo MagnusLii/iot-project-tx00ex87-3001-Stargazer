@@ -70,9 +70,9 @@ Password: admin<br>
 
 ### Quick start instructions
 
-You need to add a key from the `Keys` page which can be accessed from the `Control` page before you can add commands to the queue.<br>
+You need to first create a key from the `Keys` page which can be accessed from the `Control` page before you can add commands to the queue.<br>
 Generating a key is as simple as giving it a name then pressing generate.<br>
-Then you can give the key/token to the Stargazer<br><br>
+Then you can copy and give the key/token to the Stargazer device<br><br>
 
 After that is done you can add commands from the `Control`/`Commands` page.<br>
 
