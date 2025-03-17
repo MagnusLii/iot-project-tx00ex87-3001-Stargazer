@@ -8,13 +8,14 @@ int modulo(int x, int y) {
 }
 
 StepperMotor::StepperMotor(const std::vector<uint> &stepper_pins)
-    : pins(stepper_pins), direction(true), pioInstance(nullptr), programOffset(0),
-      stateMachine(0), speed(0), sequenceCounter(0), stepCounter(0), stepMax(4097), stepMemory(0) {
-        // need 4 pins
-        if (pins.size() != 4) panic("Need 4 pins to operate stepper motor. number of pins got: %d", pins.size());
-        // Three first stepper pins must be less than 6 apart
-        if (pins[2] - pins [0] > 5) panic("Three first stepper pins must be less than 6 apart. They are %d apart", pins[2] - pins [0]);
-      }
+    : pins(stepper_pins), direction(true), pioInstance(nullptr), programOffset(0), stateMachine(0), speed(0),
+      sequenceCounter(0), stepCounter(0), stepMax(4097), stepMemory(0) {
+    // need 4 pins
+    if (pins.size() != 4) panic("Need 4 pins to operate stepper motor. number of pins got: %d", pins.size());
+    // Three first stepper pins must be less than 6 apart
+    if (pins[2] - pins[0] > 5)
+        panic("Three first stepper pins must be less than 6 apart. They are %d apart", pins[2] - pins[0]);
+}
 
 void StepperMotor::init(PIO pio, float rpm, bool clockwise) {
     pioInstance = pio;
@@ -46,7 +47,7 @@ float StepperMotor::calculateClkDiv(float rpm) const {
 
 // needs to be called after initializing PIO and statemachine
 // The pins have to be ascending in order
-void StepperMotor::pins_init() {   
+void StepperMotor::pins_init() {
     // mask is needed to set pin directions in the state machine
     uint32_t pin_mask = 0x0;
     for (uint pin : pins) {
@@ -73,11 +74,13 @@ void StepperMotor::morph_pio_pin_definitions(void) {
     // pin1
     instructions.emplace_back(pio_encode_set(pio_pins, pin1) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
     // pin1 and 2
-    instructions.emplace_back(pio_encode_set(pio_pins, pin1 | pin2) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    instructions.emplace_back(pio_encode_set(pio_pins, pin1 | pin2) | pio_encode_delay(7) |
+                              pio_encode_sideset(2, 0b10));
     // pin2
     instructions.emplace_back(pio_encode_set(pio_pins, pin2) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
     // pin2 and pin 3
-    instructions.emplace_back(pio_encode_set(pio_pins, pin2 | pin3) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
+    instructions.emplace_back(pio_encode_set(pio_pins, pin2 | pin3) | pio_encode_delay(7) |
+                              pio_encode_sideset(2, 0b10));
     // pin3
     instructions.emplace_back(pio_encode_set(pio_pins, pin3) | pio_encode_delay(7) | pio_encode_sideset(2, 0b10));
     // pin3 and pin4 (sideset)
@@ -86,11 +89,9 @@ void StepperMotor::morph_pio_pin_definitions(void) {
     instructions.emplace_back(pio_encode_set(pio_pins, 0) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11));
     // pin1 and pin4 (sideset)
     instructions.emplace_back(pio_encode_set(pio_pins, pin1) | pio_encode_delay(7) | pio_encode_sideset(2, 0b11));
-    if (!direction) {
-        std::reverse(instructions.begin(), instructions.end());
-    }
-    for (int i=0; i<8; i++) {
-        pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + i*3] = instructions[i];
+    if (!direction) { std::reverse(instructions.begin(), instructions.end()); }
+    for (int i = 0; i < 8; i++) {
+        pioInstance->instr_mem[programOffset + stepper_clockwise_offset_loop + i * 3] = instructions[i];
     }
 }
 
@@ -104,19 +105,14 @@ void StepperMotor::turnSteps(uint16_t steps) {
     stepMemory = (stepMemory << 16) | stepsToAdd;
 }
 
-
 // this will stop the motor and turn to an angle instantly
 void StepperMotor::turn_to(double radians) {
     stop();
     double current = get_position();
     double normalized = normalize_radians(radians);
     double distance = normalized - current;
-    if (distance < -M_PI) {
-        distance += 2 * M_PI;
-    }
-    if (distance > M_PI) {
-        distance -= 2 * M_PI;
-    }
+    if (distance < -M_PI) { distance += 2 * M_PI; }
+    if (distance > M_PI) { distance -= 2 * M_PI; }
     if (distance < 0)
         setDirection(ANTICLOCKWISE);
     else
@@ -124,9 +120,7 @@ void StepperMotor::turn_to(double radians) {
     turnSteps(radians_to_steps(fabs(distance)));
 }
 
-void StepperMotor::turnOneRevolution() {
-    turnSteps(stepMax);
-}
+void StepperMotor::turnOneRevolution() { turnSteps(stepMax); }
 
 void StepperMotor::setSpeed(float rpm) {
     pio_sm_set_enabled(pioInstance, stateMachine, false);
@@ -136,17 +130,13 @@ void StepperMotor::setSpeed(float rpm) {
     pio_sm_set_enabled(pioInstance, stateMachine, true);
 }
 
-void StepperMotor::resetStepCounter(void) {
-    stepCounter = 0;
-}
+void StepperMotor::resetStepCounter(void) { stepCounter = 0; }
 
 void StepperMotor::stop() {
     pio_sm_set_enabled(pioInstance, stateMachine, false);
 
     sequenceCounter = modulo(getCurrentStep() + 1, 8);
-    if (direction == ANTICLOCKWISE) {
-        sequenceCounter = modulo(7 - (sequenceCounter - 1) + 1, 8);
-    }
+    if (direction == ANTICLOCKWISE) { sequenceCounter = modulo(7 - (sequenceCounter - 1) + 1, 8); }
     uint fifoLevel = pio_sm_get_tx_fifo_level(pioInstance, stateMachine);
     int32_t stepsLeft = read_steps_left();
     stepCounter = modulo(stepCounter - stepsLeft, stepMax);
@@ -197,7 +187,7 @@ int StepperMotor::read_steps_left(void) {
 
 void StepperMotor::setDirection(bool clockwise) {
     if (clockwise == direction) return; // no need to do anything
-    
+
     stop();
     pio_sm_set_enabled(pioInstance, stateMachine, false);
     direction = clockwise;
@@ -211,27 +201,32 @@ void StepperMotor::setDirection(bool clockwise) {
     pio_sm_set_enabled(pioInstance, stateMachine, true);
 }
 
-double StepperMotor::get_position(void) {
-    return ((double)stepCounter * 2.0 * M_PI) / (double)stepMax;
-}
+double StepperMotor::get_position(void) { return ((double)stepCounter * 2.0 * M_PI) / (double)stepMax; }
 
-int StepperMotor::radians_to_steps(double radians) {
-    return (int)round((radians * (double)stepMax) / (2.0 * M_PI));
-}
+int StepperMotor::radians_to_steps(double radians) { return (int)round((radians * (double)stepMax) / (2.0 * M_PI)); }
 
 uint8_t StepperMotor::getCurrentStep() const {
     uint8_t pinsOnOff = gpio_get(pins[3]) << 3 | gpio_get(pins[2]) << 2 | gpio_get(pins[1]) << 1 | gpio_get(pins[0]);
 
     switch (pinsOnOff) {
-        case 0x01: return 0;
-        case 0x03: return 1;
-        case 0x02: return 2;
-        case 0x06: return 3;
-        case 0x04: return 4;
-        case 0x0C: return 5;
-        case 0x08: return 6;
-        case 0x09: return 7;
-        default: return 0xFF; // Undefined state
+        case 0x01:
+            return 0;
+        case 0x03:
+            return 1;
+        case 0x02:
+            return 2;
+        case 0x06:
+            return 3;
+        case 0x04:
+            return 4;
+        case 0x0C:
+            return 5;
+        case 0x08:
+            return 6;
+        case 0x09:
+            return 7;
+        default:
+            return 0xFF; // Undefined state
     }
 }
 
@@ -240,16 +235,8 @@ bool StepperMotor::isRunning() const {
              (pio_sm_get_tx_fifo_level(pioInstance, stateMachine) == 0));
 }
 
+uint16_t StepperMotor::getMaxSteps() const { return stepMax; }
 
-uint16_t StepperMotor::getMaxSteps() const {
-    return stepMax;
-}
+int16_t StepperMotor::getStepCount() const { return stepCounter; }
 
-
-int16_t StepperMotor::getStepCount() const {
-    return stepCounter;
-}
-
-bool StepperMotor::getDirection() const {
-    return direction;
-}
+bool StepperMotor::getDirection() const { return direction; }

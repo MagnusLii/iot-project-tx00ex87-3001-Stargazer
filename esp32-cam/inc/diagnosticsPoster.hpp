@@ -15,6 +15,7 @@ enum class DiagnosticsStatus {
 class DiagnosticsPoster {
   public:
     DiagnosticsPoster(std::shared_ptr<RequestHandler> requestHandler, std::shared_ptr<WirelessHandler> wirelessHandler);
+    ~DiagnosticsPoster();
     bool add_diagnostics_to_queue(std::string message, DiagnosticsStatus status_level);
 
   private:

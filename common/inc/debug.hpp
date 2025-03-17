@@ -30,8 +30,10 @@ template <typename... Args> void print(const char *file, int line, Args... args)
         if (offset < sizeof(buffer)) {
             if constexpr (std::is_integral_v<decltype(arg)>) {
                 int written;
-                if constexpr (std::is_same_v<decltype(arg), long long int> || std::is_same_v<decltype(arg), unsigned long long int>) {
-                    written = snprintf(buffer + offset, sizeof(buffer) - offset, "%lld ", static_cast<long long int>(arg));
+                if constexpr (std::is_same_v<decltype(arg), long long int> ||
+                              std::is_same_v<decltype(arg), unsigned long long int>) {
+                    written =
+                        snprintf(buffer + offset, sizeof(buffer) - offset, "%lld ", static_cast<long long int>(arg));
                 } else if constexpr (std::is_same_v<decltype(arg), long int>) {
                     written = snprintf(buffer + offset, sizeof(buffer) - offset, "%ld ", static_cast<long int>(arg));
                 } else {

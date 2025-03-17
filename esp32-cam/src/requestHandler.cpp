@@ -25,6 +25,22 @@
 #include <sstream>
 #include <string.h>
 
+/**
+ * @brief Constructor for the RequestHandler class.
+ *
+ * Initializes the RequestHandler with shared pointers to `WirelessHandler` and `SDcardHandler`.
+ * It also creates necessary queues, mutexes, and initializes the TLSWrapper. Furthermore,
+ * it constructs and stores GET requests for user instructions and timestamps to be used later.
+ *
+ * @param wirelessHandler A shared pointer to the `WirelessHandler` object used for wireless communication.
+ * @param sdcardHandler A shared pointer to the `SDcardHandler` object used for SD card operations.
+ *
+ * @return void
+ *
+ * @note This constructor also initializes two queues for handling web service requests and responses,
+ *       as well as a mutex for request synchronization. Additionally, it constructs the requests for user
+ *       instructions and timestamp retrieval, storing them in the class's request buffers.
+ */
 RequestHandler::RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler,
                                std::shared_ptr<SDcardHandler> sdcardHandler) {
     this->wirelessHandler = wirelessHandler;
@@ -49,12 +65,44 @@ RequestHandler::RequestHandler(std::shared_ptr<WirelessHandler> wirelessHandler,
     this->getTimestampRequest.requestType = RequestType::GET_TIME;
 }
 
+/**
+ * @brief Destructor for the RequestHandler class.
+ *
+ * Cleans up the resources allocated by the RequestHandler. This includes deleting the created queues and
+ * mutex, and performing any necessary cleanup for the TLSWrapper.
+ *
+ * @return void
+ *
+ * @note This destructor ensures that any dynamically allocated resources, such as the web service request
+ *       and response queues and mutex, are properly freed.
+ */
 RequestHandler::~RequestHandler() {
-    vQueueDelete(this->webSrvRequestQueue);
-    vQueueDelete(this->webSrvResponseQueue);
-    vSemaphoreDelete(this->requestMutex);
+    if (this->webSrvRequestQueue) {
+        vQueueDelete(this->webSrvRequestQueue); // Delete web service request queue
+    }
+    if (this->webSrvResponseQueue) {
+        vQueueDelete(this->webSrvResponseQueue); // Delete web service response queue
+    }
+    if (this->requestMutex) {
+        vSemaphoreDelete(this->requestMutex); // Delete request mutex
+    }
 }
 
+/**
+ * @brief Constructs an HTTP POST request for uploading an image.
+ *
+ * This function creates an HTTP POST request with the provided image data and associated metadata.
+ * The request includes authentication token, image ID, and base64-encoded image data. The generated
+ * request is then stored in the provided string pointer.
+ *
+ * @param[out] requestPtr Pointer to a string where the constructed POST request will be stored.
+ * @param[in] image_id The ID of the image being uploaded.
+ * @param[in] base64_image_data The base64-encoded image data to be uploaded.
+ *
+ * @return RequestHandlerReturnCode Returns `SUCCESS` if the request is created successfully.
+ * @return                                 - `INVALID_ARGUMENT` if `requestPtr` is null or `base64_image_data` is empty.
+ * @return                                 - `UN_CLASSIFIED_ERROR` if an error occurs during request creation.
+ */
 RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *requestPtr, const int image_id,
                                                                 std::string base64_image_data) {
     if (requestPtr == nullptr) {
@@ -105,6 +153,25 @@ RequestHandlerReturnCode RequestHandler::createImagePOSTRequest(std::string *req
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+/**
+ * @brief Constructs an HTTP POST request for uploading an image, using a file buffer.
+ *
+ * This function constructs an HTTP POST request to upload an image, including metadata such as
+ * an authentication token, image ID, and base64-encoded image data. The request is stored in the
+ * provided file buffer, and its length is validated against the maximum buffer size.
+ *
+ * @param[out] file_buffer Pointer to a buffer that will store the constructed POST request.
+ *                         The buffer should have enough space to hold the entire request.
+ * @param[in] buffer_max_size The maximum size allowed for the buffer to store the request.
+ * @param[in] current_data_len The length of the image data to be uploaded.
+ * @param[in] image_id The ID of the image being uploaded.
+ *
+ * @return int Returns the number of characters written to the buffer (excluding the null terminator)
+ * @return            if successful. Returns a negative value on error:
+ * @return            - `-1`: Request buffer is too small.
+ * @return            - `-2`: Failed to allocate memory for temporary buffer.
+ * @return            - `-3`: Failed to create POST request.
+ */
 int RequestHandler::createImagePOSTRequest(unsigned char *file_buffer, const size_t buffer_max_size,
                                            int current_data_len, const int64_t image_id) {
     const char *web_token = this->wirelessHandler->get_setting(Settings::WEB_TOKEN);
@@ -159,13 +226,12 @@ int RequestHandler::createImagePOSTRequest(unsigned char *file_buffer, const siz
 }
 
 /**
- * Creates a GET request for user instructions and stores it in the provided pointer.
+ * @brief Constructs a GET request for fetching user instructions from the server.
  *
- * @param requestPtr - A pointer to a `std::string` where the generated GET request will be stored.
- *                     The request includes the web server's address, port, and token for authentication.
+ * This function constructs an HTTP GET request to retrieve user instructions from the server.
+ * The request includes the authentication token, domain, and port from the wireless handler.
  *
- * @return RequestHandlerReturnCode - Indicates the result of the operation. Always returns SUCCESS
- *                                    since the request is successfully generated.
+ * @param[out] requestPtr Pointer to a string where the constructed GET request will be stored.
  */
 void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
@@ -183,6 +249,12 @@ void RequestHandler::createUserInstructionsGETRequest(std::string *requestPtr) {
                        "\r\n");
 }
 
+/**
+ * @brief Updates the user instructions GET request structure with the latest request string.
+ *
+ * This function creates a new user instructions GET request using `createUserInstructionsGETRequest`
+ * and updates the `getUserInsturctionsRequest` structure with the request string, length, and request type.
+ */
 void RequestHandler::updateUserInstructionsGETRequest() {
     std::string getRequest;
     this->createUserInstructionsGETRequest(&getRequest);
@@ -193,6 +265,14 @@ void RequestHandler::updateUserInstructionsGETRequest() {
     this->getUserInsturctionsRequest.requestType = RequestType::GET_COMMANDS;
 }
 
+/**
+ * @brief Constructs a GET request for fetching the current timestamp from the server.
+ *
+ * This function constructs an HTTP GET request to retrieve the current timestamp from the server.
+ * The request includes the domain and port from the wireless handler.
+ *
+ * @param[out] requestPtr Pointer to a string where the constructed GET request will be stored.
+ */
 void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
     *requestPtr = "GET "
                   "/api/time"
@@ -207,16 +287,20 @@ void RequestHandler::createTimestampGETRequest(std::string *requestPtr) {
                        "\r\n");
 }
 
-void RequestHandler::processArgs(std::ostringstream &content, bool &first) {
-    // Base case for recursion - no action needed
-}
+void RequestHandler::processArgs(std::ostringstream &content, bool &first) {}
 
 /**
- * Parses the HTTP response to extract the return code.
+ * @brief Parses the HTTP return code from the response string.
  *
- * @param response - A C-style string containing the HTTP response.
+ * This function extracts and parses the HTTP return code (e.g., 200, 404) from the provided
+ * HTTP response string. The response string is expected to include the status line (e.g., "HTTP/1.1 200 OK").
  *
- * @return int - The HTTP return code. Returns -1 if the return code could not be parsed.
+ * @param[in] responseString Pointer to the HTTP response string containing the status line.
+ *
+ * @return Returns the parsed HTTP return code (e.g., 200, 404), or -1 in case of an error (e.g., invalid response
+ * format).
+ *
+ * @note If the response string is null, or if the status line cannot be found or parsed, the function returns -1.
  */
 int RequestHandler::parseHttpReturnCode(const char *responseString) {
     if (responseString == nullptr) {
@@ -247,43 +331,76 @@ int RequestHandler::parseHttpReturnCode(const char *responseString) {
 }
 
 /**
- * Retrieves a pointer to the `QueueMessage` object representing the user instructions GET request.
+ * @brief Retrieves a pointer to the user instructions GET request.
  *
- * @return QueueMessage* - A pointer to the reusable `QueueMessage` object saved in the handler.
+ * This function returns a pointer to the `getUserInsturctionsRequest` object, which contains
+ * the HTTP GET request for user instructions.
+ *
+ * @return Pointer to the `QueueMessage` object representing the user instructions GET request.
  */
 QueueMessage *RequestHandler::getUserInstructionsGETRequestptr() { return &this->getUserInsturctionsRequest; }
 
+/**
+ * @brief Retrieves a pointer to the timestamp GET request.
+ *
+ * This function returns a pointer to the `getTimestampRequest` object, which contains
+ * the HTTP GET request for the timestamp.
+ *
+ * @return Pointer to the `QueueMessage` object representing the timestamp GET request.
+ */
 QueueMessage *RequestHandler::getTimestampGETRequestptr() { return &this->getTimestampRequest; }
 
 /**
- * Retrieves the web server's address as a C-style string.
+ * @brief Retrieves the web server domain as a C-string.
  *
- * @return const char* - A pointer to a null-terminated string representing the web server's address.
- *                       This is used for DNS resolution and establishing a connection to the server.
+ * This function fetches the web server domain setting from the `wirelessHandler` object.
+ * It returns the domain as a C-string, which is used for constructing HTTP requests.
+ *
+ * @return C-string representing the web server domain.
  */
 const char *RequestHandler::getWebServerCString() { return this->wirelessHandler->get_setting(Settings::WEB_DOMAIN); }
 
 /**
- * Retrieves the web server's port as a C-style string.
+ * @brief Retrieves the web server port as a C-string.
  *
- * @return const char* - A pointer to a null-terminated string representing the web server's port.
- *                       This is used for establishing a connection to the server.
+ * This function fetches the web server port setting from the `wirelessHandler` object.
+ * It returns the port as a C-string, which is used for constructing HTTP requests.
+ *
+ * @return C-string representing the web server port.
  */
 const char *RequestHandler::getWebPortCString() { return this->wirelessHandler->get_setting(Settings::WEB_PORT); }
 
+/**
+ * @brief Retrieves the web server token as a C-string.
+ *
+ * This function fetches the web server token setting from the `wirelessHandler` object.
+ * It returns the token as a C-string, which is used for authentication in HTTP requests.
+ *
+ * @return C-string representing the web server token.
+ */
 const char *RequestHandler::getWebServerTokenCString() {
     return this->wirelessHandler->get_setting(Settings::WEB_TOKEN);
 }
 
+/**
+ * @brief Retrieves the web server certificate as a C-string.
+ *
+ * This function fetches the web server certificate setting from the `wirelessHandler` object.
+ * It returns the certificate as a C-string, which is used for secure communication with the web server.
+ *
+ * @return C-string representing the web server certificate.
+ */
 const char *RequestHandler::getWebServerCertCsring() {
     return this->wirelessHandler->get_setting(Settings::WEB_CERTIFICATE);
 }
 
 /**
- * Retrieves the queue handle used for web server request messages.
+ * @brief Retrieves the web server request queue handle.
  *
- * @return QueueHandle_t - The handle to the queue where web server request messages are received.
- *                         This queue is used to pass HTTP request data to be processed by the handler.
+ * This function returns the handle to the queue used for managing web server requests.
+ * The queue is used to store and manage incoming or outgoing requests for processing.
+ *
+ * @return Handle to the web server request queue (`QueueHandle_t`).
  */
 QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvRequestQueue; }
 
@@ -295,6 +412,27 @@ QueueHandle_t RequestHandler::getWebSrvRequestQueue() { return this->webSrvReque
  */
 QueueHandle_t RequestHandler::getWebSrvResponseQueue() { return this->webSrvResponseQueue; }
 
+/**
+ * @brief Sends a request to the web server and waits for the response.
+ *
+ * This function initiates a network connection to the web server, sends the specified request,
+ * and waits for the server's response. It handles DNS lookup, socket connection, request transmission,
+ * and response reception. If the server responds successfully, the response is parsed into the provided
+ * `QueueMessage` object.
+ *
+ * @param request Pointer to the request string to be sent to the server.
+ * @param request_len Length of the request string.
+ * @param response Pointer to a `QueueMessage` object where the response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::DNS_LOOKUP_FAIL` if DNS lookup fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL` if socket allocation fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if socket connection fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the socket fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_RECEIVE_FAIL` if receiving the response fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if no data is received from the server.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequest(const char *request, const size_t request_len,
                                                      QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
@@ -388,19 +526,95 @@ RequestHandlerReturnCode RequestHandler::sendRequest(const char *request, const 
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+/**
+ * @brief Sends a request to the web server and waits for the response (overloaded version).
+ *
+ * This is an overloaded version of the `sendRequest` function that accepts the request as a pointer
+ * to an unsigned char array. The function casts the unsigned char pointer to a `const char*` and then
+ * calls the main `sendRequest` function to handle the request sending and response reception.
+ *
+ * @param request Pointer to the request data (unsigned char array) to be sent to the server.
+ * @param request_len Length of the request data.
+ * @param response Pointer to a `QueueMessage` object where the response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::DNS_LOOKUP_FAIL` if DNS lookup fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL` if socket allocation fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if socket connection fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the socket fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_RECEIVE_FAIL` if receiving the response fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if no data is received from the server.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequest(const unsigned char *request, const size_t request_len,
                                                      QueueMessage *response) {
     return this->sendRequest(reinterpret_cast<const char *>(request), request_len, response);
 }
 
+/**
+ * @brief Sends a request to the web server and waits for the response (overloaded version).
+ *
+ * This is an overloaded version of the `sendRequest` function that accepts the request as a `std::string`. 
+ * The function converts the string into a C-style string (`const char*`) and then calls the main `sendRequest` 
+ * function to handle the request sending and response reception.
+ *
+ * @param request A `std::string` containing the request data to be sent to the server.
+ * @param response Pointer to a `QueueMessage` object where the response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::DNS_LOOKUP_FAIL` if DNS lookup fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL` if socket allocation fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if socket connection fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the socket fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_RECEIVE_FAIL` if receiving the response fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if no data is received from the server.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequest(std::string request, QueueMessage *response) {
     return this->sendRequest(request.c_str(), request.length(), response);
 }
 
+/**
+ * @brief Sends a request from a `QueueMessage` object and waits for the response (overloaded version).
+ *
+ * This is an overloaded version of the `sendRequest` function that accepts a `QueueMessage` object as input. 
+ * The function extracts the request data from the `QueueMessage`'s `str_buffer` and `buffer_length`, converts it 
+ * into a `std::string`, and then calls the main `sendRequest` function to handle the request sending and response reception.
+ *
+ * @param request A `QueueMessage` object containing the request data (in `str_buffer` and `buffer_length`).
+ * @param response Pointer to a `QueueMessage` object where the response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::DNS_LOOKUP_FAIL` if DNS lookup fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_ALLOCATION_FAIL` if socket allocation fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if socket connection fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the socket fails.
+ * @return - `RequestHandlerReturnCode::SOCKET_RECEIVE_FAIL` if receiving the response fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if no data is received from the server.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequest(const QueueMessage request, QueueMessage *response) {
     return this->sendRequest(std::string(request.str_buffer, request.buffer_length), response);
 }
 
+/**
+ * @brief Sends a request over a TLS connection and waits for the response.
+ *
+ * This function establishes a TLS connection to the web server using the provided request details. 
+ * It sends the request data over the TLS connection and waits for the server's response, which is then 
+ * stored in the provided `QueueMessage` response object. The function also handles connection establishment, 
+ * request sending, and response receiving, with appropriate error handling at each step.
+ *
+ * @param request A pointer to a `char` array containing the request data.
+ * @param request_len The length of the request data in bytes.
+ * @param response A pointer to a `QueueMessage` object where the server's response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if the TLS connection could not be established.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the TLS connection fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if receiving the response fails or no data is received.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const char *request, const size_t request_len,
                                                         QueueMessage *response) {
     if (!this->wirelessHandler->isConnected()) {
@@ -449,19 +663,82 @@ RequestHandlerReturnCode RequestHandler::sendRequestTLS(const char *request, con
     return RequestHandlerReturnCode::SUCCESS;
 }
 
+/**
+ * @brief Sends a request over a TLS connection using an unsigned char request.
+ *
+ * This function is a wrapper around the `sendRequestTLS` method that accepts an `unsigned char` array as the 
+ * request data. It casts the `unsigned char` array to a `const char*` and then delegates the request to 
+ * the `sendRequestTLS` function for processing. It handles the TLS connection, request sending, and response receiving.
+ *
+ * @param request A pointer to an `unsigned char` array containing the request data.
+ * @param request_len The length of the request data in bytes.
+ * @param response A pointer to a `QueueMessage` object where the server's response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if the TLS connection could not be established.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the TLS connection fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if receiving the response fails or no data is received.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const unsigned char *request, const size_t request_len,
                                                         QueueMessage *response) {
     return this->sendRequestTLS(reinterpret_cast<const char *>(request), request_len, response);
 }
 
+/**
+ * @brief Sends a request over a TLS connection using a `std::string` request.
+ *
+ * This function is a wrapper around the `sendRequestTLS` method that accepts a `std::string` as the 
+ * request data. It converts the `std::string` to a C-style string (`const char*`) and then delegates the request to 
+ * the `sendRequestTLS` function for processing. It handles the TLS connection, request sending, and response receiving.
+ *
+ * @param request A `std::string` containing the request data.
+ * @param response A pointer to a `QueueMessage` object where the server's response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if the TLS connection could not be established.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the TLS connection fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if receiving the response fails or no data is received.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const std::string &request, QueueMessage *response) {
     return this->sendRequestTLS(request.c_str(), request.length(), response);
 }
 
+/**
+ * @brief Sends a request over a TLS connection using a `QueueMessage` request.
+ *
+ * This function is a wrapper around the `sendRequestTLS` method that accepts a `QueueMessage` object as the request data. 
+ * It converts the `QueueMessage` data (from `str_buffer` and `buffer_length`) into a `std::string` and then delegates the 
+ * request to the `sendRequestTLS` function for processing. It handles the TLS connection, request sending, and response receiving.
+ *
+ * @param request A `QueueMessage` object containing the request data, with the request stored in `str_buffer` and the 
+ *                buffer size in `buffer_length`.
+ * @param response A pointer to a `QueueMessage` object where the server's response will be stored.
+ *
+ * @return - `RequestHandlerReturnCode::SUCCESS` if the request was successfully sent and the response received.
+ * @return - `RequestHandlerReturnCode::NOT_CONNECTED` if the wireless connection is not active.
+ * @return - `RequestHandlerReturnCode::SOCKET_CONNECT_FAIL` if the TLS connection could not be established.
+ * @return - `RequestHandlerReturnCode::SOCKET_SEND_FAIL` if sending the request over the TLS connection fails.
+ * @return - `RequestHandlerReturnCode::UN_CLASSIFIED_ERROR` if receiving the response fails or no data is received.
+ */
 RequestHandlerReturnCode RequestHandler::sendRequestTLS(const QueueMessage request, QueueMessage *response) {
     return this->sendRequestTLS(std::string(request.str_buffer, request.buffer_length), response);
 }
 
+/**
+ * @brief Parses the response buffer and extracts a JSON string.
+ *
+ * This function extracts a substring from the provided response buffer that represents a valid JSON object, 
+ * defined by the curly braces `{}`. The JSON portion is then copied back to the provided `QueueMessage` object, 
+ * with the updated `buffer_length` reflecting the length of the extracted JSON.
+ *
+ * @param responseBuffer A pointer to a `QueueMessage` containing the response data to be parsed.
+ * @param buffer_size The size of the response buffer.
+ *
+ * @return - 0 if the JSON object was successfully extracted and stored in the response buffer.
+ * @return - 1 if no valid JSON object (curly braces) was found in the response.
+ */
 int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const int buffer_size) {
     std::string response(responseBuffer->str_buffer, buffer_size);
 
@@ -487,6 +764,21 @@ int RequestHandler::parseResponseIntoJson(QueueMessage *responseBuffer, const in
     return 0;
 }
 
+/**
+ * @brief Parses a timestamp from an HTTP response.
+ *
+ * This function searches the provided HTTP response for the content field and attempts to extract a timestamp value.
+ * It expects the timestamp to be a numeric value following the "\r\n\r\n" separator. The function checks that the 
+ * timestamp field contains only numeric characters and returns the parsed timestamp as a 64-bit integer. 
+ * If the content or timestamp field is invalid, the function returns an error code.
+ *
+ * @param response The HTTP response as a string from which to parse the timestamp.
+ *
+ * @return - The parsed timestamp as a 64-bit integer if successful.
+ * @return - -1 if the "Content" field was not found in the response.
+ * @return - -2 if the timestamp field was not found or is improperly formatted.
+ * @return - -3 if the timestamp contains non-numeric characters.
+ */
 int64_t RequestHandler::parseTimestamp(const std::string &response) {
     DEBUG("Parsing timestamp from response: ", response.c_str());
 
@@ -519,11 +811,42 @@ int64_t RequestHandler::parseTimestamp(const std::string &response) {
     return std::stoll(value);
 }
 
+/**
+ * @brief Gets the current time synchronization status.
+ *
+ * This function returns the current status of time synchronization. It checks whether the time has been synchronized 
+ * with the server or not, based on the internal `timeSynchronized` variable.
+ *
+ * @return - `true` if the time has been synchronized, 
+ * @return - `false` otherwise.
+ */
 bool RequestHandler::getTimeSyncedStatus() { return this->timeSynchronized; }
 
+/**
+ * @brief Sets the time synchronization status.
+ *
+ * This function updates the internal status variable `timeSynchronized` to indicate whether the time has been
+ * synchronized with the server. The status is set based on the provided boolean value.
+ *
+ * @param status A boolean indicating the desired time synchronization status.
+ *               - `true` to mark the time as synchronized.
+ *               - `false` to mark the time as unsynchronized.
+ */
 void RequestHandler::setTimeSyncedStatus(bool status) { this->timeSynchronized = status; }
 
-bool RequestHandler::addRequestToQueue(QueueHandle_t queueHandle, QueueMessage message){
+/**
+ * @brief Adds a request message to the specified queue.
+ *
+ * This function attempts to send a message to a specified FreeRTOS queue. If the message is successfully
+ * added to the queue, it returns `true`; otherwise, it returns `false` and logs an error.
+ *
+ * @param queueHandle The handle of the queue to which the message will be sent.
+ * @param message The message to be added to the queue.
+ * 
+ * @return - `true` if the message was successfully sent to the queue, 
+ * @return - `false` if the operation failed (e.g., the queue is full).
+ */
+bool RequestHandler::addRequestToQueue(QueueHandle_t queueHandle, QueueMessage message) {
     if (xQueueSend(queueHandle, &message, 0) != pdTRUE) {
         DEBUG("Failed to send message to queue");
         return false;
@@ -531,7 +854,20 @@ bool RequestHandler::addRequestToQueue(QueueHandle_t queueHandle, QueueMessage m
     return true;
 }
 
-bool RequestHandler::addRequestToQueue(QueueID queueid, QueueMessage message){
+/**
+ * @brief Adds a request message to the specified queue based on the provided queue ID.
+ *
+ * This function selects the appropriate queue based on the given `QueueID` and attempts to send the
+ * provided message to that queue. If the message is successfully added to the queue, it returns `true`;
+ * otherwise, it returns `false` and logs an error if the queue ID is invalid.
+ *
+ * @param queueid The `QueueID` that specifies which queue to send the message to. 
+ * @param message The message to be added to the queue.
+ * 
+ * @return - `true` if the message was successfully sent to the queue, 
+ * @return - `false` if the operation failed or an invalid queue ID was provided.
+ */
+bool RequestHandler::addRequestToQueue(QueueID queueid, QueueMessage message) {
     switch (queueid) {
         case QueueID::WEB_SRV_REQUEST_QUEUE:
             return addRequestToQueue(this->webSrvRequestQueue, message);

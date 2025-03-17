@@ -23,7 +23,7 @@
  * @param SDL_PIN_VAL GPIO pin number for SDA.
  */
 Compass::Compass(i2c_inst_t *I2C_PORT_VAL, uint SCL_PIN_VAL, uint SDL_PIN_VAL)
-    : I2C_PORT(I2C_PORT_VAL),  SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
+    : I2C_PORT(I2C_PORT_VAL), SCL_PIN(SCL_PIN_VAL), SDA_PIN(SDL_PIN_VAL) {
     i2c_init(I2C_PORT, 400000); // 400 kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);

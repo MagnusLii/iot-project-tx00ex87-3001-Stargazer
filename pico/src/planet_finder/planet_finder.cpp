@@ -3,16 +3,28 @@
 #define ECCENTRIC_ANOMALY_APPROXXIMATION_MAX_ITER 3
 #define ECCENTRIC_ANOMALY_APPROXXIMATION_ERROR 0.001
 
-
+/**
+ * @brief Converts degrees to radians
+ * @param degrees degrees to convert
+ * @return Radians converted from degrees
+ */
 static inline double to_rads(double degrees) {
     return degrees * M_PI / 180.0;
 }
-
+/**
+ * @brief Converts radians to degrees
+ * @param rads radians to convert
+ * @return degrees converted from radians
+ */
 static inline double to_degrees(double rads) {
     return rads * 180.0 / M_PI;
 }
 
-
+/**
+ * @brief Constructs orbital element struct
+ * @param J2000_day julian day
+ * @param planet planet wanted
+ */
 orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     switch (planet) {
     case SUN:
@@ -100,9 +112,18 @@ orbital_elements::orbital_elements(double J2000_day, Planets planet) {
     // might be worth it to precompute the constants to radians since floating point calculations are expensive
 }
 
-
+/**
+ * @brief Constructs Celestial object
+ * @param planet planet wanted
+ */
 Celestial::Celestial(Planets planet) : planet(planet), trace_hours(0) {}
 
+/**
+ * @brief Calculates observer centered azimuthal coordinates of celestial object at a given date and time
+ * @param date the wanted date and time
+ * @return the celestial objects azimuthal coordinates for the given date
+ * @note observer coordinates needs to be set before calling this function
+ */
 azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     double J2000 = datetime_to_j2000_day(date);
     orbital_elements oe(J2000, planet);
@@ -181,18 +202,11 @@ azimuthal_coordinates Celestial::get_coordinates(const datetime_t &date) {
     return ac;
 }
 
-
-// void Celestial::fill_coordinate_table(datetime_t date, const Coordinates observer_coordinates) {
-//     table_start_date = date;
-//     for (int i=0; i<TABLE_LEN; i++) {
-//         azimuthal_coordinates coord = get_coordinates(date, observer_coordinates);
-//         coordinate_table[i] = coord;
-//         datetime_increment_hour(date);
-//     }
-//     table_stop_date = date;
-// }
-
-
+/**
+ * @brief Prints coordinates every hour after a given date and time
+ * @param start_date the date at which to start printing
+ * @param hours the number of hours to print
+ */
 void Celestial::print_coordinates(datetime_t start_date, int hours) {
     std::cout << (int)start_date.year << ", " << (int)start_date.month << ", " << (int)start_date.day << ", " << (int)start_date.hour << ", " << (int)start_date.min << std::endl;
 
@@ -204,6 +218,13 @@ void Celestial::print_coordinates(datetime_t start_date, int hours) {
     std::cout << "end" << std::endl;
 }
 
+/**
+ * @brief Gets a Command of celestial object in zenith, rise or fall.
+ * @param point the interest point to get
+ * @param start_date the date from which to start searching
+ * @return Command with time and coordinates 
+ * @note Command id needs to be set after this function
+ */
 Command Celestial::get_interest_point_command(Interest_point point, const datetime_t &start_date) {
     if (point == NOW) {
         Command cmd = {0};
@@ -219,11 +240,22 @@ Command Celestial::get_interest_point_command(Interest_point point, const dateti
     return interesting_commands[1];
 }
 
-
+/**
+ * @brief Checks if the coordinates are above the horizon
+ * @param current the coordinates to check
+ * @return true if the coordinates are above horizon
+ * @return false if the coordinates are below horizon
+ */
 bool Celestial::check_for_above_horizon(const azimuthal_coordinates &current) {
     return current.altitude > 0;
 }
-
+/**
+ * @brief Checks if the coordinates are rising
+ * @param current the coordinates to check
+ * @param next the next coordinates to compare to
+ * @return true if the coordinates are rising
+ * @return false if the coordinates are not rising
+ */
 bool Celestial::check_for_rising(const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
     if (current.altitude > 0) {
         if (current.altitude - next.altitude < 0) {
@@ -232,7 +264,13 @@ bool Celestial::check_for_rising(const azimuthal_coordinates &current, const azi
     }
     return false;
 }
-
+/**
+ * @brief Checks if the coordinates are falling
+ * @param current the coordinates to check
+ * @param next the next coordinates to compare to
+ * @return true if the coordinates are falling
+ * @return false if the coordinates are not falling
+ */
 bool Celestial::check_for_falling(const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
     if (current.altitude > 0) {
         if (next.altitude < 0) {
@@ -242,13 +280,25 @@ bool Celestial::check_for_falling(const azimuthal_coordinates &current, const az
     return false;
 }
 
+/**
+ * @brief Checks if the coordinates are the zenith
+ * @param last the last coordinates to compare to
+ * @param current the coordinates to check
+ * @param next the next coordinates to compare to
+ * @return true if the coordinates are zenith
+ * @return false if the coordinates are not zenith
+ */
 bool Celestial::check_for_zenith(const azimuthal_coordinates & last, const azimuthal_coordinates &current, const azimuthal_coordinates &next) {
     if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
         return true;
     }
     return false;
 }
-
+/**
+ * @brief Calculates interesting commands
+ * @param start_date the date and time to start the search from
+ * @return Vector of commands with the interesting commands
+ */
 std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start_date) {
     std::vector<Command> result = {{0}, {0}, {0}};
     for (auto &res : result) {
@@ -331,51 +381,29 @@ std::vector<Command> Celestial::get_interesting_commands(const datetime_t &start
     return result;
 }
 
-Command Celestial::get_zenith_time(const datetime_t &start_date) {
-    datetime_t iter_date = start_date;
-    datetime_t result_date{0};
-    azimuthal_coordinates last = get_coordinates(iter_date);
-    datetime_increment_hour(iter_date);
-    azimuthal_coordinates current = get_coordinates(iter_date);
-    datetime_increment_hour(iter_date);
-    azimuthal_coordinates next = get_coordinates(iter_date);
-    bool done = false;
-    bool error = false;
-    int i = 0;
-    while (!done) {
-        if ((last.altitude < current.altitude) && (next.altitude < current.altitude)) {
-            done = true;
-        }
-        if (i >= 48) { // two days
-            done = true;
-            error = true;
-        }
-        i++;
-        if (!done) {
-            result_date = iter_date;
-            datetime_increment_hour(iter_date);
-            last = current;
-            current = next;
-            next = get_coordinates(iter_date);
-        }
-    }
-    if (error) { // -1 year means no date could be found in 2 days
-        result_date.year = -1;
-    }
-    Command result = {1, current, result_date};
-    return result;
-}
-
+/**
+ * @brief Sets the observer coordinates
+ * @param observer_coordinates the coordinates to use
+ */
 void Celestial::set_observer_coordinates(const Coordinates observer_coordinates) {
     this->observer_coordinates = observer_coordinates;
 }
 
+/**
+ * @brief Starts a trace
+ * @param start_datetime the time that the trace starts at
+ * @param hours the amount of hours to trace
+ */
 void Celestial::start_trace(datetime_t start_datetime, int hours) {
     trace_date = start_datetime;
     trace_hours = hours;
 }
 
-
+/**
+ * @brief Calculates the next coordinates for a trace
+ * @return Command of the trace trace
+ * @note trace needs to be started before calling this function
+ */
 Command Celestial::next_trace(void) {
     Command result;
     if (trace_hours <= 0) {
@@ -389,10 +417,17 @@ Command Celestial::next_trace(void) {
     return result;
 }
 
+/**
+ * @brief Gets the planet the celestial object is referring to
+ * @return The integer representation of the planet
+ */
 int Celestial::get_planet(void) {
     return (int)planet;
 }
 
+/**
+ * @brief Prints the planet of the celestial object to stdout
+ */
 void Celestial::print_planet(void) {
     switch (planet)
     {
@@ -429,7 +464,12 @@ void Celestial::print_planet(void) {
     }
 }
 
-
+/**
+ * @brief Calculates eccentric anomaly
+ * @param e orbital element
+ * @param M orbital element
+ * @return eccentric anomaly
+ */
 double eccentric_anomaly(double e, double M) {
     double E0 = M + e * sin(M) * (1.0 + e * cos(M));
     double E1 = 0;
@@ -446,14 +486,30 @@ double eccentric_anomaly(double e, double M) {
     return E0; // in radians
 }
 
+/**
+ * @brief Calculates true anomaly
+ * @param coords rectangular coordinates
+ * @return true anomaly
+ */
 double true_anomaly(rect_coordinates coords) {
     return normalize_radians(atan2(coords.y, coords.x));
 }
 
+/**
+ * @brief Calculates distance of celestial object
+ * @param coords rectangular coordinates
+ * @return distance
+ */
 double distance(rect_coordinates coords) {
     return sqrt(coords.x*coords.x + coords.y*coords.y);
 }
 
+/**
+ * @brief Calculates perturbation of moons orbit
+ * @param moon orbital elements of moon
+ * @param sun orbital elements of sun
+ * @return perturbations in coordinates
+ */
 ecliptic_coordinates perturbation_moon(const orbital_elements &moon, const orbital_elements &sun) {
     double L_sun = normalize_radians(sun.M + sun.w); // mean longitude of the sun
     double L_moon = moon.M + moon.w + moon.N; // mean longitude of the moon
@@ -485,6 +541,12 @@ ecliptic_coordinates perturbation_moon(const orbital_elements &moon, const orbit
     return result;
 }
 
+/**
+ * @brief Calculates perturbation of jupiters orbit
+ * @param Mj orbital element of jupiter
+ * @param Ms orbital element of saturn
+ * @return perturbations in coordinates
+ */
 ecliptic_coordinates perturbation_jupiter(double Mj, double Ms) {
     ecliptic_coordinates result(0,0,0);
     result.lon += to_rads(-0.332) * sin(2*Mj - 5*Ms - 1.1798425);
@@ -497,6 +559,12 @@ ecliptic_coordinates perturbation_jupiter(double Mj, double Ms) {
     return result;
 }
 
+/**
+ * @brief Calculates perturbation of saturns orbit
+ * @param Mj orbital element of jupiter
+ * @param Ms orbital element of jupiter
+ * @return perturbations in coordinates
+ */
 ecliptic_coordinates perturbation_saturn(double Mj, double Ms) {
     ecliptic_coordinates result(0,0,0);
     // longitude
@@ -511,6 +579,13 @@ ecliptic_coordinates perturbation_saturn(double Mj, double Ms) {
     return result;
 }
 
+/**
+ * @brief Calculates perturbation of uranus orbit
+ * @param Mu orbital element of uranus
+ * @param Mj orbital element of jupiter
+ * @param Ms orbital element of jupiter
+ * @return perturbations in coordinates
+ */
 ecliptic_coordinates perturbation_uranus(double Mu, double Mj, double Ms) {
     ecliptic_coordinates result(0,0,0);
     result.lon += to_rads(+0.040) * sin(Ms - 2*Mu + 0.104719755);
@@ -519,7 +594,11 @@ ecliptic_coordinates perturbation_uranus(double Mu, double Mj, double Ms) {
     return result;
 }
 
-
+/**
+ * @brief Normalizes degrees to between 0 and 360
+ * @param degrees degrees to normalize
+ * @return normalized degrees
+ */
 double normalize_degrees(double degrees) {
     degrees = fmod(degrees, 360.0);
     if (degrees < 0) {
@@ -528,6 +607,11 @@ double normalize_degrees(double degrees) {
     return degrees;
 }
 
+/**
+ * @brief Normalizes radians to between 0 and 2pi
+ * @param radians radians to normalize
+ * @return normalized radians
+ */
 double normalize_radians(double radians) {
     radians = fmod(radians, 2 * M_PI);
     if (radians < 0) {
@@ -536,13 +620,23 @@ double normalize_radians(double radians) {
     return radians;
 }
 
-
+/**
+ * @brief Converts datetime to julian day
+ * @param date datetime_t object to convert
+ * @return julian day
+ */
 double datetime_to_j2000_day(const datetime_t &date) {
     int d = 367*date.year - 7 * ( date.year + (date.month+9)/12 ) / 4 - 3 * ( ( date.year + (date.month-9)/7 ) / 100 + 1 ) / 4 + 275*date.month/9 + date.day - 730515;
     double ut = (double)date.hour + ((double)date.min / 60.0); // can add seconds too but there's no point
     return (double)d + ut / 24.0;
 }
 
+/**
+ * @brief Calculates the local sidereal time
+ * @param J2000_day julian day
+ * @param longitude observers longitude
+ * @return local sidereal time
+ */
 double local_sidereal_time(double J2000_day, double longitude) {
     double J = J2000_day + 2451543.5 - 2451545.0;
     double T = J / 36525.0;
@@ -551,11 +645,21 @@ double local_sidereal_time(double J2000_day, double longitude) {
 
 }
 
-
+/**
+ * @brief Calculates the obliquity of eplectic
+ * @param J2000_day julian day
+ * @return obliquity of eplectic
+ */
 double obliquity_of_eplectic(double J2000_day) {
     return to_rads(23.4393 - 3.563E-7 * J2000_day);
 }
 
+/**
+ * @brief rotates rectangular coordinates through obliquity of eplectic
+ * @param rc rectangular coordinates to rotate
+ * @param obliquity obliquity of eplectic
+ * @return rotated rectangular coordinates
+ */
 rect_coordinates rotate_through_obliquity_of_eplectic(const rect_coordinates &rc, double obliquity) {
     rect_coordinates result;
     result.x = rc.x;
@@ -564,6 +668,11 @@ rect_coordinates rotate_through_obliquity_of_eplectic(const rect_coordinates &rc
     return result;
 }
 
+/**
+ * @brief Converts spherical coordinates to rectangular coordinates
+ * @param sp spherical coordinates to convert
+ * @return rectangular coordinates
+ */
 rect_coordinates to_rectangular_coordinates(spherical_coordinates sp) {
     rect_coordinates result;
     result.x = sp.distance * cos(sp.RA) * cos(sp.DECL);
@@ -572,6 +681,11 @@ rect_coordinates to_rectangular_coordinates(spherical_coordinates sp) {
     return result;
 }
 
+/**
+ * @brief Converts ecliptic coordinates to rectangular coordinates
+ * @param ec ecliptic coordinates to convert
+ * @return rectangular coordinates
+ */
 rect_coordinates to_rectangular_coordinates(ecliptic_coordinates ec) {
     // same as from spherical coordinates. new function for clarity
     rect_coordinates result;
@@ -581,6 +695,13 @@ rect_coordinates to_rectangular_coordinates(ecliptic_coordinates ec) {
     return result;
 }
 
+/**
+ * @brief Calculates rectangular coordinates from orbital elements and eccentic anomaly
+ * @param a orbital element
+ * @param e orbital element
+ * @param E eccentic anomaly
+ * @return rectangular coordinates
+ */
 rect_coordinates to_rectangular_coordinates(double a, double e, double E) {
     rect_coordinates result;
     result.x = a * (cos(E) - e);
@@ -589,6 +710,15 @@ rect_coordinates to_rectangular_coordinates(double a, double e, double E) {
     return result;
 }
 
+/**
+ * @brief Calculates rectangular coordinates from orbital elements, distance and true anomaly
+ * @param N orbital element
+ * @param i orbital element
+ * @param w orbital element
+ * @param v true anomaly
+ * @param r distance
+ * @return rectangular coordinates
+ */
 rect_coordinates to_rectangular_coordinates(double N, double i, double w, double v, double r) {
     rect_coordinates result;
     result.x = r * (cos(N) * cos(v+w) - sin(N) * sin(v+w) * cos(i));
@@ -597,6 +727,11 @@ rect_coordinates to_rectangular_coordinates(double N, double i, double w, double
     return result;
 }
 
+/**
+ * @brief Converts rectangular coordinates to spherical coordinates
+ * @param rc rectangular coordinates to convert
+ * @return spherical coordinates
+ */
 spherical_coordinates to_spherical_coordinates(rect_coordinates rc) {
     spherical_coordinates result;
     result.RA = normalize_radians(atan2(rc.y, rc.x));
@@ -606,6 +741,11 @@ spherical_coordinates to_spherical_coordinates(rect_coordinates rc) {
     return result;
 }
 
+/**
+ * @brief Converts rectangular coordinates to ecliptic coordinates
+ * @param rc rectangular coordinates to convert
+ * @return ecliptic coordinates
+ */
 ecliptic_coordinates to_ecliptic_coordinates(rect_coordinates rc) {
     // this is same as to spherical coordinates but without distance. Done so we don't mix these
     ecliptic_coordinates result;

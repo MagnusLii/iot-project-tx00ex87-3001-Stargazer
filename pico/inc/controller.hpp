@@ -6,15 +6,26 @@
 #include "commbridge.hpp"
 #include "compass.hpp"
 #include "convert.hpp"
-#include "storage.hpp"
 #include "gps.hpp"
 #include "motor-control.hpp"
 #include "planet_finder.hpp"
 #include "stepper-motor.hpp"
+#include "storage.hpp"
 #include "structs.hpp"
 
+// #define GPS_COORDS
+
+/**
+ * @class Controller
+ * @brief Main class for the Pico.
+ * @details Handles the main control flow of the Pico.
+ */
 class Controller {
   public:
+    /**
+     * @enum State
+     * @brief Enumeration of possible states for the Pico.
+     */
     enum State {
         SLEEP,
         COMM_READ,

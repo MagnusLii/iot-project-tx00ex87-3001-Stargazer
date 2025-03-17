@@ -1,23 +1,22 @@
 #ifndef STEPPER_MOTOR_H
 #define STEPPER_MOTOR_H
 
-#include <stdint.h>
-#include "pico/stdlib.h"
 #include "hardware/pio.h"
+#include "pico/stdlib.h"
 #include "planet_finder.hpp"
-#include <vector>
 #include <algorithm>
 #include <cmath>
+#include <stdint.h>
+#include <vector>
 
-#define NPINS 4
+#define NPINS   4
 #define RPM_MAX 15.
 #define RPM_MIN 1.8
 
-#define CLOCKWISE true
+#define CLOCKWISE     true
 #define ANTICLOCKWISE false
 
 int modulo(int x, int y);
-
 
 class StepperMotor {
   public:
@@ -49,18 +48,16 @@ class StepperMotor {
     int read_steps_left(void);
     int radians_to_steps(double radians);
 
-    std::vector<uint> pins;    // Stepper motor pins
-    bool direction;            // Motor direction: true for clockwise, false for anticlockwise
-    PIO pioInstance;           // PIO instance
-    uint programOffset;        // Program offset in PIO memory
-    uint stateMachine;         // State machine index
-    float speed;               // Current motor speed in RPM
-    int8_t sequenceCounter;    // Sequence counter for step calculation
-    int stepCounter;           // Total steps taken
-    uint stepMax;              // Maximum number of steps for a full revolution
-    uint64_t stepMemory;       // Tracks recent step movements
+    std::vector<uint> pins; // Stepper motor pins
+    bool direction;         // Motor direction: true for clockwise, false for anticlockwise
+    PIO pioInstance;        // PIO instance
+    uint programOffset;     // Program offset in PIO memory
+    uint stateMachine;      // State machine index
+    float speed;            // Current motor speed in RPM
+    int8_t sequenceCounter; // Sequence counter for step calculation
+    int stepCounter;        // Total steps taken
+    uint stepMax;           // Maximum number of steps for a full revolution
+    uint64_t stepMemory;    // Tracks recent step movements
 };
-
-
 
 #endif // STEPPER_MOTOR_H
