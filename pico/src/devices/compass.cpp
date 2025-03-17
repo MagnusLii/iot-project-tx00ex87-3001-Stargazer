@@ -155,6 +155,10 @@ float Compass::getHeading() {
 
     float x_uT = x * TO_UT;
     float y_uT = y * TO_UT;
+<<<<<<< HEAD
+=======
+    // float z_uT = z * TO_UT;
+>>>>>>> afb4c010d06bfe91755ea4270c7db0c1757cf6f7
 
     float heading = atan2(y_uT, x_uT);
     float declinationAngle = 0.18;
