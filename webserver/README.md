@@ -68,6 +68,23 @@ Password: admin<br>
 
 * You can change the username and/or password of the admin account on the user page, which you can get to by clicking the account name in the navigation bar/menu.<br>
 
+### Quick start instructions
+
+You need to add a key from the `Keys` page which can be accessed from the `Control` page before you can add commands to the queue.<br>
+Generating a key is as simple as giving it a name then pressing generate.<br>
+Then you can give the key/token to the Stargazer<br><br>
+
+After that is done you can add commands from the `Control`/`Commands` page.<br>
+
+The command options are as follows:<br>
+* Target:<br>
+`Sun`<br>`Moon`<br>`Mercury`<br>`Venus`<br>`Mars`<br>`Jupiter`<br>`Saturn`<br>`Uranus`<br>`Neptune`<br>
+* Image Position:<br>
+`Rising`: Takes a picture when the celestial object rises from the horizon.<br>
+`Zenith`: Takes a picture at the zenith of the celestial object.<br>
+`Setting`: Takes a picture when the celestial object close to setting beneath the horizon
+`Any`: Takes a picture at the current given time.<br>
+
 # API
 The API currently has the following endpoints:
 
