@@ -3,6 +3,18 @@ use crate::auth::password;
 
 use sqlx::SqlitePool;
 
+/// Creates the `users` table in the database if it does not already exist.
+/// 
+/// The table includes columns for user ID, username, password, and superuser status.
+/// 
+/// # Arguments
+/// * `db` - A reference to the SQLite database connection pool.
+/// 
+/// # Columns
+/// * `id` - Primary key (integer, auto-incremented)
+/// * `username` - User's username (text, required, unique)
+/// * `password` - User's password (text, required)
+/// * `superuser` - Superuser status (boolean, required, default 0)
 pub async fn create_user_table(db: &SqlitePool) {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
@@ -17,6 +29,13 @@ pub async fn create_user_table(db: &SqlitePool) {
     .unwrap();
 }
 
+/// Creates an admin user in the `users` table if it does not already exist.
+/// 
+/// The admin user has the username `admin`, a default password, and superuser status.
+/// The password is hashed if the `pw_hash` feature is enabled.
+/// 
+/// # Arguments
+/// * `db` - A reference to the SQLite database connection pool.
 pub async fn create_admin(db: &SqlitePool) {
     #[cfg(feature = "pw_hash")]
     let pw = password::generate_phc_string("admin").unwrap();

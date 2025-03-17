@@ -9,13 +9,25 @@ use axum::{
 use axum_messages::{Level, Messages};
 use serde::Deserialize;
 
+/// Represents an authenticated session using the `Backend`.
 pub type AuthSession = axum_login::AuthSession<Backend>;
 
+/// Holds an optional URL to redirect the user after login.
 #[derive(Debug, Deserialize)]
 pub struct Next {
+    /// The optional URL to redirect the user after login.
     pub next: Option<String>,
 }
 
+/// Handles user login requests.
+/// 
+/// # Arguments
+/// * `messages` - Message handler for displaying errors.
+/// * `auth_session` - The current authentication session.
+/// * `creds` - The user's login credentials.
+/// 
+/// # Returns
+/// A HTML redirect response upon success or failure.
 #[debug_handler]
 pub async fn login(
     messages: Messages,
@@ -53,6 +65,13 @@ pub async fn login(
     }
 }
 
+/// Handles user logout requests.
+/// 
+/// # Arguments
+/// * `auth_session` - The current authentication session.
+/// 
+/// # Returns
+/// A HTML redirect response after logging out.
 pub async fn logout(mut auth_session: AuthSession) -> impl IntoResponse {
     match auth_session.logout().await {
         Ok(_) => (),
@@ -61,6 +80,15 @@ pub async fn logout(mut auth_session: AuthSession) -> impl IntoResponse {
     Redirect::to("/").into_response()
 }
 
+/// Serves the login page.
+/// 
+/// # Arguments
+/// * `auth_session` - The current authentication session.
+/// * `messages` - Message handler for displaying errors.
+/// * `url` - Optional URL to redirect the user after login.
+/// 
+/// # Returns
+/// The login page HTML or a redirect if already authenticated.
 pub async fn login_page(
     auth_session: AuthSession,
     messages: Messages,

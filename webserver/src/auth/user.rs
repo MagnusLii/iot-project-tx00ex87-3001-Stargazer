@@ -12,26 +12,42 @@ use axum_login::AuthUser;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
+/// Represents a user in the system.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct User {
+    /// The unique identifier of the user.
     pub id: i64,
+    /// The username of the user.
     pub username: String,
+    /// The hashed password of the user.
     pub password: String,
+    /// Indicates if the user is a superuser.
     pub superuser: bool,
 }
 
 impl AuthUser for User {
     type Id = i64;
 
+    /// Returns the user's ID.
     fn id(&self) -> Self::Id {
         self.id
     }
 
+    /// Returns the user's password as a byte slice for session authentication.
     fn session_auth_hash(&self) -> &[u8] {
         self.password.as_bytes()
     }
 }
 
+/// Retrieves the details of the currently authenticated user.
+///
+/// # Arguments
+///
+/// * `auth_session`: The authentication session.
+///
+/// # Returns
+///
+/// A JSON formatted response containing the user details or an empty object if not authenticated.
 pub async fn current_user(auth_session: AuthSession) -> impl IntoResponse {
     let user_details: String;
     if auth_session.user.is_some() {
@@ -44,6 +60,16 @@ pub async fn current_user(auth_session: AuthSession) -> impl IntoResponse {
     (StatusCode::OK, user_details)
 }
 
+/// Adds a new user to the system.
+///
+/// # Arguments
+///
+/// * `auth_session`: The authentication session.
+/// * `user`: The credentials of the new user.
+///
+/// # Returns
+///
+/// A HTTP response indicating the success or failure of the operation.
 pub async fn new_user(auth_session: AuthSession, user: Json<Credentials>) -> impl IntoResponse {
     if auth_session.user.unwrap().superuser != true {
         return (StatusCode::FORBIDDEN, "Not authorized").into_response();
@@ -63,11 +89,23 @@ pub async fn new_user(auth_session: AuthSession, user: Json<Credentials>) -> imp
     }
 }
 
+/// Represents the query parameters for removing a user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveUserQuery {
+    /// The ID of the user to remove.
     pub id: i64,
 }
 
+/// Removes a user from the system.
+///
+/// # Arguments
+///
+/// * `auth_session`: The authentication session.
+/// * `user`: The query parameters containing the ID of the user to remove.
+///
+/// # Returns
+///
+/// A HTTP response indicating the success or failure of the operation.
 #[axum::debug_handler]
 pub async fn remove_user(
     auth_session: AuthSession,
@@ -91,13 +129,27 @@ pub async fn remove_user(
     }
 }
 
+/// Represents the JSON payload for modifying user details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModifyUserJson {
+    /// The ID of the user to modify. If `None`, the current user's ID is used.
     pub id: Option<i64>,
+    /// The new username of the user.
     pub username: Option<String>,
+    /// The new password of the user.
     pub password: Option<String>,
 }
 
+/// Modifies the details of a user.
+///
+/// # Arguments
+///
+/// * `auth_session`: The authentication session.
+/// * `user`: The JSON payload containing the user details to modify.
+///
+/// # Returns
+///
+/// A HTTP response indicating the success or failure of the operation.
 pub async fn modify_user(
     auth_session: AuthSession,
     user: Json<ModifyUserJson>,
@@ -165,6 +217,13 @@ pub async fn modify_user(
     (StatusCode::OK, "User modified").into_response()
 }
 
+/// Handles errors that occur when modifying a user.
+/// 
+/// # Arguments
+/// * `err` - The error that occurred.
+/// 
+/// # Returns
+/// A HTTP response indicating the error.
 fn user_mod_err_handling(err: Error) -> Response<Body> {
     match err {
         Error::Sqlx(e) => match e {
