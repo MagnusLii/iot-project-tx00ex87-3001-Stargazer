@@ -7,14 +7,13 @@
 #include "controller.hpp"
 #include "debug.hpp"
 #include "gps.hpp"
-#include "storage.hpp"
 #include "message.hpp"
 #include "motor-control.hpp"
 #include "stepper-motor.hpp"
+#include "storage.hpp"
 
 #include <memory>
 #include <queue>
-
 
 int main() {
     stdio_init_all();

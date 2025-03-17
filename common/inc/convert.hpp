@@ -1,10 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
-#include <iomanip>
 
 bool str_to_int(std::string &str, int &result, bool hex = false);
 bool str_to_vec(const std::string &str, const char delim, std::vector<std::string> &vec);

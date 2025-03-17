@@ -5,28 +5,33 @@
 #include "timesync-lib.hpp"
 
 /**
- * @brief Constructs a CameraHandler object with the specified configuration.
+ * @brief Constructs a CameraHandler object and initializes the camera module.
  *
- * This constructor initializes the camera with the provided pin assignments, configuration parameters,
- * and SD card reference. It also initializes the camera hardware and handles any potential errors during
- * initialization.
+ * This constructor configures and initializes the ESP32 camera module with the specified
+ * pin assignments, image settings, and hardware configurations. It also attempts to 
+ * recover from initialization failures before restarting the system if necessary.
  *
- * @param sdcardPtr A shared pointer to an SDcardHandler object for accessing storage.
- * @param webSrvRequestQueueHandle A handle to the web server request queue.
- * @param PWDN, RESET, XCLK, SIOD, SIOC, D7, D6, D5, D4, D3, D2, D1, D0, VSYNC, HREF, PCLK Pin assignments for the
- * camera hardware.
- * @param XCLK_FREQ The clock frequency for the camera.
- * @param LEDC_TIMER The LEDC timer for controlling the camera's clock.
- * @param LEDC_CHANNEL The LEDC channel for controlling the camera's clock.
- * @param PIXEL_FORMAT The pixel format to be used for the camera.
- * @param FRAME_SIZE The frame size for the camera.
- * @param jpeg_quality The quality of the JPEG image to be captured.
- * @param fb_count The number of frame buffers to be used by the camera.
+ * @param sdcardPtr Shared pointer to an SD card handler for storing captured images.
+ * @param webSrvRequestQueueHandle Handle to a FreeRTOS queue for web server requests.
+ * @param PWDN Power-down pin for the camera module.
+ * @param RESET Reset pin for the camera module.
+ * @param XCLK External clock pin for the camera.
+ * @param SIOD SCCB data pin.
+ * @param SIOC SCCB clock pin.
+ * @param D7-D0 Data pins for image capture.
+ * @param VSYNC Vertical sync pin.
+ * @param HREF Horizontal reference pin.
+ * @param PCLK Pixel clock pin.
+ * @param XCLK_FREQ External clock frequency in Hz.
+ * @param LEDC_TIMER LEDC timer used for generating the XCLK signal.
+ * @param LEDC_CHANNEL LEDC channel used for XCLK generation.
+ * @param PIXEL_FORMAT Image pixel format (e.g., RGB, JPEG).
+ * @param FRAME_SIZE Image resolution/frame size.
+ * @param jpeg_quality JPEG compression quality (lower is better quality).
+ * @param fb_count Number of frame buffers for capturing images.
  *
- * @return void This function does not return any value.
- *
- * @note This constructor initializes the camera with the provided settings, mounts the SD card,
- * and handles errors during the camera initialization process.
+ * @note If camera initialization fails, the constructor attempts a retry. If the second attempt fails, 
+ *       the system is restarted using `esp_restart()`.
  */
 CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHandle_t webSrvRequestQueueHandle, int PWDN,
                              int RESET, int XCLK, int SIOD, int SIOC, int D7, int D6, int D5, int D4, int D3, int D2,
@@ -104,34 +109,39 @@ CameraHandler::CameraHandler(std::shared_ptr<SDcardHandler> sdcardPtr, QueueHand
 }
 
 /**
- * @brief Destroys the CameraHandler object and cleans up resources.
+ * @brief Destructor for the CameraHandler class.
  *
- * This destructor ensures that any allocated resources for the camera are released. It handles any
- * necessary cleanup of the camera's configuration and deallocates any memory if required.
+ * This destructor releases resources associated with the camera module by deinitializing
+ * the ESP32 camera driver and resetting the shared pointer to the SD card handler.
  *
- * @return void This function does not return any value.
- *
- * @note The destructor cleans up camera resources to avoid memory leaks or undefined behavior.
+ * @note Calls `esp_camera_deinit()` to properly shut down the camera hardware.
+ *       Resets `sdcardHandler` to release ownership and free resources.
  */
 CameraHandler::~CameraHandler() {
-    esp_err_t err = esp_camera_deinit();
-    if (err != ESP_OK) {
-        DEBUG("CameraHandler deinit failed with error: ", err);
-    } else {
-        DEBUG("CameraHandler deinitialized successfully");
-    }
+    DEBUG("CameraHandler destructor called\n");
+
+    // Deinitialize the camera
+    esp_camera_deinit();
+
+    // Nullify the shared pointer to the SD card handler
+    this->sdcardHandler.reset();
+
+    DEBUG("CameraHandler resources released\n");
 }
 
 /**
- * @brief Reinitializes the camera by deinitializing and then reinitializing it.
+ * @brief Reinitializes the camera module.
  *
- * This function attempts to deinitialize and then reinitialize the camera hardware with the current configuration.
- * If any step fails, it logs the error and returns a specific error code.
+ * This function deinitializes the camera and attempts to reinitialize it with the 
+ * current configuration. It helps recover from camera failures without restarting 
+ * the system.
  *
- * @return int Returns `0` if the camera reinitialization is successful,
- *             `1` if deinitialization fails, and `2` if reinitialization fails.
+ * @return int Returns:
+ * @return        - `0` on successful reinitialization.
+ * @return        - `1` if deinitialization fails.
+ * @return        - `2` if reinitialization fails.
  *
- * @note This function is used to reset the camera hardware.
+ * @note If reinitialization fails, the camera remains non-functional until another attempt is made.
  */
 int CameraHandler::reinit_cam() {
     esp_err_t err = esp_camera_deinit();
@@ -151,20 +161,20 @@ int CameraHandler::reinit_cam() {
 }
 
 /**
- * @brief Captures an image using the camera and saves it to the SD card.
+ * @brief Captures an image and saves it to the SD card.
  *
- * This function captures an image from the camera, retrieves the image buffer,
- * and writes it to the specified file on the SD card.
+ * This function captures an image using the camera module and writes it to the 
+ * specified file on the SD card.
  *
- * @param full_filename_str The full file path (including mount point and filename) where the image will be saved.
+ * @param full_filename_str The full path and filename where the image should be saved.
  *
  * @return int Returns:
- *  - `0`: Success.
- *  - `1`: Image capture failure.
- *  - `2`: Failed to write image to file.
+ * @return        - `0` on success.
+ * @return        - `1` if image capture fails.
+ * @return        - `2` if writing the image to the SD card fails.
  *
- * @note The function retrieves a frame buffer from the camera and ensures the buffer
- *       is released after writing to the file.
+ * @note Attempts to capture an image up to three times before failing.
+ *       The captured image buffer is properly returned after processing.
  */
 int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str) {
     camera_fb_t *pic = nullptr;
@@ -188,19 +198,18 @@ int CameraHandler::take_picture_and_save_to_sdcard(const char *full_filename_str
 }
 
 /**
- * @brief Appends a timestamp-based filename with the appropriate image file extension.
+ * @brief Generates an image filename with a timestamp.
  *
- * This function retrieves the current local time as a string and appends it to the provided
- * filename reference. The appropriate file extension is also added based on the camera's
- * image file type.
+ * This function retrieves the current local time as a string and appends it to the 
+ * provided filename reference, followed by the appropriate image file extension.
  *
- * @param filenamePtr Reference to a string where the generated filename will be appended.
+ * @param filenamePtr Reference to a string where the generated filename will be stored.
  *
  * @return int Returns:
- *  - `0`: Success, filename generated successfully.
- *  - `1`: Failed to retrieve local time.
+ * @return        - `0` on success.
+ * @return        - `1` if retrieving the local time fails.
  *
- * @note Ensure that time synchronization is properly set up before calling this function.
+ * @note The filename format includes a timestamp followed by the image file extension.
  */
 int CameraHandler::create_image_filename(std::string &filenamePtr) {
     char datetime[IMAGE_NAME_MAX_LENGTH];
@@ -213,19 +222,18 @@ int CameraHandler::create_image_filename(std::string &filenamePtr) {
 }
 
 /**
- * @brief Notifies the request handler of a new image by sending a message to the queue.
+ * @brief Notifies the request handler of a newly saved image.
  *
- * This function constructs a queue message containing the image filename and sends it to
- * the request handler queue for further processing.
+ * This function sends a message to the web server request queue, informing it 
+ * that a new image is available for processing.
  *
- * @param filename The name of the image file to be sent.
+ * @param filename The name of the image file to be sent in the request.
  *
  * @return int Returns:
- *  - `1`: Success, message sent to the queue.
- *  - `0`: Failed to send message to the queue.
+ * @return        - `0` if the message was successfully added to the queue.
+ * @return        - `1` if the queue message could not be sent.
  *
- * @note The function uses a queue to communicate with the request handler. Ensure that
- *       `webSrvRequestQueueHandle` is properly initialized before calling this function.
+ * @note Uses `xQueueSend` to enqueue the request. If the queue is full, the function fails.
  */
 int CameraHandler::notify_request_handler_of_image(const char *filename) {
     QueueMessage message;
@@ -233,7 +241,7 @@ int CameraHandler::notify_request_handler_of_image(const char *filename) {
     strncpy(message.imageFilename, filename, BUFFER_SIZE);
     if (xQueueSend(this->webSrvRequestQueueHandle, &message, 0) != pdTRUE) {
         DEBUG("Failed to send message to queue");
-        return 0;
+        return 1;
     }
-    return 1;
+    return 0;
 }

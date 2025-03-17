@@ -29,6 +29,7 @@ class EspPicoCommHandler {
                                                     .rx_flow_ctrl_thresh = 122,
                                                     .source_clk = UART_SCLK_DEFAULT,
                                                     .flags = 0});
+    ~EspPicoCommHandler();
 
     void send_data(const char *data, const size_t len);
     int receive_data(char *buffer, const size_t max_len);

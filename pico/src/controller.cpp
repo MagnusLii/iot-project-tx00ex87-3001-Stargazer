@@ -1,9 +1,9 @@
 #include "controller.hpp"
 
 #include "convert.hpp"
+#include "date_utils.hpp"
 #include "debug.hpp"
 #include "message.hpp"
-#include "date_utils.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -12,8 +12,13 @@
 #include <pico/time.h>
 #include <pico/types.h>
 
-#define GPS_COORDS
-
+/**
+ * @brief Compares two commands based on their time.
+ *
+ * @param a First command.
+ * @param b Second command.
+ * @return bool True if a is less than b, False otherwise.
+ */
 bool compare_time(const Command &a, const Command &b) {
     if (a.time.year != b.time.year) return a.time.year < b.time.year;
     if (a.time.month != b.time.month) return a.time.month < b.time.month;
@@ -23,11 +28,27 @@ bool compare_time(const Command &a, const Command &b) {
     return a.time.sec < b.time.sec;
 }
 
+/**
+ * @brief Constructor for the Controller class.
+ *
+ * @param clock Pointer to the Clock object.
+ * @param gps Pointer to the GPS object.
+ * @param compass Pointer to the Compass object.
+ * @param commbridge Pointer to the CommBridge object.
+ * @param motor_controller Pointer to the MotorControl object.
+ * @param storage Pointer to the Storage object.
+ * @param msg_queue Pointer to the message queue.
+ */
 Controller::Controller(std::shared_ptr<Clock> clock, std::shared_ptr<GPS> gps, std::shared_ptr<Compass> compass,
                        std::shared_ptr<CommBridge> commbridge, std::shared_ptr<MotorControl> motor_controller,
                        std::shared_ptr<Storage> storage, std::shared_ptr<std::queue<msg::Message>> msg_queue)
-    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), storage(storage), msg_queue(msg_queue) {}
+    : clock(clock), gps(gps), compass(compass), commbridge(commbridge), mctrl(motor_controller), storage(storage),
+      msg_queue(msg_queue) {}
 
+/**
+ * @brief Main function for the Controller class.
+ * @details Handles the main control flow of the Pico.
+ */
 void Controller::run() {
     if (input_detected()) {
         config_mode();
@@ -54,7 +75,6 @@ void Controller::run() {
         }
         sanitize_commands();
 
-        // DEBUG("State: ", state);
         switch (state) {
             case COMM_READ:
                 double_check = false;
@@ -116,9 +136,7 @@ void Controller::run() {
                 if (double_check) {
                     state = COMM_READ;
                 } else {
-                    // DEBUG("Sleeping");
-                    wait_for_event(get_absolute_time(), 100000); // 100ms TODO: Replace with actual max sleep time
-                    // DEBUG("Waking up");
+                    wait_for_event(get_absolute_time(), 100000); // 100ms
                     if (clock->is_alarm_ringing()) {
                         clock->clear_alarm();
                         state = MOTOR_CALIBRATE;
@@ -135,6 +153,10 @@ void Controller::run() {
     }
 }
 
+/**
+ * @brief Sanitizes the commands queue.
+ * @details Checks if the first command is too old and removes it if it is.
+ */
 void Controller::sanitize_commands() {
     if (commands.size() <= 0) return;
     if (now_commands > 0) return;
@@ -149,24 +171,25 @@ void Controller::sanitize_commands() {
     }
 }
 
+/**
+ * @brief Initializes the Pico.
+ * @details Sets the GPS mode to FULL_ON, gets the GPS coordinates, and checks if the clock is synced.
+ * @return bool True if initialization was successful, otherwise False.
+ */
 bool Controller::init() {
     DEBUG("Initializing");
     bool result = false;
 
-    #ifdef GPS_COORDS
+#ifdef GPS_COORDS // For testing purposes
     gps->set_coordinates(60.258656, 24.843641);
-    #endif
+#endif
     if (!gps->get_coordinates().status) {
         if (gps->get_mode() != GPS::Mode::FULL_ON) gps->set_mode(GPS::Mode::FULL_ON);
     }
     if (!clock->is_synced()) {
-        if (commbridge->ready_to_send()) {
-            commbridge->send(msg::datetime_request());
-        }
+        if (commbridge->ready_to_send()) { commbridge->send(msg::datetime_request()); }
     }
-    // compass_heading = compass->getHeading();
-    // DEBUG("Got compass heading:", compass_heading);
-    //  TODO: use compass to correct azimuth of commands
+
     if (commbridge->read_and_parse(1000, true) > 0) { comm_process(); }
     if (!gps->get_coordinates().status) gps->locate_position(2);
 
@@ -177,6 +200,10 @@ bool Controller::init() {
     return result;
 }
 
+/**
+ * @brief Processes messages from the message queue.
+ * @details Checks if a message is ready to be processed and tries to process it.
+ */
 void Controller::comm_process() {
     DEBUG("Processing messages");
     double_check = true;
@@ -185,26 +212,22 @@ void Controller::comm_process() {
         DEBUG("ESP didn't respond to message of type:", static_cast<int>(last_sent));
         send(msg::diagnostics(2, "ESP didn't respond to message"));
         waiting_for_response = false;
-        if (last_sent == msg::PICTURE) {
-            state = MOTOR_OFF;
-        }
+        if (last_sent == msg::PICTURE) { state = MOTOR_OFF; }
     }
     while (msg_queue->size() > 0) {
         DEBUG(msg_queue->size());
         msg::Message msg = msg_queue->front();
         DEBUG("Last sent is:", static_cast<int>(last_sent));
-        waiting_for_response = false; // TODO: What are the places we should check this?
+        waiting_for_response = false;
         switch (msg.type) {
             case msg::RESPONSE: // Received response ACK/NACK from ESP
-            if (msg.content[0] == "1") {
+                if (msg.content[0] == "1") {
                     DEBUG("Received ack");
-                    if (last_sent == msg::PICTURE) {
-                        state = MOTOR_OFF;
-                    }
+                    if (last_sent == msg::PICTURE) { state = MOTOR_OFF; }
                 } else {
                     DEBUG("Received nack");
                     if (last_sent == msg::PICTURE) { state = COMM_READ; }
-                } // TODO: Handle other responses?
+                }
                 break;
             case msg::DATETIME:
                 DEBUG("Received datetime");
@@ -238,6 +261,10 @@ void Controller::comm_process() {
     }
 }
 
+/**
+ * @brief Processes instructions from the instruction queue.
+ * @details Checks if an instruction is ready to be processed and tries to process it.
+ */
 void Controller::instr_process() {
     DEBUG("Processing instructions");
     msg::Message instr = instr_msg_queue.front();
@@ -281,8 +308,7 @@ void Controller::instr_process() {
                 send(msg::cmd_status(id, -2, 0));
                 return;
             }
-            
-            
+
             send(msg::cmd_status(id, 2, datetime_to_epoch(command.time)));
             commands.push_back(command);
             std::sort(commands.begin(), commands.end(), compare_time);
@@ -296,8 +322,13 @@ void Controller::instr_process() {
     }
 }
 
+/**
+ * @brief Enters config mode.
+ * @details This function starts the config mode, which allows the user to send various commands to the Pico and ESP.
+ * @note This function is blocking and only returns when the user exits the config mode or the timeout is reached.
+ */
 void Controller::config_mode() {
-    const int64_t TIMEOUT = 60000000;
+    const int64_t TIMEOUT = 60000000; // 60 seconds
 
     DEBUG("Stdio input detected. Entering config mode...");
     input_received = false;
@@ -322,7 +353,6 @@ void Controller::config_mode() {
         }
 
         if (rc > 0) {
-            // DEBUG(input);
             std::stringstream ss(input_buffer);
             std::string token;
             ss >> token;
@@ -330,7 +360,6 @@ void Controller::config_mode() {
                 std::cout << "Available commands:" << std::endl
                           << "help - print this help message" << std::endl
                           << "exit - exit config mode" << std::endl
-                          << "calibrate_compass - move the device while the compass calibrates" << std::endl
                           << "heading - set compass heading of the device" << std::endl
                           << "time [unixtime] - view or set current time" << std::endl
                           << "coord [<lat> <lon>] - view or set current coordinates" << std::endl
@@ -353,17 +382,10 @@ void Controller::config_mode() {
             } else if (token == "exit") {
                 exit = true;
                 std::cout << "Exiting config mode" << std::endl;
-            } else if (token == "calibrate_compass") {
-                std::cout << "Please move the device." << std::endl;
-                compass->calibrate();
-                std::cout << "Calibration done." << std::endl;
             } else if (token == "heading") {
                 float heading = 0;
-                if (ss >> heading) {
-                    mctrl->setHeading(heading);
-                    DEBUG("Compass heading set to:", heading);
-                }
-                std::cout << "Heading set to: " << heading << std::endl; 
+                if (ss >> heading) { mctrl->setHeading(heading); }
+                std::cout << "Heading set to: " << heading << std::endl;
             } else if (token == "time") {
                 time_t timestamp = 0;
                 if (ss >> timestamp) {
@@ -410,7 +432,6 @@ void Controller::config_mode() {
                     int rc = input(password, TIMEOUT, true);
                     if (rc >= 0) {
                         commbridge->send(msg::wifi(ssid, password));
-                        // TODO: do we need to wait for response?
                         std::fill(password.begin(), password.end(), '*');
                         std::cout << "Sent wifi credentials: " << ssid << " " << password << std::endl;
                         if (!config_wait_for_response()) std::cout << "No response from ESP" << std::endl;
@@ -525,6 +546,14 @@ void Controller::config_mode() {
     }
 }
 
+/**
+ * @brief Get input from the user.
+ *
+ * @param buffer The buffer to store the input.
+ * @param timeout The timeout in microseconds.
+ * @param hidden If true, the input is hidden.
+ * @return int The number of characters read.
+ */
 int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
     char last_c = '\0';
     bool newline = false;
@@ -565,13 +594,24 @@ int Controller::input(std::string &buffer, uint32_t timeout, bool hidden) {
     return count;
 }
 
+/**
+ * @brief Wait for an event to occur.
+ *
+ * @param abs_time The current absolute time.
+ * @param max_sleep_time The maximum sleep time in microseconds.
+ */
 void Controller::wait_for_event(absolute_time_t abs_time, int max_sleep_time) {
     while (!clock->is_alarm_ringing() && !input_detected() &&
            absolute_time_diff_us(abs_time, get_absolute_time()) < max_sleep_time) {
-        sleep_ms(50); // TODO: TBD
+        sleep_ms(50);
     }
 }
 
+/**
+ * @brief Check stdio for input.
+ *
+ * @return bool True if input has been detected. False otherwise.
+ */
 bool Controller::input_detected() {
     const uint32_t INITIAL_TIMEOUT = 5000;
     if (stdio_getchar_timeout_us(INITIAL_TIMEOUT) != PICO_ERROR_TIMEOUT) {
@@ -581,6 +621,11 @@ bool Controller::input_detected() {
     return false;
 }
 
+/**
+ * @brief Enter trace mode.
+ * @details This function starts the trace mode in which the Pico traces the orbit of a celestial body.
+ * @note Function only works properly if trace_object is set.
+ */
 void Controller::trace() {
     if (!trace_started) {
         DEBUG("Starting trace for planet:");
@@ -608,7 +653,7 @@ void Controller::trace() {
         trace_time = time_us_64();
         trace_pause = false;
         state = COMM_READ;
-       return;
+        return;
     } else {
         uint64_t current_time = time_us_64();
         if (current_time - trace_time < 1000000) { // 1 second
@@ -632,6 +677,11 @@ void Controller::trace() {
           (int)trace_command.time.min);
 }
 
+/**
+ * @brief Wait for a response from the ESP.
+ *
+ * @return bool True if a response has been received. False otherwise.
+ */
 bool Controller::config_wait_for_response() {
     std::cout << "Waiting for response from ESP..." << std::endl << "Press any key to skip" << std::endl;
     uint64_t time = time_us_64();
@@ -646,6 +696,10 @@ bool Controller::config_wait_for_response() {
     return false;
 }
 
+/**
+ * @brief Control the motors.
+ * @details This function moves the motors to the positions detailed in the command that is next in the queue.
+ */
 void Controller::motor_control() {
     if (now_commands > 0) now_commands--;
     state = SLEEP;
@@ -660,7 +714,6 @@ void Controller::motor_control() {
             DEBUG("Time difference of command and current time was too large (>5 minutes).");
             send(msg::cmd_status(current_command.id, -3, datetime_to_epoch(clock->get_datetime())));
             commands.front().time = clock->get_datetime();
-            // TODO: wat fak
             mctrl->off();
             state = COMM_READ;
             return;
@@ -681,6 +734,12 @@ void Controller::motor_control() {
     }
 }
 
+/**
+ * @brief Send a message to the ESP.
+ * @details This function checks if the message is a response and sends it directly to the ESP. Otherwise, it adds the
+ * message to the send message queue.
+ * @param mesg The message to be sent.
+ */
 void Controller::send(const msg::Message mesg) {
     if (mesg.type == msg::RESPONSE) {
         commbridge->send(mesg);
@@ -689,20 +748,15 @@ void Controller::send(const msg::Message mesg) {
     send_msg_queue.push(mesg);
 }
 
-void Controller::send_process() {  
+/**
+ * @brief Process the send message queue.
+ * @details This function checks if there are any messages in the send message queue and sends them to the ESP
+ * unless the Pico is waiting for a response from the ESP.
+ */
+void Controller::send_process() {
     if (send_msg_queue.size() <= 0) return;
     if (waiting_for_response) return;
     commbridge->send(send_msg_queue.front());
     last_sent = send_msg_queue.front().type;
     send_msg_queue.pop();
 }
-
-/*
-if (mesg.type != msg::RESPONSE) {
-        if (waiting_for_response) return false;
-        waiting_for_response = true;
-    }
-    last_sent = mesg.type;
-    commbridge->send(mesg);
-    return true;
-*/

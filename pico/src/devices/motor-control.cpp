@@ -2,7 +2,6 @@
 
 #define NATURAL_SPEED 3
 
-
 // these are used for calibration
 static MotorControl *motorcontrol;
 
@@ -23,7 +22,7 @@ void MotorControl::setHeading(double heading) {
 }
 
 bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
-    if (coords.altitude < MIN_ANGLE ||coords.altitude > MAX_ANGLE) {
+    if (coords.altitude < MIN_ANGLE || coords.altitude > MAX_ANGLE) {
         DEBUG("Altitude below horizon, can't turn the motor");
         return false;
     }
@@ -31,11 +30,14 @@ bool MotorControl::turn_to_coordinates(azimuthal_coordinates coords) {
 
     if (coords.azimuth > MAX_ANGLE) {
         coords.azimuth -= MAX_ANGLE;
-        if (coords.altitude < (M_PI / 2)) coords.altitude += M_PI - 2 * coords.altitude;
-        else coords.altitude -= M_PI + 2 * coords.altitude;
+        if (coords.altitude < (M_PI / 2))
+            coords.altitude += M_PI - 2 * coords.altitude;
+        else
+            coords.altitude -= M_PI + 2 * coords.altitude;
     }
     DEBUG("Motor azimuth:", coords.azimuth * 180 / M_PI, "altitude:", coords.altitude * 180 / M_PI);
-    double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) / fabs(motor_vertical->get_position() - coords.altitude);
+    double ratio = fabs(motor_horizontal->get_position() - coords.azimuth) /
+                   fabs(motor_vertical->get_position() - coords.altitude);
     double horizontal_speed = NATURAL_SPEED * ratio;
     motor_vertical->setSpeed(NATURAL_SPEED);
     motor_horizontal->setSpeed(horizontal_speed);
@@ -66,17 +68,11 @@ void MotorControl::init_optoforks(void) {
     }
 }
 
-bool MotorControl::isCalibrated(void) const {
-    return horizontal_calibrated && vertical_calibrated;
-}
+bool MotorControl::isCalibrated(void) const { return horizontal_calibrated && vertical_calibrated; }
 
-bool MotorControl::isCalibrating(void) const {
-    return horizontal_calibrating || vertical_calibrating;
-}
+bool MotorControl::isCalibrating(void) const { return horizontal_calibrating || vertical_calibrating; }
 
-bool MotorControl::isRunning(void) const {
-    return motor_horizontal->isRunning() || motor_vertical->isRunning();
-}
+bool MotorControl::isRunning(void) const { return motor_horizontal->isRunning() || motor_vertical->isRunning(); }
 
 //// CALIBRATION ////
 
@@ -105,9 +101,7 @@ void raw_calibration_handler(void) {
             motorcontrol->calibration_handler(VERTICAL, false);
         }
     }
-    
 }
-
 
 void MotorControl::calibrate(void) {
     if (isCalibrating()) return;
@@ -123,7 +117,8 @@ void MotorControl::calibrate(void) {
     motor_vertical->setDirection(CLOCKWISE);
     motor_horizontal->turnSteps(300);
     motor_vertical->turnSteps(300);
-    while (isRunning()) ;
+    while (isRunning())
+        ;
 
     motor_horizontal->setSpeed(2);
     motor_vertical->setSpeed(2);
@@ -134,7 +129,8 @@ void MotorControl::calibrate(void) {
     horizontal_calibrating = true;
     vertical_calibrating = true;
     if (!handler_attached) {
-        gpio_add_raw_irq_handler_with_order_priority(opto_horizontal, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
+        gpio_add_raw_irq_handler_with_order_priority(opto_horizontal, raw_calibration_handler,
+                                                     PICO_HIGHEST_IRQ_PRIORITY);
         gpio_add_raw_irq_handler_with_order_priority(opto_vertical, raw_calibration_handler, PICO_HIGHEST_IRQ_PRIORITY);
         handler_attached = true;
     }
@@ -169,5 +165,5 @@ void MotorControl::calibration_handler(Axis axis, bool rise) {
                 vertical_calibrating = false;
             }
         }
-    }  
+    }
 }

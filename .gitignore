@@ -14,8 +14,6 @@ sdkconfig.*
 managed_components
 *.lock
 config.toml
-*/testMacros.hpp
-esp32-cam/inc/testMacros.hpp
 target
 */ideas.txt
 certs
