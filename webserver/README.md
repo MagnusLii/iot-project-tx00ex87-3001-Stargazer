@@ -59,6 +59,13 @@ cd target/release/
 stargazer-ws
 ```
 
+## Web interface
+When starting up the server for the first time you can login using the default credentials:<br>
+Username: admin<br>
+Password: admin<br>
+
+* You can change the username and/or password of the admin account on the user page, which you can get to by clicking the account name in the navigation bar/menu.<br>
+
 # API
 The API currently has the following endpoints:
 
