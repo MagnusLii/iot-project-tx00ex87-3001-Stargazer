@@ -115,6 +115,8 @@ Run the server
     cargo run
   ```
 
+* More details regarding the web server can be found <a href="webserver/README.md">here</a>
+
 <a id="direct-control"></a>
 
 ### Operating the device directly:
