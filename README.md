@@ -179,6 +179,7 @@ The command options are as follows:<br>
 * Image Position:<br>
 `Rising`: Takes a picture when the celestial object rises from the horizon.<br>
 `Zenith`: Takes a picture at the zenith of the celestial object.<br>
+`Setting`: Takes a picture when the celestial object close to setting beneath the horizon
 `Any`: Takes a picture at the current given time.<br>
 
 
