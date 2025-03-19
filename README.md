@@ -175,7 +175,7 @@ The command options are as follows:<br>
 <a id="CMAKE-flags"></a>
 
 ## CMAKE flags
-The following CMAKE flags can be enabled in <a href="3D-models/CMakeLists.txt">3D-models/CMakeLists.txt</a>.<br>
+The following CMAKE flags can be enabled in <a href="esp32-cam/CMakeLists.txt">3D-models/CMakeLists.txt</a>.<br>
 Enabling these flags changes the way the device operates.
  - set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_ESP_DEBUG")<br>
    If enabled it will cause the ESP to send debug logs to the UART connection.<br>
